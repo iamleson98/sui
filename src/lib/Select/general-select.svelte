@@ -1,0 +1,369 @@
+<script lang="ts">
+	import { clickOutside } from '$lib/actions/click-outside.js';
+	import { scrollToEnd } from '$lib/actions/scroll-end.js';
+	import { shortcuts } from '$lib/actions/shortcut.js';
+	import { TablerX } from '$lib/Icon/consts.js';
+	import { Icon } from '$lib/Icon/index.js';
+	import { Input, Label } from '$lib/Input/index.js';
+	import { INPUT_CLASSES } from '$lib/Input/input.types.js';
+	import { classNames, randomID } from '$lib/utils/consts.js';
+	import { Badge } from '$lib/Badge/index.js';
+	import { INPUT_BUTTON_SIZE_MAP } from '$lib/Button/types.js';
+	import {
+		SELECT_CLASSES,
+		type SelectItemprops,
+		type SelectOption,
+		type SelectProps,
+		SIZE_REDUCE_MAP,
+		type Primitive,
+	} from './types.js';
+	import { difference, noop } from 'es-toolkit';
+	import type { FocusEventHandler } from 'svelte/elements';
+	import { fly } from 'svelte/transition';
+	import { FlowbiteChevronSort } from '$lib/Icon/other.js';
+
+	let {
+		value = $bindable<Primitive | Primitive[] | undefined>(),
+		class: className = '',
+		maxDisplay,
+		size = 'md',
+		label,
+		variant = 'info',
+		onchange,
+		options,
+		subText,
+		inputDebounceOption,
+		multiple = false,
+		showLoadingMore,
+		disabled,
+		onScrollToEnd = noop,
+		onclearInputField,
+		onNotFoundQuerySelected,
+		onblur,
+		...rest
+	}: SelectProps = $props();
+
+	if (typeof maxDisplay === 'number' && maxDisplay <= 0) throw new Error('maxDisplay must be > 0');
+
+	const ID = randomID();
+	const INPUT_ID = `combobox-${ID}`;
+	const LISTBOX_ID = `listbox-${ID}`;
+
+	let searchQuery = $state('');
+	let openSelect = $state(false);
+	let input = $state<HTMLInputElement>();
+	let optionRefs: HTMLElement[] = [];
+	/** mapping for selected options */
+	let selectMapper: Record<Primitive, SelectOption> = $state.raw({});
+	let selectMapperChanged = $state(false);
+	let initialRender = $state(true);
+	let optionListRef = $state<HTMLUListElement>();
+	let isFocusing = false;
+
+	$effect(() => {
+		if (value === undefined) {
+			if (Object.keys(selectMapper).length) {
+				selectMapper = {};
+				selectMapperChanged = true;
+			}
+			return;
+		}
+
+		if (multiple && Array.isArray(value)) {
+			const existingKeys = Object.keys(selectMapper);
+			const diffs1 = difference(value, existingKeys);
+			const diffs2 = difference(existingKeys, value);
+
+			if (diffs1.length || diffs2.length) {
+				const newMapper = { ...selectMapper };
+
+				for (const diff of diffs1) {
+					const opt = options.find((opt) => opt.value === diff);
+					newMapper[diff] = opt ? opt : { value: diff, label: diff };
+				}
+				for (const diff of diffs2) {
+					delete newMapper[diff];
+				}
+
+				selectMapper = newMapper;
+				selectMapperChanged = true;
+			}
+			return;
+		}
+
+		if (!multiple && value !== undefined) {
+			if (!(value in selectMapper)) {
+				const opt = options.find((opt) => opt.value === value);
+				selectMapper = { [value]: opt || ({ value, label: value } as SelectOption) };
+				selectMapperChanged = true;
+			}
+		}
+	});
+
+	$effect(() => {
+		if (initialRender) return;
+		if (selectMapperChanged && onchange) {
+			if (multiple) {
+				onchange(Object.values(selectMapper));
+			} else {
+				onchange(Object.values(selectMapper)[0]);
+			}
+			selectMapperChanged = false;
+		}
+	});
+
+	/** display text for input */
+	let inputDisplayText = $derived.by(() => {
+		if (multiple) return searchQuery;
+		return value !== undefined ? selectMapper[value as Primitive]?.label : undefined;
+	});
+
+	/** list of options that match search query */
+	let searchFilteredOptions = $derived.by(() => {
+		if (!searchQuery) return options;
+		return options.filter((opt) => opt.label.toLowerCase().includes(searchQuery.toLowerCase()));
+	});
+
+	const onInput = (evt: Event) => {
+		if (!openSelect) toggleDropdown(true);
+		searchQuery = input?.value.trim() ?? '';
+		optionRefs[0]?.scrollIntoView({ block: 'nearest' });
+		// pass result to parent
+		inputDebounceOption?.onInput(evt);
+	};
+
+	const onOutclick = (evt: any) => {
+		if (isFocusing) {
+			toggleDropdown(false);
+			onblur?.(evt);
+			isFocusing = false;
+		}
+	};
+
+	const handleFocus: FocusEventHandler<HTMLInputElement> = (evt) => {
+		if (disabled) return;
+
+		rest.onfocus?.(evt);
+		toggleDropdown(true);
+		isFocusing = true;
+	};
+
+	const toggleDropdown = (open: boolean) => (openSelect = open);
+
+	const onClear = async () => {
+		if (disabled) return;
+
+		input?.focus();
+		searchQuery = '';
+
+		if (!multiple) {
+			// in multiple query we only clear the value and selectMapper
+			// the selected values will be kept
+			value = undefined;
+			onchange?.(undefined);
+		}
+		onclearInputField?.();
+		initialRender = false;
+	};
+
+	const handleSelect = async (option: SelectOption) => {
+		if (disabled || option.disabled || selectMapper[option.value]) return; // disabled options cant be selected
+
+		if (multiple) {
+			if (value === undefined) {
+				value = [];
+			}
+			if (!(value as Primitive[]).includes(option.value)) {
+				value = (value as Primitive[]).concat(option.value);
+			}
+		} else {
+			value = option.value;
+		}
+
+		if (!multiple) toggleDropdown(false);
+		initialRender = false;
+	};
+
+	const handleDeselectOption = async (option: SelectOption) => {
+		if (disabled) return;
+
+		if (multiple && Array.isArray(value)) {
+			value = value.filter((opt) => opt !== option.value);
+		} else {
+			value = undefined;
+		}
+		initialRender = false;
+	};
+
+	// when show loading more, a circle loading indicator will be shown at the bottom of the <ul />
+	// But it stays off the view since the content is overflow. So this listener splots light it.
+	$effect(() => {
+		if (showLoadingMore && optionListRef) {
+			optionListRef.scrollTo({ behavior: 'smooth', top: optionListRef.scrollHeight });
+		}
+	});
+</script>
+
+<!-- this common snippet is used for rendering select options -->
+{#snippet selectOption({ idx, disabled, optionClassName, onclick, label }: SelectItemprops)}
+	<li
+		id={`${LISTBOX_ID}-${idx}`}
+		aria-selected={false}
+		role="option"
+		aria-disabled={disabled}
+		class={`${optionClassName} ${SELECT_CLASSES.selectOption}`}
+		bind:this={optionRefs[idx]}
+		{onclick}
+		onkeydown={(e) => e.key === 'Enter' && onclick?.()}
+		tabindex="0"
+		use:shortcuts={[
+			{
+				shortcut: { key: 'Enter' },
+				onShortcut: () => onclick?.(),
+			},
+		]}
+	>
+		{label}
+	</li>
+{/snippet}
+
+<div
+	class={`${className} relative`}
+	use:clickOutside={{ onOutclick }}
+	use:shortcuts={[
+		{
+			shortcut: { key: 'Escape' },
+			onShortcut: (event) => {
+				event.stopPropagation();
+				toggleDropdown(false);
+			},
+		},
+	]}
+	role="menu"
+	tabindex="0"
+>
+	{#if label}
+		<Label {label} id={INPUT_ID} required={rest.required} {size} {variant} requiredAtPos="end" />
+	{/if}
+	<div
+		class={`flex items-center rounded-lg py-0.5 px-1 ring-1 focus-within:ring-2 hover:ring-2 transition-all duration-200 ease-in-out ${INPUT_CLASSES[variant].bg} ${INPUT_BUTTON_SIZE_MAP[size]}`}
+	>
+		<div class="flex flex-wrap items-center gap-1 flex-1">
+			{#if multiple && Array.isArray(value)}
+				{@const list = value.slice(0, maxDisplay || value.length)}
+				{#each list as option, idx (idx)}
+					<Badge
+						text={`${selectMapper[option]?.label}`}
+						variant="light"
+						size={SIZE_REDUCE_MAP[size]}
+						onDismiss={() => handleDeselectOption(selectMapper[option])}
+						{disabled}
+					/>
+				{/each}
+				{#if maxDisplay && value.length > maxDisplay}
+					<Badge
+						text={`+${value.length - maxDisplay}`}
+						variant="light"
+						size={SIZE_REDUCE_MAP[size]}
+					/>
+				{/if}
+			{/if}
+			<Input
+				{...rest}
+				variant="ghost"
+				aria-controls={LISTBOX_ID}
+				aria-expanded={openSelect}
+				bind:ref={input}
+				aria-autocomplete="list"
+				autocomplete="off"
+				class={`flex-1 basis-[min-content]`}
+				id={INPUT_ID}
+				size={SIZE_REDUCE_MAP[size]}
+				onfocus={handleFocus}
+				value={inputDisplayText}
+				type="text"
+				{disabled}
+				role="combobox"
+				inputDebounceOption={{
+					onInput,
+					debounceTime: inputDebounceOption?.debounceTime,
+				}}
+			>
+				{#snippet action()}
+					{#if searchQuery || (!multiple && value)}
+						<span
+							onclick={onClear}
+							role="button"
+							tabindex="0"
+							onkeydown={(evt) => evt.key === 'Enter' && onClear()}
+							class={[disabled && 'cursor-not-allowed', !disabled && 'cursor-pointer', 'rounded-full bg-gray-50 text-gray-500 border border-gray-200']}
+							title="Clear"
+							aria-label="Clear"
+						>
+							<Icon icon={TablerX} size="xs" />
+						</span>
+					{:else if !openSelect}
+						<Icon icon={FlowbiteChevronSort} size="xs" />
+					{/if}
+				{/snippet}
+			</Input>
+		</div>
+	</div>
+	{#if openSelect}
+		<ul
+			role="listbox"
+			id={LISTBOX_ID}
+			transition:fly={{ duration: 250, y: 10 }}
+			class={SELECT_CLASSES.selectMenu}
+			tabindex="0"
+			use:scrollToEnd={{ onScrollToEnd }}
+			bind:this={optionListRef}
+		>
+			{#if !searchFilteredOptions.length}
+				{#if onNotFoundQuerySelected && inputDisplayText && !showLoadingMore}
+					{@render selectOption({
+						idx: 0,
+						disabled: true,
+						optionClassName: 'cursor-default',
+						onclick: () => {
+							onNotFoundQuerySelected(inputDisplayText);
+							// toggleDropdown(false);
+						},
+						label: `Add "${inputDisplayText}"`,
+						value: inputDisplayText as any,
+					})}
+				{:else}
+					{@render selectOption({
+						idx: 0,
+						disabled: true,
+						optionClassName: 'cursor-default',
+						onclick: () => toggleDropdown(false),
+						label: `No data`,
+						value: '',
+					})}
+				{/if}
+			{:else}
+				{#each searchFilteredOptions as option, idx (idx)}
+					{@render selectOption({
+						idx,
+						optionClassName: classNames({
+							'cursor-not-allowed! text-gray-400!': !!option.disabled,
+							[SELECT_CLASSES.activeSelectOption]: !!selectMapper[option.value],
+						}),
+						onclick: () => handleSelect(option),
+						...option,
+					})}
+				{/each}
+			{/if}
+
+			{#if showLoadingMore}
+				<li class={SELECT_CLASSES.selectOption}>
+					<span class="loading loading-spinner loading-xs"></span>
+				</li>
+			{/if}
+		</ul>
+	{/if}
+	{#if subText}
+		<div class={`text-[10px] mt-0.5 text-right! ${INPUT_CLASSES[variant].fg}`}>{subText}</div>
+	{/if}
+</div>

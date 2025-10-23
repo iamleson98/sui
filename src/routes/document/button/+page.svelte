@@ -1,0 +1,121 @@
+<script lang="ts">
+	import { Button, IconButton } from '$lib/Button/index.js';
+	import type { ButtonVariant } from '$lib/Button/types.js';
+	import type { SocialColor, SocialSize } from '$lib/common.js';
+	import { TablerMail } from '$lib/Icon/consts.js';
+	import { Checkbox, RadioButton } from '$lib/Input/index.js';
+	import { toast } from 'svelte-sonner';
+
+	const socialColors: SocialColor[] = [
+		'dark',
+		'gray',
+		'red',
+		'pink',
+		'grape',
+		'violet',
+		'indigo',
+		'blue',
+		'cyan',
+		'teal',
+		'green',
+		'lime',
+		'yellow',
+		'orange',
+	];
+
+	const socialSizes: SocialSize[] = ['xs', 'sm', 'md', 'lg', 'xl'];
+	const buttonvariants: ButtonVariant[] = ['filled', 'light', 'outline', 'gradient'];
+
+	let variant = $state<ButtonVariant>('filled');
+	let disabled = $state(false);
+	let startIcon = $state(false);
+	let endIcon = $state(false);
+	let loading = $state(false);
+	let tooltip = $state(false);
+
+	const handleCopyButton = (btnType: 'normal' | 'icon', color: SocialColor, size: SocialSize) => {
+		const tagName = btnType === 'normal' ? 'Button' : 'IconButton';
+		let codeContent = `<${tagName} variant="${variant}" color="${color}" size="${size}"`;
+		if (disabled) codeContent += ` disabled`;
+		if (loading) codeContent += ` loading`;
+		if (startIcon) codeContent += ` startIcon={Email}`;
+		if (endIcon) codeContent += ` endIcon={Email}`;
+		if (tooltip) codeContent += ` class="tooltip tooltip-top" data-tip="${color} ${size}"`;
+
+		if (btnType === 'icon') {
+			codeContent += ` icon={Email} />`;
+		} else {
+			codeContent += `>replace_me</${tagName}>`;
+		}
+
+		navigator.clipboard.writeText(codeContent).then(() => {
+			toast.success(`Copied code: ${codeContent}`);
+		});
+	};
+</script>
+
+<div>Variant Control</div>
+
+<div class="flex gap-2 items-center mb-3">
+	{#each buttonvariants as btnVariant, idx (idx)}
+		<RadioButton bind:group={variant} value={btnVariant} label={btnVariant} />
+	{/each}
+</div>
+
+<div>disable control</div>
+<Checkbox bind:checked={disabled} label="Disabled" />
+
+<div>icons control</div>
+<Checkbox bind:checked={startIcon} label="Start Icon" />
+<Checkbox bind:checked={endIcon} label="End Icon" />
+
+<div>loading control</div>
+<Checkbox bind:checked={loading} label="Loading" />
+
+<div>tooltip control</div>
+<Checkbox bind:checked={tooltip} label="Tooltip" />
+
+<div class="mt-5">Buttons</div>
+
+{#each socialSizes as size, idx (idx)}
+	<div class="flex items-start gap-2 mb-3 flex-wrap">
+		{#each socialColors as color, idx (idx)}
+			<Button
+				{variant}
+				{color}
+				{size}
+				onclick={() => handleCopyButton('normal', color, size)}
+				{disabled}
+				startIcon={startIcon ? TablerMail : undefined}
+				endIcon={endIcon ? TablerMail : undefined}
+				{loading}
+				class={tooltip ? 'tooltip tooltip-top' : ''}
+				data-tip={tooltip ? `Button ${color} ${size}` : undefined}
+			>
+				{color}
+				{size}
+			</Button>
+		{/each}
+	</div>
+{/each}
+
+<div>Icon Buttons</div>
+
+{#each socialSizes as size, idx (idx)}
+	<div class="flex items-start gap-2 mb-3">
+		{#each socialColors as color, idx (idx)}
+			<div class="flex flex-col gap-1">
+				<IconButton
+					{variant}
+					{color}
+					{size}
+					icon={TablerMail}
+					{disabled}
+					{loading}
+					onclick={() => handleCopyButton('icon', color, size)}
+				/>
+				<div>{color} {size}</div>
+			</div>
+		{/each}
+	</div>
+{/each}
