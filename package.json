@@ -1,6 +1,9 @@
 {
-	"name": "sui",
+	"name": "@sitename/sui",
 	"version": "0.0.1",
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",
