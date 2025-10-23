@@ -36,7 +36,7 @@
 			class={`text-inherit ${roundClass} cursor-pointer ${BADGE_SIZE_VARIANTS[size].btn} bg-inherit`}
 			onclick={() => !disabled && onDismiss()}
 		>
-			<Icon icon={CloseX} size={SIZE_REDUCE_MAP[size]} />
+			<Icon icon={TablerX} size={SIZE_REDUCE_MAP[size]} />
 		</button>
 	{/if}
 </span>
