@@ -4,7 +4,6 @@ import InputSkeleton from './input-skeleton.svelte';
 import TextareaSkeleton from './textarea-skeleton.svelte';
 
 export {
-	Root,
 	Root as SuiInput,
 	type SuiInputProps,
 	//

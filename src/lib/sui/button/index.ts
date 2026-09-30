@@ -4,7 +4,6 @@ import ButtonSkeleton from './button-skeleton.svelte';
 import IconButtonSkeleton from './icon-button-skeleton.svelte';
 
 export {
-	Root,
 	Root as SuiButton,
 	//
 	IconButton,

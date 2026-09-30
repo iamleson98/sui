@@ -2,7 +2,6 @@ import Root, { type SuiCheckboxProps } from './checkbox.svelte';
 import CheckboxSkeleton from './checkbox-skeleton.svelte';
 
 export {
-	Root,
 	Root as SuiCheckbox,
 	type SuiCheckboxProps,
 	//

@@ -9,7 +9,6 @@ import {
 } from './columns.js';
 
 export {
-	Root,
 	Root as SuiDataTable,
 	type SuiDataTableProps,
 	//
