@@ -41,7 +41,7 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 ## Design principles
 
 1. **One shared size scale.** `size="sm"` on an input, a button, a select trigger and a skeleton all produce exactly the same height. Mixed-size rows line up pixel-for-pixel.
-2. **Semantic color variants.** `variant="info"` (blue, the normal state), `"success"` (green), `"warning"` (yellow) and `"error"` (red) style the border, ring and message consistently across all form controls. Validation errors always win.
+2. **Semantic color variants.** `variant="info"` (blue, the normal state), `"success"` (green), `"warning"` (yellow) and `"error"` (red) style the **label, border, focus ring and helper text** together, consistently across all form controls. Validation errors always win and force the `error` appearance everywhere.
 3. **zod v4 as the only validation language.** Pass any `ZodType` — a primitive (`z.email(...)`) or a slice of an object schema (`schema.shape.email`) — and the field validates as the user types, with ARIA wiring (`aria-invalid`, `aria-describedby`, `aria-live`) handled for you.
 4. **Labels are props.** `label`, `subText`, `startIcon`, `endIcon`, `action` (an interactive snippet in the field's end slot) exist on every control that can show them.
 5. **Every component has a skeleton.** Same sizes, optional label row: `<SuiInputSkeleton size="sm" label={true} />`.
@@ -114,18 +114,22 @@ Every control also exports `validate(): string[]` and `reset()` methods for subm
 
 ### Selects
 
-`SuiSelect` renders a trigger + listbox with keyboard navigation, descriptions, disabled options and an optional clear button (`clearable`).
+`SuiSelect` renders a trigger + listbox with keyboard navigation, descriptions, disabled options and an optional clear button (`clearable`). Every field renders **one root element** (`[data-sui-field]`) containing the label, control and message — parent grid/flex gaps can never pull them apart.
 
 - **Static options:** `items: SuiItem[]` — see below
-- **Async + infinite scroll:** `source: SuiSource<SuiItem>` — the list loads pages as the user scrolls, shows a `loadingMore` indicator, and surfaces fetch failures through `errorText` with a `role="alert"` message.
+- **Async + infinite scroll:** `source: SuiSource<SuiItem>` — the first page is prefetched, and streaming the next page is automatic: as the user scrolls towards the bottom of the list the component pre-fetches the next page (256 px before the end) and appends its items, so scrolling just continues. A `Loading more…` row signals in-flight pages and fetch failures surface through `errorText` with a `role="alert"` message.
+- **Clearable:** the ✕ is a real `<button type="button">` rendered *outside* the trigger (nested interactive elements are invalid HTML) — clicking it clears the selection without opening the menu and returns focus to the trigger.
 
 ```ts
 type SuiItem = { value: string; label: string; description?: string; disabled?: boolean };
 ```
 
-`SuiCombobox` adds a search box: for static items it filters client-side; for async sources typing debounces a **server search** (250 ms by default — `searchDebounce`).
+`SuiCombobox` adds a search box: for static items it filters client-side; for async sources typing debounces a **server search** (250 ms by default — `searchDebounce`). The trigger announces proper combobox semantics (`aria-haspopup="listbox"`, `aria-controls` → the listbox) and shows a chevron that flips while open.
 
-`SuiMultiSelect` binds `value: string[]`, renders removable badges, and collapses the overflow into a `+N` pill (`maxDisplay`).
+`SuiMultiSelect` binds `value: string[]` and renders the selection as chips with individual remove buttons. The trigger is a `role="combobox"` div (so the chip removes can be real buttons) and collapses the overflow smartly (`maxDisplay`):
+
+- `maxDisplay="responsive"` (default) — Ant Design `maxTagCount="responsive"` behaviour: chips are measured and as many fit in the trigger as the width allows, the rest collapse into a **“+n” pill** (hover shows the hidden labels, click expands to show every chip with a “Show less” control)
+- `maxDisplay={3}` — a fixed cap
 
 ## Infinite scroll & REST pagination
 
@@ -244,7 +248,7 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/` | overview + philosophy |
 | `/input` | labels, icons, actions, variants, zod-as-you-type, sizes, skeletons |
 | `/button` | variants, icons, loading, shared size scale |
-| `/selection` | static selects, async combobox, multi-select badges, infinite scroll |
+| `/selection` | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase |
 | `/data-table` | sorting, search, selection, pagination, column visibility, 10k virtual rows |
 | `/toggles` | checkbox / radio / switch with zod |
 | `/validation` | a complete form driven by one zod object schema |

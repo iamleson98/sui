@@ -156,6 +156,66 @@ describe('SuiSelect — infinite scroll', () => {
 	});
 });
 
+describe('SuiSelect — clear button (overlay outside the trigger)', () => {
+	it('is a real button outside the trigger that clears the value', async () => {
+		const onSelect = vi.fn();
+		render(SuiSelect, { label: 'Country', items: countries, value: 'nl', clearable: true, onSelect });
+		const trigger = screen.getByRole('button', { name: 'Country' });
+		const clear = screen.getByRole('button', { name: 'Clear selection' });
+		// the clear button must not be nested inside the trigger button
+		expect(clear.parentElement?.closest('button')).not.toBe(trigger);
+		expect(trigger).not.toContain(clear);
+
+		await user.click(clear);
+		expect(onSelect).toHaveBeenCalledWith(undefined, undefined);
+		expect(trigger).toHaveTextContent('Select');
+		expect(trigger).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('hides the clear button while nothing is selected', () => {
+		render(SuiSelect, { label: 'Country', items: countries, clearable: true });
+		expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+	});
+});
+
+describe('SuiSelect — field anatomy & variants', () => {
+	it('renders label, control and message inside one root element', () => {
+		const { container } = render(SuiSelect, { label: 'Country', items: countries, subText: 'Pick one' });
+		const root = container.querySelector('[data-sui-field="select"]');
+		expect(root).toBeTruthy();
+		expect(root).toContainElement(container.querySelector('[data-sui-label]') as HTMLElement);
+		expect(root).toContainElement(container.querySelector('[data-sui-control], [data-sui-trigger]') as HTMLElement);
+		expect(root).toContainElement(container.querySelector('[data-sui-field-message]') as HTMLElement);
+	});
+
+	it('tints the label and subtext with the variant color', () => {
+		const { container } = render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			subText: 'Helper',
+			variant: 'success'
+		});
+		expect(container.querySelector('[data-sui-label]')?.className).toContain('text-green');
+		expect(container.querySelector('[data-sui-field-message]')?.className).toContain('text-green');
+	});
+
+	it('forces the error variant on label and message when invalid', async () => {
+		const { container } = render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			schema: z.string().min(1, 'Pick a country')
+		});
+		const trigger = screen.getByRole('button', { name: 'Country' });
+		await user.click(trigger);
+		await user.keyboard('{Escape}');
+		await user.tab();
+		await waitFor(() => {
+			expect(container.querySelector('[data-sui-label]')?.className).toContain('text-red');
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Pick a country');
+		});
+	});
+});
+
 describe('SuiSelectSkeleton', () => {
 	it('matches the trigger height and renders an optional label', () => {
 		const { container } = render(SuiSelectSkeleton, { size: 'lg', label: true });

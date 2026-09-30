@@ -28,7 +28,7 @@ async function findItem(match: RegExp): Promise<HTMLElement> {
 describe('SuiMultiSelect', () => {
 	it('renders a labelled trigger with placeholder', () => {
 		render(SuiMultiSelect, { label: 'Tags', placeholder: 'Pick tags…', items: tags });
-		expect(screen.getByRole('button', { name: /tags/i })).toHaveTextContent('Pick tags…');
+		expect(screen.getByRole('combobox', { name: /tags/i })).toHaveTextContent('Pick tags…');
 	});
 
 	it('renders selected values as badges', () => {
@@ -57,7 +57,7 @@ describe('SuiMultiSelect', () => {
 	it('toggles items in the dropdown and keeps badges in sync', async () => {
 		const onSelect = vi.fn();
 		render(SuiMultiSelect, { label: 'Tags', items: tags, onSelect });
-		await user.click(screen.getByRole('button', { name: /tags/i }));
+		await user.click(screen.getByRole('combobox', { name: /tags/i }));
 		await user.click(await findItem(/^bug/i));
 		expect(document.querySelector('[data-sui-badge]')?.textContent).toContain('Bug');
 		expect(onSelect).toHaveBeenCalledWith(['bug'], [expect.objectContaining({ value: 'bug' })]);
@@ -91,7 +91,7 @@ describe('SuiMultiSelect', () => {
 			items: tags,
 			schema: z.array(z.string()).min(1, 'Select at least one topic')
 		});
-		await user.click(screen.getByRole('button', { name: /tags/i }));
+		await user.click(screen.getByRole('combobox', { name: /tags/i }));
 		await user.click(await findItem(/^bug/i));
 		await user.click(await findItem(/^bug/i)); // deselect → invalid
 		await waitFor(() => {
@@ -121,9 +121,67 @@ describe('SuiMultiSelect — infinite scroll', () => {
 		await waitFor(() => expect(state.calls).toBe(1));
 		expect(document.querySelector('[data-sui-badge]')).toBeNull(); // nothing selected yet
 
-		await user.click(screen.getByRole('button', { name: /products/i }));
+		await user.click(screen.getByRole('combobox', { name: /products/i }));
 		expect(await findItem(/product 1/i)).toBeInTheDocument();
 		expect(document.querySelector('[data-sui-load-more-sentinel]')).toBeInTheDocument();
+	});
+});
+
+describe('SuiMultiSelect — smart chip overflow', () => {
+	it('falls back to 3 visible chips + “+n” before measurement (SSR/jsdom)', () => {
+		render(SuiMultiSelect, {
+			label: 'Tags',
+			items: tags,
+			value: ['bug', 'feature', 'docs', 'infra', 'design']
+		});
+		const badges = document.querySelectorAll('[data-sui-badge]');
+		// 3 chips + overflow badge (jsdom has no layout → responsive falls back)
+		expect(badges.length).toBe(4);
+		expect(document.querySelector('[data-sui-badge-overflow]')?.textContent).toContain('+2');
+	});
+
+	it('expands all chips via the +n badge and collapses via “Show less”', async () => {
+		render(SuiMultiSelect, {
+			label: 'Tags',
+			items: tags,
+			value: ['bug', 'feature', 'docs', 'infra', 'design']
+		});
+		await user.click(document.querySelector('[data-sui-badge-overflow]') as HTMLElement);
+		await waitFor(() => {
+			// all 5 chips visible while expanded
+			expect(document.querySelectorAll('[data-sui-badge]:not([data-sui-badge-overflow])').length).toBe(5);
+			expect(document.querySelector('[data-sui-badge-collapse]')).toBeTruthy();
+		});
+		await user.click(document.querySelector('[data-sui-badge-collapse]') as HTMLElement);
+		await waitFor(() => {
+			expect(document.querySelectorAll('[data-sui-badge]:not([data-sui-badge-overflow])').length).toBe(3);
+			expect(document.querySelector('[data-sui-badge-overflow]')?.textContent).toContain('+2');
+		});
+	});
+
+	it('renders chip removes as real buttons with accessible names', () => {
+		render(SuiMultiSelect, { label: 'Tags', items: tags, value: ['bug', 'docs'] });
+		expect(screen.getByRole('button', { name: 'Remove Bug' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove Docs' })).toBeTruthy();
+	});
+
+	it('exposes a combobox trigger with listbox semantics', async () => {
+		render(SuiMultiSelect, { label: 'Tags', items: tags });
+		const trigger = screen.getByRole('combobox', { name: /tags/i });
+		expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
+		await user.click(trigger);
+		await waitFor(() => {
+			const listboxId = trigger.getAttribute('aria-controls');
+			expect(listboxId && document.getElementById(listboxId)).toBeTruthy();
+		});
+		expect(trigger).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	it('clears everything via the clear-all button', async () => {
+		render(SuiMultiSelect, { label: 'Tags', items: tags, value: ['bug', 'docs'], clearable: true });
+		await user.click(screen.getByRole('button', { name: 'Clear all' }));
+		expect(document.querySelectorAll('[data-sui-badge]').length).toBe(0);
+		expect(screen.getByRole('combobox', { name: /tags/i })).toHaveTextContent('Select');
 	});
 });
 

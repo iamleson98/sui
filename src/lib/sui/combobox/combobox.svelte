@@ -55,15 +55,19 @@
 	import { observeSentinel } from '../intersection.js';
 	import {
 		suiEffectiveVariant,
+		SUI_CLEAR_END,
+		SUI_CLEAR_PE,
 		SUI_CONTROL,
 		SUI_FIELD_CONTROL,
 		SUI_FIELD_TEXT,
+		SUI_ICON,
 		SUI_LABEL,
 		SUI_SUBTEXT
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
 	import XIcon from '@lucide/svelte/icons/x';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 
 	let {
 		items: staticItems,
@@ -96,6 +100,7 @@
 	}: SuiComboboxProps<V> = $props();
 
 	const field = new SuiFieldState();
+	const listboxId = $derived(`${id}-listbox`);
 
 	const infinite = $derived(source !== undefined);
 	// svelte-ignore state_referenced_locally
@@ -106,6 +111,7 @@
 
 	const resolvedItems = $derived(staticItems ?? list.items);
 	const selected = $derived(resolvedItems.find((item) => item.value === value));
+	const hasValue = $derived(value !== undefined && value !== '');
 
 	// deduped: the same message can arrive from both the `errors` prop (server)
 	// and the local zod validation — duplicate keys would break {#each (error)}
@@ -117,9 +123,10 @@
 
 	let open = $state(false);
 	let query = $state('');
-	let sentinel: HTMLElement | undefined = $state();
+	let sentinel: HTMLElement | null = $state(null);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let triggerWidth = $state(0);
+	let triggerRef: HTMLButtonElement | null = $state(null);
 
 	// (re)initialize when the source changes identity
 	let loadedSource = $state<SuiSource<SuiItem<V>> | undefined>(undefined);
@@ -166,6 +173,8 @@
 		value = undefined;
 		validateSelection(undefined);
 		onSelect?.(undefined, undefined);
+		// keep keyboard focus on the trigger after clearing
+		triggerRef?.focus();
 	}
 
 	export function validate(): string[] {
@@ -177,171 +186,218 @@
 	}
 </script>
 
-{#if label}
-	<label for={id} data-sui-label class="{SUI_LABEL[size]} text-foreground mb-1.5 flex items-center gap-0.5 font-medium">
-		{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
-		{#if required}
-			<span class="text-destructive" aria-hidden="true">*</span>
-			<span class="sr-only">(required)</span>
-		{/if}
-	</label>
-{/if}
+<!-- Single root: the field never leaks layout primitives into the parent. -->
+<div class={cn('flex w-full flex-col', className)} data-sui-field="combobox" data-sui-size={size}>
+	{#if label}
+		<label
+			for={id}
+			data-sui-label
+			class="{SUI_LABEL[size]} {SUI_FIELD_TEXT[effVariant]} mb-2 flex items-center gap-0.5 font-medium"
+		>
+			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
+			{#if required}
+				<span class="text-destructive" aria-hidden="true">*</span>
+				<span class="sr-only">(required)</span>
+			{/if}
+		</label>
+	{/if}
 
-<!-- bind:clientWidth keeps the dropdown exactly as wide as the trigger -->
-<div class="relative w-full" bind:clientWidth={triggerWidth}>
-	<Popover.Root
-	bind:open
-	onOpenChange={(next) => {
-		open = next;
-		if (!next) field.validate(value ?? '', schema, 'blur', 'both');
-	}}
->
-	<Popover.Trigger
-		{id}
-		data-sui-combobox
-		data-sui-trigger
-		data-sui-size={size}
-		data-sui-variant={effVariant}
-		data-invalid={invalid || undefined}
-		aria-invalid={invalid || undefined}
-		aria-describedby={describedBy}
-		aria-haspopup="listbox"
-		class={cn(
-			'border-input bg-transparent dark:bg-input/30 dark:focus:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full items-center rounded-md border transition-[color,box-shadow] outline-none',
-			SUI_CONTROL[size],
-			SUI_FIELD_CONTROL[effVariant],
-			className
-		)}
-		{...(rest as Record<string, unknown>)}
-		onblur={(event) => {
-			onblur?.(event as never);
-			field.validate(value ?? '', schema, 'blur', 'both');
-		}}
-	>
-		{#if startIcon}
-			<span class="text-muted-foreground pointer-events-none shrink-0">
-				<SuiIcon icon={startIcon} {size} />
-			</span>
-		{/if}
-		{#if selected ?? (value !== undefined && value !== '')}
-			<span class="flex-1 truncate text-left">{selected?.label ?? value}</span>
-		{:else}
-			<span class="text-muted-foreground flex-1 truncate text-left">{placeholder}</span>
-		{/if}
-		{#if endIcon}
-			<span class="text-muted-foreground pointer-events-none shrink-0">
-				<SuiIcon icon={endIcon} {size} />
-			</span>
-		{/if}
-		{#if action}
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<span
-				data-sui-action
-				role="presentation"
-				class="flex shrink-0 items-center"
-				onclick={(e) => e.stopPropagation()}
-				onkeydown={(e) => e.stopPropagation()}
+	<!-- bind:clientWidth keeps the dropdown exactly as wide as the trigger -->
+	<div class="relative w-full" bind:clientWidth={triggerWidth}>
+		<Popover.Root
+			bind:open
+			onOpenChange={(next) => {
+				open = next;
+				if (!next) {
+					query = '';
+					field.validate(value ?? '', schema, 'blur', 'both');
+				}
+			}}
+		>
+			<!-- Element delegation: bits-ui merges its own aria-haspopup="dialog"
+			     after consumer props, so we spread its props onto our button and
+			     override the combobox semantics afterwards. -->
+			<Popover.Trigger>
+				{#snippet child({ props })}
+					<!-- aria-invalid on a trigger button mirrors the shadcn-svelte
+					     select-trigger pattern; the checker is stricter than ARIA-in-HTML
+					     consumers expect here. -->
+					<!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
+					<button
+						{...props}
+						bind:this={triggerRef}
+						{id}
+						type="button"
+						data-sui-combobox
+						data-sui-trigger
+						data-sui-size={size}
+						data-sui-variant={effVariant}
+						data-invalid={invalid || undefined}
+						aria-invalid={invalid || undefined}
+						aria-describedby={describedBy}
+						aria-haspopup="listbox"
+						aria-controls={listboxId}
+						class={cn(
+							'border-input bg-transparent dark:bg-input/30 dark:focus:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full cursor-pointer items-center rounded-md border transition-[color,box-shadow] outline-none',
+							SUI_CONTROL[size],
+							SUI_FIELD_CONTROL[effVariant],
+							clearable && hasValue && SUI_CLEAR_PE[size],
+							className
+						)}
+						{...(rest as Record<string, unknown>)}
+						onblur={(event: FocusEvent) => {
+							onblur?.(event as never);
+							field.validate(value ?? '', schema, 'blur', 'both');
+						}}
+					>
+						{#if startIcon}
+							<span class="text-muted-foreground pointer-events-none shrink-0">
+								<SuiIcon icon={startIcon} {size} />
+							</span>
+						{/if}
+						{#if hasValue}
+							<span class="flex-1 truncate text-left">{selected?.label ?? value}</span>
+						{:else}
+							<span class="text-muted-foreground flex-1 truncate text-left">{placeholder}</span>
+						{/if}
+						{#if endIcon}
+							<span class="text-muted-foreground pointer-events-none shrink-0">
+								<SuiIcon icon={endIcon} {size} />
+							</span>
+						{/if}
+						{#if action}
+							<!-- A click shield: interactive content inside must not toggle the popover. -->
+							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+							<span
+								data-sui-action
+								role="presentation"
+								class="flex shrink-0 items-center"
+								onpointerdown={(e) => e.stopPropagation()}
+								onclick={(e) => e.stopPropagation()}
+								onkeydown={(e) => e.stopPropagation()}
+							>
+								{@render action()}
+							</span>
+						{/if}
+						<ChevronDownIcon
+							class="text-muted-foreground pointer-events-none {SUI_ICON[size]} shrink-0 transition-transform duration-150 {open ? 'rotate-180' : ''}"
+							aria-hidden="true"
+						/>
+					</button>
+				{/snippet}
+			</Popover.Trigger>
+			<Popover.Content
+				class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 p-1.5"
+				style="--sui-trigger-width: {triggerWidth}px"
+				align="start"
 			>
-				{@render action()}
-			</span>
-		{/if}
-		{#if clearable && (value !== undefined && value !== '')}
-			<span
-				role="button"
-				tabindex="-1"
+				<!-- Selection is handled by each Command.Item's onSelect; a controlled
+				     `value` on Command.Root makes bits-ui reconcile on mount, which
+				     immediately re-selects and closes the popover. -->
+				<Command.Root
+					data-sui-combobox-command
+					shouldFilter={infinite ? false : searchable}
+				>
+					{#if searchable}
+						<div class="border-b border-border px-0.5 pb-2.5 mb-1">
+							<Command.Input
+								bind:value={query}
+								placeholder={searchPlaceholder}
+								data-sui-combobox-input
+							/>
+						</div>
+					{/if}
+					<Command.List id={listboxId} data-sui-combobox-list class="max-h-64 px-0.5">
+						{#if infinite && list.error}
+							<div
+								class="text-destructive flex items-center justify-center gap-2 px-2.5 py-3 text-sm"
+								data-sui-combobox-error
+								role="alert"
+							>
+								{errorText}
+							</div>
+						{/if}
+						{#if !(infinite && (list.loading || list.loadingMore))}
+							<Command.Empty data-sui-combobox-empty class="py-8">{emptyText}</Command.Empty>
+						{/if}
+						{#each resolvedItems as item (item.value)}
+							<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui never
+							     sets its data-checked) — sui renders its own leading check. -->
+							<Command.Item
+								value={item.value}
+								keywords={[item.label, item.description ?? '']}
+								data-sui-option
+								data-disabled={item.disabled || undefined}
+								disabled={item.disabled || undefined}
+								onSelect={() => select(item.value)}
+								class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
+							>
+								<CheckIcon
+									class="{SUI_ICON[size]} shrink-0 transition-opacity {item.value === value ? 'opacity-100' : 'opacity-0'}"
+								/>
+								<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
+									<span class="truncate">{item.label}</span>
+									{#if item.description}
+										<span class="text-muted-foreground w-full truncate text-xs leading-snug">
+											{item.description}
+										</span>
+									{/if}
+								</span>
+							</Command.Item>
+						{/each}
+						{#if infinite && (list.loading || list.loadingMore)}
+							<div
+								class="text-muted-foreground flex items-center justify-center gap-2 px-2.5 py-3 text-sm"
+								data-sui-combobox-loading
+								role="status"
+							>
+								<span class="animate-spin rounded-full border-2 border-current border-t-transparent size-4" aria-hidden="true"></span>
+								{list.loading ? 'Loading…' : 'Loading more…'}
+							</div>
+						{/if}
+						{#if infinite && list.hasMore}
+							<div bind:this={sentinel} data-sui-load-more-sentinel class="h-px w-full" aria-hidden="true"></div>
+						{/if}
+					</Command.List>
+				</Command.Root>
+			</Popover.Content>
+		</Popover.Root>
+
+		{#if clearable && hasValue}
+			<!-- Clear affordance rendered OUTSIDE the trigger button (nested
+			     interactive elements are invalid HTML; a sibling overlay keeps
+			     the click, focus and keyboard behavior clean). -->
+			<button
+				type="button"
 				data-sui-clear
-				class="hover:bg-accent text-muted-foreground hover:text-foreground flex shrink-0 cursor-pointer items-center rounded-sm"
+				class="{SUI_CLEAR_END[size]} text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 absolute top-1/2 z-10 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-2"
 				aria-label="Clear selection"
 				onclick={(event) => {
 					event.preventDefault();
 					event.stopPropagation();
 					clear();
 				}}
-				onkeydown={(event) => {
-					if (event.key === 'Enter' || event.key === ' ') {
-						event.preventDefault();
-						event.stopPropagation();
-						clear();
-					}
-				}}
 			>
-				<SuiIcon icon={XIcon} {size} />
-			</span>
-		{/if}
-	</Popover.Trigger>
-	<Popover.Content
-		class="sui-combobox-content z-50 w-(--sui-trigger-width)"
-		style="--sui-trigger-width: {triggerWidth}px"
-		align="start"
-	>
-		<!-- Selection is handled by each Command.Item's onSelect; a controlled
-		     `value` on Command.Root makes bits-ui reconcile on mount, which
-		     immediately re-selects and closes the popover. -->
-		<Command.Root
-			data-sui-combobox-command
-			shouldFilter={infinite ? false : searchable}
-		>
-			{#if searchable}
-				<Command.Input
-					bind:value={query}
-					placeholder={searchPlaceholder}
-					data-sui-combobox-input
-				/>
-			{/if}
-			<Command.List data-sui-combobox-list class="max-h-64">
-				{#if infinite && list.error}
-					<div class="text-destructive px-3 py-2 text-sm" data-sui-combobox-error role="alert">{errorText}</div>
-				{/if}
-				{#if !(infinite && (list.loading || list.loadingMore))}
-					<Command.Empty data-sui-combobox-empty>{emptyText}</Command.Empty>
-				{/if}
-				{#each resolvedItems as item (item.value)}
-					<Command.Item
-						value={item.value}
-						keywords={[item.label, item.description ?? '']}
-						data-sui-option
-						data-disabled={item.disabled || undefined}
-						disabled={item.disabled || undefined}
-						onSelect={() => select(item.value)}
-					>
-						<CheckIcon class={cn('size-4 shrink-0', item.value === value ? 'opacity-100' : 'opacity-0')} />
-						<span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-							<span class="truncate">{item.label}</span>
-							{#if item.description}
-								<span class="text-muted-foreground truncate text-xs">{item.description}</span>
-							{/if}
-						</span>
-					</Command.Item>
-				{/each}
-				{#if infinite && (list.loading || list.loadingMore)}
-					<div class="text-muted-foreground flex items-center justify-center gap-2 px-3 py-2 text-sm" data-sui-combobox-loading role="status">
-						<span class="animate-spin rounded-full border-2 border-current border-t-transparent size-3.5" aria-hidden="true"></span>
-						{list.loading ? 'Loading…' : 'Loading more…'}
-					</div>
-				{/if}
-				{#if infinite && list.hasMore}
-					<div bind:this={sentinel} data-sui-load-more-sentinel class="h-px w-full" aria-hidden="true"></div>
-				{/if}
-			</Command.List>
-		</Command.Root>
-	</Popover.Content>
-	</Popover.Root>
-</div>
-
-{#if invalid || subText}
-	<div
-		id={messageId}
-		data-sui-field-message
-		data-sui-variant={invalid ? effVariant : undefined}
-		class="{SUI_SUBTEXT[size]} mt-1 {invalid ? SUI_FIELD_TEXT[effVariant] : 'text-muted-foreground'}"
-		aria-live="polite"
-	>
-		{#if invalid}
-			{#each allErrors as error (error)}
-				<div>{error}</div>
-			{/each}
-		{:else}
-			{subText}
+				<SuiIcon icon={XIcon} size="xs" />
+			</button>
 		{/if}
 	</div>
-{/if}
+
+	{#if invalid || subText}
+		<div
+			id={messageId}
+			data-sui-field-message
+			data-sui-variant={effVariant}
+			class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]} mt-1.5"
+			aria-live="polite"
+		>
+			{#if invalid}
+				{#each allErrors as error (error)}
+					<div>{error}</div>
+				{/each}
+			{:else}
+				{subText}
+			{/if}
+		</div>
+	{/if}
+</div>

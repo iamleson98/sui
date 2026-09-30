@@ -88,6 +88,33 @@ describe('SuiCombobox', () => {
 	});
 });
 
+describe('SuiCombobox — clear & semantics', () => {
+	it('clears via an overlay button outside the trigger', async () => {
+		const onSelect = vi.fn();
+		render(SuiCombobox, { label: 'Owner', items: countries, value: 'de', clearable: true, onSelect });
+		const trigger = screen.getByRole('button', { name: /owner/i });
+		const clear = screen.getByRole('button', { name: 'Clear selection' });
+		expect(clear.parentElement?.closest('button')).not.toBe(trigger);
+
+		await user.click(clear);
+		expect(onSelect).toHaveBeenCalledWith(undefined, undefined);
+		expect(trigger).toHaveTextContent('Select');
+	});
+
+	it('announces a listbox popup and points aria-controls at it', async () => {
+		render(SuiCombobox, { label: 'Owner', items: countries });
+		const trigger = screen.getByRole('button', { name: /owner/i });
+		expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
+		const listboxId = trigger.getAttribute('aria-controls');
+		expect(listboxId).toBeTruthy();
+		await user.click(trigger);
+		await waitFor(() => {
+			expect(document.getElementById(listboxId!)).toBeTruthy();
+			expect(document.getElementById(listboxId!)).toHaveAttribute('role', 'listbox');
+		});
+	});
+});
+
 describe('SuiCombobox — server sources', () => {
 	it('prefetches the first page and streams more via sentinel', async () => {
 		const state = { calls: 0, query: '' };

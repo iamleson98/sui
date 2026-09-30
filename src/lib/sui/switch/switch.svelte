@@ -72,7 +72,7 @@
 <div class={cn('flex w-full items-start justify-between gap-3', className)} data-sui-control="switch" data-sui-size={size} data-invalid={invalid || undefined}>
 	<div class="flex flex-col gap-0.5">
 		{#if label}
-			<label for={id} data-sui-label class="{SUI_LABEL[size]} text-foreground leading-none font-medium {disabled ? 'opacity-50' : ''}">
+			<label for={id} data-sui-label class="{SUI_LABEL[size]} {SUI_FIELD_TEXT[effVariant]} leading-none font-medium {disabled ? 'opacity-50' : ''}">
 				{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 				{#if required}
 					<span class="text-destructive" aria-hidden="true">*</span>
@@ -81,7 +81,7 @@
 			</label>
 		{/if}
 		{#if subText}
-			<div class="text-muted-foreground {SUI_SUBTEXT[size]}">
+			<div class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}">
 				{#if typeof subText === 'string'}{subText}{:else}{@render subText()}{/if}
 			</div>
 		{/if}

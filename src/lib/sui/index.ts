@@ -12,15 +12,16 @@
 // core types & styles
 export type { SuiSize, SuiFieldVariant, SuiItem, SuiIconComponent, SuiActionSnippet } from './types.js';
 export {
-	SUI_CONTROL,
-	SUI_SQUARE,
-	SUI_ICON,
-	SUI_LABEL,
-	SUI_SUBTEXT,
-	SUI_SKELETON_W,
-	SUI_FIELD_CONTROL,
-	SUI_FIELD_TEXT,
-	suiEffectiveVariant
+        SUI_CONTROL,
+        SUI_CONTROL_MIN,
+        SUI_SQUARE,
+        SUI_ICON,
+        SUI_LABEL,
+        SUI_SUBTEXT,
+        SUI_SKELETON_W,
+        SUI_FIELD_CONTROL,
+        SUI_FIELD_TEXT,
+        suiEffectiveVariant
 } from './styles.js';
 
 // zod validation helpers
@@ -29,16 +30,17 @@ export { SuiFieldState } from './field.svelte.js';
 
 // pagination / infinite scroll
 export {
-	offsetSource,
-	cursorSource,
-	type SuiSource,
-	type SuiPageRequest,
-	type SuiPageResult,
-	type SuiOffsetPage,
-	type SuiCursorPage
+        offsetSource,
+        cursorSource,
+        type SuiSource,
+        type SuiPageRequest,
+        type SuiPageResult,
+        type SuiOffsetPage,
+        type SuiCursorPage
 } from './pagination.js';
 export { SuiInfiniteList, type SuiInfiniteListOptions } from './infinite-list.svelte.js';
-export { observeSentinel } from './intersection.js';
+export { observeSentinel, findScrollParent } from './intersection.js';
+export { fitChipCount, type FitChipOptions } from './chip-fit.js';
 
 // skeleton primitives
 export * from './skeleton/index.js';

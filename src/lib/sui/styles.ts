@@ -11,56 +11,68 @@ import type { SuiFieldVariant, SuiSize } from './types.js';
  * xs = h-6, sm = h-8, md = h-9 (shadcn default), lg = h-10, xl = h-12.
  */
 export const SUI_CONTROL: Record<SuiSize, string> = {
-	xs: 'h-6 gap-1 px-2 text-xs',
-	sm: 'h-8 gap-1.5 px-2.5 text-sm',
-	md: 'h-9 gap-2 px-3 text-sm',
-	lg: 'h-10 gap-2 px-3.5 text-base',
-	xl: 'h-12 gap-2.5 px-4 text-base'
+        xs: 'h-6 gap-1 px-2 text-xs',
+        sm: 'h-8 gap-1.5 px-2.5 text-sm',
+        md: 'h-9 gap-2 px-3 text-sm',
+        lg: 'h-10 gap-2 px-3.5 text-base',
+        xl: 'h-12 gap-2.5 px-4 text-base'
+};
+
+/**
+ * Same metrics as {@link SUI_CONTROL} but with `min-h` instead of a fixed
+ * height — used by controls that can grow vertically (multi-select chips).
+ */
+export const SUI_CONTROL_MIN: Record<SuiSize, string> = {
+        xs: 'min-h-6 gap-1 px-2 text-xs',
+        sm: 'min-h-8 gap-1.5 px-2.5 text-sm',
+        md: 'min-h-9 gap-2 px-3 text-sm',
+        lg: 'min-h-10 gap-2 px-3.5 text-base',
+        xl: 'min-h-12 gap-2.5 px-4 text-base'
 };
 
 /** Square (icon-only button) sizes — same heights as {@link SUI_CONTROL}. */
 export const SUI_SQUARE: Record<SuiSize, string> = {
-	xs: 'size-6',
-	sm: 'size-8',
-	md: 'size-9',
-	lg: 'size-10',
-	xl: 'size-12'
+        xs: 'size-6',
+        sm: 'size-8',
+        md: 'size-9',
+        lg: 'size-10',
+        xl: 'size-12'
 };
 
 /** Icon sizes tuned per control size. */
 export const SUI_ICON: Record<SuiSize, string> = {
-	xs: 'size-3',
-	sm: 'size-3.5',
-	md: 'size-4',
-	lg: 'size-4.5',
-	xl: 'size-5'
+        xs: 'size-3',
+        sm: 'size-3.5',
+        md: 'size-4',
+        lg: 'size-4.5',
+        xl: 'size-5'
 };
 
 /** Label text sizes per control size. */
 export const SUI_LABEL: Record<SuiSize, string> = {
-	xs: 'text-[11px]',
-	sm: 'text-xs',
-	md: 'text-sm',
-	lg: 'text-sm',
-	xl: 'text-base'
+        xs: 'text-[11px]',
+        sm: 'text-xs',
+        md: 'text-sm',
+        lg: 'text-sm',
+        xl: 'text-base'
 };
 
 /** Helper/sub-text sizes per control size. */
 export const SUI_SUBTEXT: Record<SuiSize, string> = {
-	xs: 'text-[10px]',
-	sm: 'text-[11px]',
-	md: 'text-xs',
-	lg: 'text-xs',
-	xl: 'text-sm'
+        xs: 'text-[10px]',
+        sm: 'text-[11px]',
+        md: 'text-xs',
+        lg: 'text-xs',
+        xl: 'text-sm'
 };
 
 /** Typical content width per size, used by button skeletons. */
 export const SUI_SKELETON_W: Record<SuiSize, string> = {
-	xs: 'w-14',
-	sm: 'w-20',
-	md: 'w-24',
-	lg: 'w-28',
-	xl: 'w-36'
+        xs: 'w-14',
+        sm: 'w-20',
+        md: 'w-24',
+        lg: 'w-28',
+        xl: 'w-36'
 };
 
 /**
@@ -68,30 +80,67 @@ export const SUI_SKELETON_W: Record<SuiSize, string> = {
  * `info` (blue) is the normal state.
  */
 export const SUI_FIELD_CONTROL: Record<SuiFieldVariant, string> = {
-	info: 'border-blue-300 dark:border-blue-500/40 focus-within:border-blue-500 dark:focus-within:border-blue-400 focus-within:ring-blue-500/25',
-	success:
-		'border-green-300 bg-green-50/40 dark:border-green-500/40 dark:bg-green-950/20 focus-within:border-green-500 dark:focus-within:border-green-400 focus-within:ring-green-500/25',
-	warning:
-		'border-amber-300 bg-amber-50/40 dark:border-amber-500/40 dark:bg-amber-950/20 focus-within:border-amber-500 dark:focus-within:border-amber-400 focus-within:ring-amber-500/25',
-	error:
-		'border-red-300 bg-red-50/40 dark:border-red-500/40 dark:bg-red-950/20 focus-within:border-red-500 dark:focus-within:border-red-400 focus-within:ring-red-500/25'
+        info: 'border-blue-300 dark:border-blue-500/40 focus-within:border-blue-500 dark:focus-within:border-blue-400 focus-within:ring-blue-500/25',
+        success:
+                'border-green-300 bg-green-50/40 dark:border-green-500/40 dark:bg-green-950/20 focus-within:border-green-500 dark:focus-within:border-green-400 focus-within:ring-green-500/25',
+        warning:
+                'border-amber-300 bg-amber-50/40 dark:border-amber-500/40 dark:bg-amber-950/20 focus-within:border-amber-500 dark:focus-within:border-amber-400 focus-within:ring-amber-500/25',
+        error:
+                'border-red-300 bg-red-50/40 dark:border-red-500/40 dark:bg-red-950/20 focus-within:border-red-500 dark:focus-within:border-red-400 focus-within:ring-red-500/25'
 };
 
 /** Field variant classes applied to messages rendered below a control. */
 export const SUI_FIELD_TEXT: Record<SuiFieldVariant, string> = {
-	info: 'text-blue-600 dark:text-blue-400',
-	success: 'text-green-600 dark:text-green-400',
-	warning: 'text-amber-600 dark:text-amber-400',
-	error: 'text-red-600 dark:text-red-400'
+        info: 'text-blue-600 dark:text-blue-400',
+        success: 'text-green-600 dark:text-green-400',
+        warning: 'text-amber-600 dark:text-amber-400',
+        error: 'text-red-600 dark:text-red-400'
+};
+
+/**
+ * Extra end padding applied to a select/combobox/multi-select trigger while
+ * the clear (✕) button overlay is visible, so the value/chips never slide
+ * under the button. Reserves: chevron (16px) + gap + ✕ hit area (24px).
+ */
+export const SUI_CLEAR_PE: Record<SuiSize, string> = {
+        xs: 'pe-12',
+        sm: 'pe-13',
+        md: 'pe-14',
+        lg: 'pe-14',
+        xl: 'pe-14'
+};
+
+/**
+ * Position of the clear (✕) button overlay from the trigger's end edge —
+ * sits just before the chevron column.
+ */
+export const SUI_CLEAR_END: Record<SuiSize, string> = {
+        xs: 'end-7',
+        sm: 'end-7',
+        md: 'end-8',
+        lg: 'end-8',
+        xl: 'end-8'
+};
+
+/**
+ * Chip (multi-select badge) metrics per control size. Chips step down as the
+ * control size steps up so a chip row never outgrows its trigger.
+ */
+export const SUI_CHIP: Record<SuiSize, string> = {
+        xs: 'text-[10px] gap-0.5 px-1.5 py-0 h-4 rounded-full',
+        sm: 'text-[11px] gap-1 px-2 py-0 h-5 rounded-full',
+        md: 'text-xs gap-1 px-2 py-0 h-5 rounded-full',
+        lg: 'text-xs gap-1 px-2.5 py-0 h-6 rounded-full',
+        xl: 'text-sm gap-1 px-2.5 py-0 h-7 rounded-full'
 };
 
 /**
  * Resolves the effective field variant: validation errors always win.
  */
 export function suiEffectiveVariant(
-	variant: SuiFieldVariant,
-	errors: readonly string[] | undefined
+        variant: SuiFieldVariant,
+        errors: readonly string[] | undefined
 ): SuiFieldVariant {
-	if (errors !== undefined && errors.length > 0) return 'error';
-	return variant;
+        if (errors !== undefined && errors.length > 0) return 'error';
+        return variant;
 }

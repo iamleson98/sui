@@ -81,7 +81,7 @@
 
 <div class={cn('flex w-full flex-col', className)} data-sui-control="radio-group" data-sui-size={size} data-invalid={invalid || undefined}>
 	{#if label}
-		<div id="{id}-label" class="text-foreground mb-1.5 flex items-center gap-0.5 font-medium {SUI_LABEL[size]}" data-sui-label>
+		<div id="{id}-label" class="{SUI_FIELD_TEXT[effVariant]} mb-2 flex items-center gap-0.5 font-medium {SUI_LABEL[size]}" data-sui-label>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
 				<span class="text-destructive" aria-hidden="true">*</span>
@@ -139,8 +139,8 @@
 		<div
 			id={messageId}
 			data-sui-field-message
-			data-sui-variant={invalid ? effVariant : undefined}
-			class="{SUI_SUBTEXT[size]} mt-1 {invalid ? SUI_FIELD_TEXT[effVariant] : 'text-muted-foreground'}"
+			data-sui-variant={effVariant}
+			class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]} mt-1.5"
 			aria-live="polite"
 		>
 			{#if invalid}
