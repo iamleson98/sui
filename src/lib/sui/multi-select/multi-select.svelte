@@ -103,24 +103,25 @@
 
 	const resolvedItems = $derived(staticItems ?? list.items);
 
-	// map of selected value -> label, falling back to the raw value so badges
-	// survive options that are not (yet) loaded (common with server data)
-	let labelMap = $state.raw(new Map<V, string>());
-	$effect(() => {
-		const next = new Map(labelMap);
-		for (const item of resolvedItems) {
-			if (value.includes(item.value)) next.set(item.value, item.label);
-		}
-		for (const v of value) if (!next.has(v)) next.set(v, v);
-		for (const key of next.keys()) if (!value.includes(key)) next.delete(key);
-		labelMap = next;
-	});
-
-	const selected = $derived(value.map((v) => ({ value: v, label: labelMap.get(v) ?? v })));
+	// Badge labels resolve from the loaded items, falling back to the raw value
+	// when an option is not (yet) loaded — common with server-paginated data.
+	// The cache is intentionally NOT reactive: it only grows monotonically so a
+	// value selected on page 3 keeps its label after pages are re-fetched.
+	const labelCache = new Map<V, string>();
+	const selected = $derived(
+		value.map((v) => {
+			const item = resolvedItems.find((i) => i.value === v);
+			const label = item?.label ?? labelCache.get(v) ?? v;
+			if (item) labelCache.set(v, item.label);
+			return { value: v, label };
+		})
+	);
 	const visible = $derived(selected.slice(0, maxDisplay));
 	const overflow = $derived(selected.length - visible.length);
 
-	const allErrors = $derived([...externalErrors, ...field.errors]);
+	// deduped: the same message can arrive from both the `errors` prop (server)
+	// and the local zod validation — duplicate keys would break {#each (error)}
+	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);

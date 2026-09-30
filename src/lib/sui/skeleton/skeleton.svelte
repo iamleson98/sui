@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils.js';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
 		class?: string;
@@ -7,6 +8,8 @@
 		rounded?: boolean;
 		/** Disable the pulse animation (e.g. for static layouts). */
 		animated?: boolean;
+		/** Optional content rendered on top of the skeleton (e.g. nested badges). */
+		children?: Snippet;
 		[key: string]: unknown;
 	};
 
@@ -14,6 +17,7 @@
 		class: className = '',
 		rounded = false,
 		animated = true,
+		children,
 		...rest
 	}: Props = $props();
 </script>
@@ -24,4 +28,6 @@
 	data-animated={animated || undefined}
 	class={cn('bg-accent animate-pulse', rounded ? 'rounded-full' : 'rounded-md', animated || 'animate-none', className)}
 	{...rest}
-></div>
+>
+	{@render children?.()}
+</div>

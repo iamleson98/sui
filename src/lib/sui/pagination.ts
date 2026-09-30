@@ -157,7 +157,9 @@ export function cursorSource<T>(
 		const nextCursor = page.nextCursor ?? null;
 		return {
 			items: page.items,
-			hasMore: page.hasMore ?? (page.items.length === request.size && nextCursor !== null),
+			hasMore:
+				page.hasMore ??
+				(nextCursor !== null ? true : page.items.length === request.size),
 			nextCursor
 		};
 	};

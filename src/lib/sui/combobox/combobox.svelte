@@ -107,7 +107,9 @@
 	const resolvedItems = $derived(staticItems ?? list.items);
 	const selected = $derived(resolvedItems.find((item) => item.value === value));
 
-	const allErrors = $derived([...externalErrors, ...field.errors]);
+	// deduped: the same message can arrive from both the `errors` prop (server)
+	// and the local zod validation — duplicate keys would break {#each (error)}
+	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);
@@ -147,22 +149,27 @@
 		return observeSentinel(sentinel, () => void list.loadMore());
 	});
 
+	/** Undefined (nothing selected) is validated as '' so `z.string().min(1, 'msg')` works. */
+	function validateSelection(candidate: V | undefined) {
+		field.validate(candidate ?? '', schema, 'change', 'change');
+	}
+
 	function select(next: V) {
 		value = next;
 		open = false;
 		query = '';
-		field.validate(value, schema, 'change', 'change');
+		validateSelection(next);
 		onSelect?.(next, resolvedItems.find((item) => item.value === next));
 	}
 
 	function clear() {
 		value = undefined;
-		field.validate(undefined, schema, 'change', 'change');
+		validateSelection(undefined);
 		onSelect?.(undefined, undefined);
 	}
 
 	export function validate(): string[] {
-		return field.forceValidate(value, schema);
+		return field.forceValidate(value ?? '', schema);
 	}
 
 	export function reset(): void {
@@ -182,7 +189,13 @@
 
 <!-- bind:clientWidth keeps the dropdown exactly as wide as the trigger -->
 <div class="relative w-full" bind:clientWidth={triggerWidth}>
-	<Popover.Root bind:open>
+	<Popover.Root
+	bind:open
+	onOpenChange={(next) => {
+		open = next;
+		if (!next) field.validate(value ?? '', schema, 'blur', 'both');
+	}}
+>
 	<Popover.Trigger
 		{id}
 		data-sui-combobox
@@ -202,7 +215,7 @@
 		{...(rest as Record<string, unknown>)}
 		onblur={(event) => {
 			onblur?.(event as never);
-			field.validate(value, schema, 'blur', 'both');
+			field.validate(value ?? '', schema, 'blur', 'both');
 		}}
 	>
 		{#if startIcon}
@@ -261,13 +274,12 @@
 		style="--sui-trigger-width: {triggerWidth}px"
 		align="start"
 	>
+		<!-- Selection is handled by each Command.Item's onSelect; a controlled
+		     `value` on Command.Root makes bits-ui reconcile on mount, which
+		     immediately re-selects and closes the popover. -->
 		<Command.Root
 			data-sui-combobox-command
-			value={value ?? ''}
 			shouldFilter={infinite ? false : searchable}
-			onValueChange={(next) => {
-				if (next) select(next as V);
-			}}
 		>
 			{#if searchable}
 				<Command.Input
@@ -286,6 +298,7 @@
 				{#each resolvedItems as item (item.value)}
 					<Command.Item
 						value={item.value}
+						keywords={[item.label, item.description ?? '']}
 						data-sui-option
 						data-disabled={item.disabled || undefined}
 						disabled={item.disabled || undefined}

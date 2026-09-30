@@ -52,7 +52,9 @@
 		xl: 'h-7 w-13 [&_span]:size-6'
 	};
 
-	const allErrors = $derived([...externalErrors, ...field.errors]);
+	// deduped: the same message can arrive from both the `errors` prop (server)
+	// and the local zod validation — duplicate keys would break {#each (error)}
+	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);

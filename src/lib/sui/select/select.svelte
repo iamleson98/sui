@@ -116,7 +116,9 @@
 	const resolvedItems = $derived(staticItems ?? list.items);
 	const selected = $derived(resolvedItems.find((item) => item.value === value));
 
-	const allErrors = $derived([...externalErrors, ...field.errors]);
+	// deduped: the same message can arrive from both the `errors` prop (server)
+	// and the local zod validation — duplicate keys would break {#each (error)}
+	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);
@@ -129,20 +131,25 @@
 		return observeSentinel(sentinel, () => void list.loadMore());
 	});
 
+	/** Undefined (nothing selected) is validated as '' so `z.string().min(1, 'msg')` works. */
+	function validateSelection(candidate: V | undefined) {
+		field.validate(candidate ?? '', schema, 'change', 'change');
+	}
+
 	function select(next: V) {
 		value = next;
-		field.validate(value, schema, 'change', 'change');
+		validateSelection(next);
 		onSelect?.(next, resolvedItems.find((item) => item.value === next));
 	}
 
 	function clear() {
 		value = undefined;
-		field.validate(undefined, schema, 'change', 'change');
+		validateSelection(undefined);
 		onSelect?.(undefined, undefined);
 	}
 
 	export function validate(): string[] {
-		return field.forceValidate(value, schema);
+		return field.forceValidate(value ?? '', schema);
 	}
 
 	export function reset(): void {

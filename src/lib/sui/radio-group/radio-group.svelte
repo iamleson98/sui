@@ -62,7 +62,9 @@
 		xl: 'size-5'
 	};
 
-	const allErrors = $derived([...externalErrors, ...field.errors]);
+	// deduped: the same message can arrive from both the `errors` prop (server)
+	// and the local zod validation — duplicate keys would break {#each (error)}
+	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);
@@ -79,7 +81,7 @@
 
 <div class={cn('flex w-full flex-col', className)} data-sui-control="radio-group" data-sui-size={size} data-invalid={invalid || undefined}>
 	{#if label}
-		<div class="text-foreground mb-1.5 flex items-center gap-0.5 font-medium {SUI_LABEL[size]}" data-sui-label>
+		<div id="{id}-label" class="text-foreground mb-1.5 flex items-center gap-0.5 font-medium {SUI_LABEL[size]}" data-sui-label>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
 				<span class="text-destructive" aria-hidden="true">*</span>
@@ -90,6 +92,7 @@
 
 	<RadioGroup.Root
 		{id}
+		aria-labelledby={label ? `${id}-label` : undefined}
 		bind:value
 		disabled={disabled || undefined}
 		required={required || undefined}
