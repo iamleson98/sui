@@ -1,0 +1,304 @@
+<script lang="ts" module>
+	import type { Snippet } from 'svelte';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
+	import type { ZodType } from 'zod';
+	import type { SuiFieldVariant, SuiIconComponent, SuiItem, SuiSize } from '../types.js';
+	import type { SuiSource } from '../pagination.js';
+
+	export type SuiSelectProps<V extends string = string> = Omit<
+		HTMLButtonAttributes,
+		'value' | 'size' | 'class'
+	> & {
+		/** Static option list. Omit when using `source`. */
+		items?: SuiItem<V>[];
+		/** Async page loader — enables infinite scroll. */
+		source?: SuiSource<SuiItem<V>>;
+		/** Page size for `source`. Default `25`. */
+		pageSize?: number;
+		/** Key used to de-duplicate infinite pages. Default: `item.value`. */
+		itemKey?: (item: SuiItem<V>) => string | number;
+		/** Field label rendered above the trigger. */
+		label?: string | Snippet;
+		subText?: string;
+		size?: SuiSize;
+		variant?: SuiFieldVariant;
+		/** Icon at the start of the trigger. */
+		startIcon?: SuiIconComponent;
+		/** Icon at the end of the trigger (before the chevron). */
+		endIcon?: SuiIconComponent;
+		/** Interactive snippet at the end of the trigger. */
+		action?: Snippet;
+		/** Placeholder shown before a value is selected. Default `"Select…"`. */
+		placeholder?: string;
+		/** zod v4 schema validated on change. */
+		schema?: ZodType;
+		errors?: string[];
+		required?: boolean;
+		/** Allow clearing the selection (shows a clear button). Default `false`. */
+		clearable?: boolean;
+		/** Text when no options exist. Default `"No options"`. */
+		emptyText?: string;
+		/** Error message shown when a `source` request fails. */
+		errorText?: string;
+		id?: string;
+		class?: string;
+		/** Selected value (two-way bindable). */
+		value?: V;
+		/** Fires whenever the selection changes. */
+		onSelect?: (value: V | undefined, item: SuiItem<V> | undefined) => void;
+	};
+</script>
+
+<script lang="ts" generics="V extends string = string">
+	import * as Select from '$lib/components/ui/select/index.js';
+	import SuiIcon from '../sui-icon.svelte';
+	import { SuiFieldState } from '../field.svelte.js';
+	import { SuiInfiniteList } from '../infinite-list.svelte.js';
+	import { observeSentinel } from '../intersection.js';
+	import {
+		suiEffectiveVariant,
+		SUI_CONTROL,
+		SUI_FIELD_CONTROL,
+		SUI_FIELD_TEXT,
+		SUI_LABEL,
+		SUI_SUBTEXT
+	} from '../styles.js';
+	import { cn } from '$lib/utils.js';
+	import XIcon from '@lucide/svelte/icons/x';
+
+	let {
+		items: staticItems,
+		source,
+		pageSize = 25,
+		itemKey = (item: SuiItem<V>) => item.value,
+		label,
+		subText,
+		size = 'md',
+		variant = 'info',
+		startIcon,
+		endIcon,
+		action,
+		placeholder = 'Select…',
+		schema,
+		errors: externalErrors = [],
+		required = false,
+		clearable = false,
+		emptyText = 'No options',
+		errorText = 'Failed to load options',
+		class: className = '',
+		id = `sui-select-${crypto.randomUUID()}`,
+		value = $bindable<V | undefined>(undefined),
+		onSelect,
+		onblur,
+		...rest
+	}: SuiSelectProps<V> = $props();
+
+	const field = new SuiFieldState();
+
+	const infinite = $derived(source !== undefined);
+	// svelte-ignore state_referenced_locally
+	const list = new SuiInfiniteList<SuiItem<V>>(
+		source ?? (async () => ({ items: [], hasMore: false })),
+		{ pageSize, itemKey }
+	);
+
+	// (re)load the first page whenever a source appears or changes identity
+	let loadedSource = $state<SuiSource<SuiItem<V>> | undefined>(undefined);
+	$effect(() => {
+		if (source === undefined) return;
+		list.source = source;
+		if (source === loadedSource) return;
+		loadedSource = source;
+		list.reset();
+		void list.loadMore();
+	});
+
+	const resolvedItems = $derived(staticItems ?? list.items);
+	const selected = $derived(resolvedItems.find((item) => item.value === value));
+
+	const allErrors = $derived([...externalErrors, ...field.errors]);
+	const invalid = $derived(allErrors.length > 0);
+	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
+	const messageId = $derived(`${id}-message`);
+	const describedBy = $derived(invalid || subText ? messageId : undefined);
+
+	// sentinel wiring for infinite scroll
+	let sentinel: HTMLElement | undefined = $state();
+	$effect(() => {
+		if (!infinite || !sentinel) return;
+		return observeSentinel(sentinel, () => void list.loadMore());
+	});
+
+	function select(next: V) {
+		value = next;
+		field.validate(value, schema, 'change', 'change');
+		onSelect?.(next, resolvedItems.find((item) => item.value === next));
+	}
+
+	function clear() {
+		value = undefined;
+		field.validate(undefined, schema, 'change', 'change');
+		onSelect?.(undefined, undefined);
+	}
+
+	export function validate(): string[] {
+		return field.forceValidate(value, schema);
+	}
+
+	export function reset(): void {
+		field.reset();
+	}
+</script>
+
+{#if label}
+	<label for={id} data-sui-label class="{SUI_LABEL[size]} text-foreground mb-1.5 flex items-center gap-0.5 font-medium">
+		{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
+		{#if required}
+			<span class="text-destructive" aria-hidden="true">*</span>
+			<span class="sr-only">(required)</span>
+		{/if}
+	</label>
+{/if}
+
+<Select.Root
+	type="single"
+	bind:value={value as never}
+	required={required || undefined}
+	onValueChange={(next) => {
+		if (next !== undefined && next !== null) select(next as V);
+	}}
+	onOpenChange={(open) => {
+		// pre-load the first page when the menu opens for the first time
+		if (open && infinite && list.items.length === 0 && !list.loading) void list.loadMore();
+	}}
+>
+	<Select.Trigger
+		{id}
+		data-sui-select
+		data-sui-trigger
+		data-sui-size={size}
+		data-sui-variant={effVariant}
+		data-invalid={invalid || undefined}
+		aria-invalid={invalid || undefined}
+		aria-describedby={describedBy}
+		class={cn(
+			'border-input bg-transparent dark:bg-input/30 dark:focus:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full items-center rounded-md border transition-[color,box-shadow] outline-none',
+			SUI_CONTROL[size],
+			SUI_FIELD_CONTROL[effVariant],
+			className
+		)}
+		{...(rest as Record<string, unknown>)}
+		onblur={(event: FocusEvent) => {
+			onblur?.(event as never);
+			field.validate(value, schema, 'blur', 'both');
+		}}
+	>
+		{#if startIcon}
+			<span class="text-muted-foreground pointer-events-none shrink-0">
+				<SuiIcon icon={startIcon} {size} />
+			</span>
+		{/if}
+		{#if selected ?? (value !== undefined && value !== '')}
+			<span class="flex min-w-0 flex-1 items-center gap-2 text-left">
+				<span class="truncate">{selected?.label ?? value}</span>
+			</span>
+		{:else}
+			<span class="text-muted-foreground flex-1 truncate text-left">{placeholder}</span>
+		{/if}
+		{#if endIcon}
+			<span class="text-muted-foreground pointer-events-none shrink-0">
+				<SuiIcon icon={endIcon} {size} />
+			</span>
+		{/if}
+		{#if action}
+			<!-- A click shield: interactive content inside must not toggle the select. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<span
+				data-sui-action
+				role="presentation"
+				class="flex shrink-0 items-center"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => e.stopPropagation()}
+			>
+				{@render action()}
+			</span>
+		{/if}
+		{#if clearable && (value !== undefined && value !== '')}
+			<span
+				role="button"
+				tabindex="-1"
+				data-sui-clear
+				class="hover:bg-accent text-muted-foreground hover:text-foreground flex shrink-0 cursor-pointer items-center rounded-sm"
+				aria-label="Clear selection"
+				onclick={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					clear();
+				}}
+				onkeydown={(event) => {
+					if (event.key === 'Enter' || event.key === ' ') {
+						event.preventDefault();
+						event.stopPropagation();
+						clear();
+					}
+				}}
+			>
+				<SuiIcon icon={XIcon} {size} />
+			</span>
+		{/if}
+	</Select.Trigger>
+	<Select.Content class="sui-select-content z-50">
+		{#if infinite && list.error}
+			<div class="text-destructive-muted-foreground px-3 py-2 text-sm" data-sui-select-error role="alert">{errorText}</div>
+		{/if}
+		{#each resolvedItems as item (item.value)}
+			<Select.Item
+				value={item.value}
+				label={item.label}
+				disabled={item.disabled || undefined}
+				data-sui-option
+				data-disabled={item.disabled || undefined}
+			>
+				<span class="flex min-w-0 flex-col items-start gap-0.5">
+					<span class="truncate">{item.label}</span>
+					{#if item.description}
+						<span class="text-muted-foreground truncate text-xs">{item.description}</span>
+					{/if}
+				</span>
+			</Select.Item>
+		{/each}
+		{#if !infinite && resolvedItems.length === 0}
+			<div class="text-muted-foreground px-3 py-2 text-sm" data-sui-select-empty>{emptyText}</div>
+		{/if}
+		{#if infinite && !list.loading && !list.loadingMore && list.items.length === 0 && !list.error}
+			<div class="text-muted-foreground px-3 py-2 text-sm" data-sui-select-empty>{emptyText}</div>
+		{/if}
+		{#if infinite && (list.loading || list.loadingMore)}
+			<div class="text-muted-foreground flex items-center justify-center gap-2 px-3 py-2 text-sm" data-sui-select-loading role="status">
+				<span class="animate-spin rounded-full border-2 border-current border-t-transparent size-3.5" aria-hidden="true"></span>
+				{list.loading ? 'Loading…' : 'Loading more…'}
+			</div>
+		{/if}
+		{#if infinite && list.hasMore}
+			<div bind:this={sentinel} data-sui-load-more-sentinel class="h-px w-full" aria-hidden="true"></div>
+		{/if}
+	</Select.Content>
+</Select.Root>
+
+{#if invalid || subText}
+	<div
+		id={messageId}
+		data-sui-field-message
+		data-sui-variant={invalid ? effVariant : undefined}
+		class="{SUI_SUBTEXT[size]} mt-1 {invalid ? SUI_FIELD_TEXT[effVariant] : 'text-muted-foreground'}"
+		aria-live="polite"
+	>
+		{#if invalid}
+			{#each allErrors as error (error)}
+				<div>{error}</div>
+			{/each}
+		{:else}
+			{subText}
+		{/if}
+	</div>
+{/if}
