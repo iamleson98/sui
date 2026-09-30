@@ -4,6 +4,7 @@
         import type { ZodType } from 'zod';
         import type { SuiFieldVariant, SuiIconComponent, SuiItem, SuiSize } from '../types.js';
         import type { SuiSource } from '../pagination.js';
+        import type { SuiValidateOn } from '../zod.js';
 
         export type SuiMultiSelectProps<V extends string = string> = Omit<
                 HTMLButtonAttributes,
@@ -27,6 +28,8 @@
                 searchDebounce?: number;
                 /** zod v4 schema validated on change. */
                 schema?: ZodType;
+                /** When to run `schema`. Default `both` (every selection + blur). */
+                validateOn?: SuiValidateOn;
                 errors?: string[];
                 required?: boolean;
                 clearable?: boolean;
@@ -87,6 +90,7 @@
                 searchable = true,
                 searchDebounce = 250,
                 schema,
+                validateOn = 'both',
                 errors: externalErrors = [],
                 required = false,
                 clearable = false,
@@ -102,6 +106,11 @@
         }: SuiMultiSelectProps<V> = $props();
 
         const field = new SuiFieldState();
+
+        // fresh external errors (new `errors` prop reference) re-take the
+        // display; re-passing an unchanged list never resurrects cleared ones
+        $effect(() => field.syncExternal(externalErrors));
+
         const listboxId = $derived(`${id}-listbox`);
 
         const infinite = $derived(source !== undefined);
@@ -185,7 +194,7 @@
 
         // deduped: the same message can arrive from both the `errors` prop (server)
         // and the local zod validation — duplicate keys would break {#each (error)}
-        const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
+        const allErrors = $derived(field.displayed);
         const invalid = $derived(allErrors.length > 0);
         const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
         const messageId = $derived(`${id}-message`);
@@ -238,7 +247,7 @@
                 if (item.disabled) return;
                 const next = isSelected(item.value) ? value.filter((v) => v !== item.value) : [...value, item.value];
                 value = next;
-                field.validate(next, schema, 'change', 'change');
+                field.validate(next, schema, 'change', validateOn);
                 const selectedItems = next.map((v) => resolvedItems.find((i) => i.value === v) ?? { value: v, label: v });
                 onSelect?.(next, selectedItems);
         }
@@ -246,14 +255,14 @@
         function remove(v: V) {
                 const next = value.filter((x) => x !== v);
                 value = next;
-                field.validate(next, schema, 'change', 'change');
+                field.validate(next, schema, 'change', validateOn);
                 const selectedItems = next.map((x) => resolvedItems.find((i) => i.value === x) ?? { value: x, label: x });
                 onSelect?.(next, selectedItems);
         }
 
         function clearAll() {
                 value = [];
-                field.validate([], schema, 'change', 'change');
+                field.validate([], schema, 'change', validateOn);
                 onSelect?.([], []);
         }
 
@@ -292,7 +301,7 @@
                                         dismissedByPointer = false;
                                 } else {
                                         query = '';
-                                        field.validate(value, schema, 'blur', 'both');
+                                        field.validate(value, schema, 'blur', validateOn);
                                 }
                         }}
                 >
@@ -338,7 +347,7 @@
                                                 }}
                                                 onblur={(event: FocusEvent) => {
                                                         onblur?.(event as never);
-                                                        field.validate(value, schema, 'blur', 'both');
+                                                        field.validate(value, schema, 'blur', validateOn);
                                                 }}
                                         >
                                                 {#if startIcon}

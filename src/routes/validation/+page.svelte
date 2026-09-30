@@ -6,12 +6,13 @@
 		SuiRadioGroup,
 		SuiSelect,
 		SuiButton,
-		SuiMultiSelect
+		SuiMultiSelect,
+		focusFirstInvalid
 	} from '$lib/sui';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
 	import { z } from 'zod';
-	import type { Snippet } from 'svelte';
+	import { tick } from 'svelte';
 
 	// --- form state ---
 	let name = $state('');
@@ -52,6 +53,7 @@
 	let emailRef: SuiInput | undefined = $state();
 	let roleRef: SuiSelect | undefined = $state();
 	let acceptRef: SuiCheckbox | undefined = $state();
+	let formEl = $state<HTMLFormElement | null>(null);
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -64,12 +66,22 @@
 		if (!result.success) {
 			const flat = z.flattenError(result.error);
 			serverErrors = flat.fieldErrors as Record<string, string[]>;
+			// let the DOM settle (data-invalid attributes) before moving focus
+			await tick();
+			// WCAG 3.3.1: land keyboard/screen-reader users on the first problem
+			focusFirstInvalid((event.currentTarget as HTMLFormElement) ?? formEl!);
 			return;
 		}
 		// simulate server round-trip
 		await new Promise((r) => setTimeout(r, 500));
 		submitted = result.data;
 	}
+
+	// --- timing showcase ---
+	const timingSchema = z.string().min(4, 'At least 4 characters');
+	let autoValue = $state('');
+	let changeValue = $state('');
+	let blurValue = $state('');
 
 	const code = `const schema = z.object({
   name: z.string().min(2).max(40),
@@ -84,22 +96,31 @@
 <SuiSelect label="Role" items={roles} schema={schema.shape.role} bind:value={role} />
 <SuiCheckbox label="Accept" schema={schema.shape.accept} bind:checked={accept} />
 
-// on submit: validate the whole object, then force fields to show errors
+// validation timing (validateOn):
+// 'auto'  — blur first, then every keystroke   (text fields, default)
+// 'both'  — change + blur                      (pickers/toggles, default)
+// 'change' | 'blur' | 'none'                   (explicit control)
+
+// on submit: force every field, then move focus to the first problem
 const result = schema.safeParse(candidate);
-nameRef.validate(); // exported by every sui form control`;
+if (!result.success) focusFirstInvalid(formEl);`;
 </script>
 
 <svelte:head><title>Validation · sui</title></svelte:head>
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">zod v4 Validation</h1>
 
-<Section title="A complete form" description="Every sui form control takes a zod v4 schema. Fields validate as you type (after the first change/blur), and each control exports a validate() method for submit-time force validation. Clear a field to see inline errors with ARIA wiring.">
+<Section
+	title="A complete form"
+	description="Every sui form control takes a zod v4 schema. Text fields validate on the first blur, then on every keystroke (validateOn 'auto'); pickers and toggles validate on every change and blur (validateOn 'both'). After a failed submit, fixing a field clears its error immediately — no re-submit needed — and focus lands on the first problem."
+>
 	<div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-		<form class="grid max-w-xl gap-5" onsubmit={submit} novalidate>
+		<form class="grid max-w-xl gap-5" bind:this={formEl} onsubmit={submit} novalidate>
 			<SuiInput
 				bind:this={nameRef}
 				label="Name"
 				placeholder="Ada Lovelace"
+				autocomplete="name"
 				schema={schema.shape.name}
 				errors={serverErrors.name}
 				bind:value={name}
@@ -110,6 +131,7 @@ nameRef.validate(); // exported by every sui form control`;
 				label="Email"
 				type="email"
 				placeholder="ada@example.com"
+				autocomplete="email"
 				schema={schema.shape.email}
 				errors={serverErrors.email}
 				bind:value={email}
@@ -169,5 +191,36 @@ nameRef.validate(); // exported by every sui form control`;
 	</div>
 	<div class="mt-8">
 		<CodeBlock title="schema + fields" code={code} />
+	</div>
+</Section>
+
+<Section
+	title="Validation timing"
+	description="When does a field run its schema? Try each mode: type a short value, Tab away, keep typing. auto stays quiet during the first pass and turns eager after the first blur — the pattern recommended by Baymard's inline-validation research and matched by react-hook-form's onTouched and superforms' auto."
+>
+	<div class="grid max-w-xl gap-5">
+		<SuiInput
+			label="auto — blur first, then eager"
+			subText="Quiet while you type the first answer; validates on blur; every keystroke after that."
+			placeholder="Type at least 4 characters, Tab away, keep typing…"
+			schema={timingSchema}
+			bind:value={autoValue}
+		/>
+		<SuiInput
+			label="change — every keystroke"
+			subText="Instant feedback, including mid-word."
+			validateOn="change"
+			placeholder="Type at least 4 characters…"
+			schema={timingSchema}
+			bind:value={changeValue}
+		/>
+		<SuiInput
+			label="blur — only on exit"
+			subText="Never interrupts; checks once when you leave the field."
+			validateOn="blur"
+			placeholder="Type anything, then Tab away…"
+			schema={timingSchema}
+			bind:value={blurValue}
+		/>
 	</div>
 </Section>

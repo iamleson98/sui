@@ -52,7 +52,9 @@ describe('SuiInput', () => {
 			'We will never share your email.'
 		);
 
-		await userEvent.type(screen.getByLabelText('Email'), 'ab');
+		const input = screen.getByLabelText('Email');
+		await userEvent.type(input, 'ab');
+		input.blur();
 		await waitFor(() => {
 			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Too short');
 		});
@@ -63,6 +65,7 @@ describe('SuiInput', () => {
 		const { container } = render(InputHarness, { schema: z.string().min(3, 'Min 3') });
 		const input = screen.getByLabelText('Email') as HTMLInputElement;
 		await userEvent.type(input, 'x');
+		input.blur();
 		await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
 		const describedBy = input.getAttribute('aria-describedby');
 		expect(describedBy).toBeTruthy();
@@ -73,15 +76,77 @@ describe('SuiInput', () => {
 		const { container } = render(InputHarness, { schema: z.string().min(3, 'Min 3') });
 		const input = screen.getByLabelText('Email');
 		await userEvent.type(input, 'a');
+		input.blur();
 		await waitFor(() => expect(container.querySelector('[data-sui-field-message]')).toBeTruthy());
+		// touched now: every keystroke re-validates
 		await userEvent.type(input, 'bc');
 		await waitFor(() => expect(container.querySelector('[data-sui-field-message]')).toBeNull());
+	});
+
+	it('auto timing: quiet on first typing pass, validates on blur, then eager', async () => {
+		const { container } = render(InputHarness, { schema: z.string().min(3, 'Min 3') });
+		const input = screen.getByLabelText('Email');
+
+		// first pass: typing alone stays quiet — no mid-answer scolding
+		await userEvent.type(input, 'a');
+		expect(container.querySelector('[data-sui-field-message]')).toBeNull();
+
+		// blur validates
+		input.blur();
+		await waitFor(() =>
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Min 3')
+		);
+
+		// touched: subsequent keystrokes update eagerly — error persists…
+		await userEvent.type(input, 'b');
+		await waitFor(() =>
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Min 3')
+		);
+		// …and clears the moment the answer becomes valid
+		await userEvent.type(input, 'c');
+		await waitFor(() => expect(container.querySelector('[data-sui-field-message]')).toBeNull());
+	});
+
+	it('stale external errors clear when the user edits the field', async () => {
+		// regression: after a failed submit, fixing a field must clear its
+		// server error immediately — without waiting for another submit
+		const { container } = render(InputHarness, {
+			schema: z.string().min(3, 'Min 3'),
+			errors: ['Name must be at least 2 characters']
+		});
+		await waitFor(() =>
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+				'Name must be at least 2 characters'
+			)
+		);
+
+		// user fixes the field → local validation takes the display back
+		await userEvent.type(screen.getByLabelText('Email'), 'abc');
+		await waitFor(() => expect(container.querySelector('[data-sui-field-message]')).toBeNull());
+		expect(container.querySelector('[data-sui-control="input"]')).not.toHaveAttribute('data-invalid');
+	});
+
+	it('fresh external errors re-take the display after an edit', async () => {
+		const { rerender } = render(InputHarness, {
+			schema: z.string().min(3, 'Min 3'),
+			errors: ['Taken']
+		});
+		await userEvent.type(screen.getByLabelText('Email'), 'abc'); // edited → local valid
+		await waitFor(() => expect(screen.queryByText('Taken')).toBeNull());
+
+		// a NEW submit produces a NEW errors array → shown again
+		await rerender({ schema: z.string().min(3, 'Min 3'), errors: ['Still taken'] });
+		await waitFor(() => expect(screen.getByText('Still taken')).toBeInTheDocument());
 	});
 
 	it('debounces validation when validateDebounce is set', async () => {
 		vi.useFakeTimers();
 		try {
-			const { container } = render(InputHarness, { schema: z.string().min(3, 'Min 3'), validateDebounce: 200 });
+			const { container } = render(InputHarness, {
+				schema: z.string().min(3, 'Min 3'),
+				validateOn: 'change',
+				validateDebounce: 200
+			});
 			const input = screen.getByLabelText('Email');
 			await userEvent.type(input, 'a', { delay: null });
 			expect(container.querySelector('[data-sui-field-message]')).toBeNull();
@@ -136,7 +201,9 @@ describe('SuiTextarea', () => {
 			label: 'Bio',
 			schema: z.string().max(4, 'Max 4 characters')
 		});
-		await userEvent.type(screen.getByLabelText('Bio'), 'way too long');
+		const textarea = screen.getByLabelText('Bio') as HTMLTextAreaElement;
+		await userEvent.type(textarea, 'way too long');
+		textarea.blur();
 		await waitFor(() =>
 			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Max 4 characters')
 		);

@@ -84,21 +84,27 @@ All form controls share this core API:
 | `variant` | `'info' \| 'success' \| 'warning' \| 'error'` | Semantic color state (default `info`) |
 | `startIcon` / `endIcon` | lucide component | Icons inside the field |
 | `action` | `Snippet` | Interactive content in the field's end slot (buttons, availability checks, …) |
-| `schema` | `ZodType` | Validated on change/blur depending on `validateOn` |
-| `errors` | `string[]` | External errors (server-side validation) — merged with local zod errors |
+| `schema` | `ZodType` | Validated per `validateOn` timing (see below) |
+| `validateOn` | `'auto' \| 'change' \| 'blur' \| 'both' \| 'none'` | When the schema runs — `auto` for text fields, `both` for pickers/toggles (defaults) |
+| `errors` | `string[]` | External errors (server-side validation) — shown until the user edits the field |
 | `required` | `boolean` | Adds the `*` marker and `aria-required` |
 
 Every control also exports `validate(): string[]` and `reset()` methods for submit-time flows:
 
 ```svelte
 <script lang="ts">
+  import { tick } from 'svelte';
+  import { focusFirstInvalid } from '$lib/sui';
+
   let nameRef: SuiInput | undefined = $state();
 
-  function onSubmit(event: SubmitEvent) {
+  async function onSubmit(event: SubmitEvent) {
     event.preventDefault();
     const result = schema.safeParse({ name, email });
     if (!result.success) {
       nameRef?.validate(); // force the field to show its zod errors
+      await tick(); // let data-invalid attributes paint
+      focusFirstInvalid(event.currentTarget); // WCAG 3.3.1: focus the first problem
     }
   }
 </script>
@@ -108,9 +114,19 @@ Every control also exports `validate(): string[]` and `reset()` methods for subm
 </form>
 ```
 
+#### Validation timing
+
+Inline-validation research (Baymard) and the major form libraries (react-hook-form's `onTouched`, superforms' `auto`) agree on the sweet spot, and sui encodes it as the default:
+
+- **Text fields (`SuiInput`, `SuiTextarea`) default to `validateOn="auto"`** — quiet while the user types their first answer, validate on the first blur, then revalidate on every keystroke so errors clear the moment they are fixed.
+- **Discrete controls (`SuiSelect`, `SuiCombobox`, `SuiMultiSelect`, `SuiCheckbox`, `SuiRadioGroup`, `SuiSwitch`) default to `validateOn="both"`** — every selection/toggle is a completed answer, so change and blur both validate.
+- `change` / `blur` / `none` give you explicit control; a failed submit (`validate()`) marks fields touched, which turns on eager revalidation everywhere.
+
+**External error lifecycle:** messages passed via `errors` (e.g. server-side results after a failed submit) display immediately and survive blurring — but the first edit of a field hands error display back to the local schema, so a stale "Name must be at least 2 characters" disappears as soon as the user fixes the value. A *new* `errors` array from the next submit takes the display back. No bookkeeping required.
+
 ### Text inputs
 
-`SuiInput` adds `type`, `placeholder` (defaults to the label), `validateDebounce` (ms), `validateOn` (`'change' | 'blur' | 'both' | 'none'`), `ref` (bindable). `SuiTextarea` mirrors it for multi-line text.
+`SuiInput` adds `type`, `placeholder` (defaults to the label), `validateDebounce` (ms), `ref` (bindable). `SuiTextarea` mirrors it for multi-line text. Both accept `validateOn` (see [Validation timing](#validation-timing)).
 
 ### Selects
 
@@ -252,7 +268,7 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/selection` | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase |
 | `/data-table` | sorting, search, selection, pagination, column visibility, 10k virtual rows |
 | `/toggles` | checkbox / radio / switch with zod |
-| `/validation` | a complete form driven by one zod object schema |
+| `/validation` | a complete form driven by one zod object schema + timing-mode playground |
 | `/pagination` | the infinite-scroll REST guide with live examples |
 | `/skeletons` | every skeleton, every size |
 

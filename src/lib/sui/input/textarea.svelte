@@ -3,6 +3,7 @@
         import type { HTMLTextareaAttributes } from 'svelte/elements';
         import type { ZodType } from 'zod';
         import type { SuiActionSnippet, SuiFieldVariant, SuiIconComponent, SuiSize } from '../types.js';
+        import type { SuiValidateOn } from '../zod.js';
 
         export type SuiTextareaProps = Omit<HTMLTextareaAttributes, 'size' | 'value' | 'class'> & {
                 label?: string | Snippet;
@@ -13,7 +14,8 @@
                 startIcon?: SuiIconComponent;
                 action?: SuiActionSnippet;
                 schema?: ZodType;
-                validateOn?: 'change' | 'blur' | 'both' | 'none';
+                /** When to run `schema`. Default `auto` (blur first, then every change). */
+                validateOn?: SuiValidateOn;
                 errors?: string[];
                 required?: boolean;
                 id?: string;
@@ -44,7 +46,7 @@
                 startIcon,
                 action,
                 schema,
-                validateOn = 'both',
+                validateOn = 'auto',
                 errors: externalErrors = [],
                 required = false,
                 class: className = '',
@@ -62,9 +64,13 @@
 
         const field = new SuiFieldState();
 
+        // fresh external errors (new `errors` prop reference) re-take the
+        // display; re-passing an unchanged list never resurrects cleared ones
+        $effect(() => field.syncExternal(externalErrors));
+
         // deduped: the same message can arrive from both the `errors` prop (server)
         // and the local zod validation — duplicate keys would break {#each (error)}
-        const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
+        const allErrors = $derived(field.displayed);
         const invalid = $derived(allErrors.length > 0);
         const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
         const messageId = $derived(`${id}-message`);

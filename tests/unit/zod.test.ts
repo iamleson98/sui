@@ -49,19 +49,43 @@ describe('shouldValidate', () => {
 		expect(shouldValidate('none', 'change')).toBe(false);
 		expect(shouldValidate('none', 'blur')).toBe(false);
 	});
+
+	it('auto: blur always validates, change only once touched', () => {
+		expect(shouldValidate('auto', 'blur', false)).toBe(true);
+		expect(shouldValidate('auto', 'change', false)).toBe(false);
+		expect(shouldValidate('auto', 'change', true)).toBe(true);
+		expect(shouldValidate('auto', 'blur', true)).toBe(true);
+	});
 });
 
 describe('SuiFieldState', () => {
 	it('starts pristine with no errors', () => {
 		const field = new SuiFieldState();
 		expect(field.errors).toEqual([]);
+		expect(field.displayed).toEqual([]);
 		expect(field.touched).toBe(false);
 	});
 
-	it('validates on change events even before touch', () => {
+	it('auto timing: change is quiet before touch, blur validates, then change goes eager', () => {
+		const field = new SuiFieldState();
+		const schema = z.string().min(2, 'Too short');
+
+		// first typing pass — quiet, but the edit still taints display ownership
+		expect(field.validate('a', schema, 'change')).toEqual([]);
+		expect(field.touched).toBe(false);
+
+		// blur validates
+		expect(field.validate('a', schema, 'blur')).toEqual(['Too short']);
+		expect(field.touched).toBe(true);
+
+		// subsequent changes revalidate eagerly and clear when fixed
+		expect(field.validate('abc', schema, 'change')).toEqual([]);
+	});
+
+	it('validates on change events even before touch with explicit both', () => {
 		const field = new SuiFieldState();
 		const schema = z.string().min(1, 'Required');
-		expect(field.validate('', schema, 'change')).toEqual(['Required']);
+		expect(field.validate('', schema, 'change', 'both')).toEqual(['Required']);
 		expect(field.touched).toBe(true);
 	});
 
@@ -80,18 +104,71 @@ describe('SuiFieldState', () => {
 		const field = new SuiFieldState();
 		const schema = z.string().min(2, 'Too short');
 
-		field.validate('a', schema, 'change');
+		field.validate('a', schema, 'change', 'both');
 		expect(field.errors).toEqual(['Too short']);
 
-		field.validate('abc', schema, 'change');
+		field.validate('abc', schema, 'change', 'both');
 		expect(field.errors).toEqual([]);
 	});
 
-	it('forceValidate ignores the touched gate', () => {
+	it('external errors display until the user edits, then local takes over', () => {
+		const field = new SuiFieldState();
+		const schema = z.string().min(3, 'Min 3');
+
+		field.syncExternal(['Name must be at least 2 characters']);
+		expect(field.displayed).toEqual(['Name must be at least 2 characters']);
+
+		// blur without editing keeps the server message
+		field.validate('', schema, 'blur', 'auto');
+		expect(field.displayed).toEqual([
+			'Name must be at least 2 characters',
+			'Min 3'
+		]);
+
+		// editing takes display rights from the external list
+		field.validate('abc', schema, 'change', 'auto');
+		expect(field.displayed).toEqual([]);
+	});
+
+	it('fresh external errors re-take the display; equivalent re-passes do not', () => {
+		const field = new SuiFieldState();
+		const first = ['Taken'];
+		field.syncExternal(first);
+		field.syncExternal(first); // same reference — no-op
+		expect(field.displayed).toEqual(['Taken']);
+
+		field.validate('abc', z.string().min(3), 'change', 'both'); // edited
+		expect(field.displayed).toEqual([]);
+
+		field.syncExternal(first); // stale re-pass — still suppressed
+		expect(field.displayed).toEqual([]);
+
+		field.syncExternal(['Still taken']); // new submit, new array
+		expect(field.displayed).toEqual(['Still taken']);
+	});
+
+	it('syncExternal ignores equivalent empty lists', () => {
+		const field = new SuiFieldState();
+		field.syncExternal([]);
+		field.syncExternal([]); // fresh [] each render — must not churn state
+		expect(field.displayed).toEqual([]);
+	});
+
+	it('editing suppresses stale server errors even when validation is gated', () => {
+		const field = new SuiFieldState();
+		field.syncExternal(['Already registered']);
+		// auto + untouched: schema does not run yet, but the edit still taints
+		expect(field.validate('ada@example.com', undefined, 'change', 'auto')).toEqual([]);
+		expect(field.displayed).toEqual([]);
+	});
+
+	it('forceValidate ignores the touched gate and keeps external visible', () => {
 		const field = new SuiFieldState();
 		const schema = z.literal(true, { error: 'Must accept' });
+		field.syncExternal([]);
 		expect(field.forceValidate(false, schema)).toEqual(['Must accept']);
 		expect(field.touched).toBe(true);
+		expect(field.displayed).toEqual(['Must accept']);
 	});
 
 	it('setErrors replaces errors externally', () => {
@@ -103,7 +180,7 @@ describe('SuiFieldState', () => {
 	it('clear and reset behave differently', () => {
 		const field = new SuiFieldState();
 		const schema = z.string().min(1, 'Required');
-		field.validate('', schema, 'change');
+		field.validate('', schema, 'change', 'both');
 
 		field.clear();
 		expect(field.errors).toEqual([]);
@@ -111,5 +188,7 @@ describe('SuiFieldState', () => {
 
 		field.reset();
 		expect(field.touched).toBe(false);
+		expect(field.edited).toBe(false);
+		expect(field.external).toEqual([]);
 	});
 });

@@ -10,7 +10,8 @@
 		size?: SuiSize;
 		variant?: SuiFieldVariant;
 		schema?: ZodType;
-		validateOn?: 'change' | 'blur' | 'both' | 'none';
+		/** When to run `schema`. Default `both` (change + blur). */
+		validateOn?: 'auto' | 'change' | 'blur' | 'both' | 'none';
 		errors?: string[];
 		required?: boolean;
 		id?: string;
@@ -31,7 +32,7 @@
 		size = 'md',
 		variant = 'info',
 		schema,
-		validateOn = 'change',
+		validateOn = 'both',
 		errors: externalErrors = [],
 		required = false,
 		class: className = '',
@@ -44,6 +45,10 @@
 
 	const field = new SuiFieldState();
 
+	// fresh external errors (new `errors` prop reference) re-take the
+	// display; re-passing an unchanged list never resurrects cleared ones
+	$effect(() => field.syncExternal(externalErrors));
+
 	const TRACK_SIZE: Record<SuiSize, string> = {
 		xs: 'h-3.5 w-6 [&_span]:size-2.5',
 		sm: 'h-4 w-7 [&_span]:size-3',
@@ -54,7 +59,7 @@
 
 	// deduped: the same message can arrive from both the `errors` prop (server)
 	// and the local zod validation — duplicate keys would break {#each (error)}
-	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
+	const allErrors = $derived(field.displayed);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);

@@ -33,6 +33,7 @@ export {
 // zod validation helpers
 export { suiValidate, shouldValidate, type SuiValidateOn } from './zod.js';
 export { SuiFieldState } from './field.svelte.js';
+export { focusFirstInvalid } from './form.js';
 
 // pagination / infinite scroll
 export {

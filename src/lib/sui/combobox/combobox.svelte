@@ -4,6 +4,7 @@
 	import type { ZodType } from 'zod';
 	import type { SuiFieldVariant, SuiIconComponent, SuiItem, SuiSize } from '../types.js';
 	import type { SuiSource } from '../pagination.js';
+	import type { SuiValidateOn } from '../zod.js';
 
 	export type SuiComboboxProps<V extends string = string> = Omit<
 		HTMLButtonAttributes,
@@ -34,6 +35,8 @@
 		 */
 		searchDebounce?: number;
 		schema?: ZodType;
+		/** When to run `schema`. Default `both` (every selection + blur). */
+		validateOn?: SuiValidateOn;
 		errors?: string[];
 		required?: boolean;
 		clearable?: boolean;
@@ -88,6 +91,7 @@
 		searchable = true,
 		searchDebounce = 250,
 		schema,
+		validateOn = 'both',
 		errors: externalErrors = [],
 		required = false,
 		clearable = false,
@@ -102,6 +106,10 @@
 	}: SuiComboboxProps<V> = $props();
 
 	const field = new SuiFieldState();
+
+	// fresh external errors (new `errors` prop reference) re-take the
+	// display; re-passing an unchanged list never resurrects cleared ones
+	$effect(() => field.syncExternal(externalErrors));
 	const listboxId = $derived(`${id}-listbox`);
 
 	const infinite = $derived(source !== undefined);
@@ -117,7 +125,7 @@
 
 	// deduped: the same message can arrive from both the `errors` prop (server)
 	// and the local zod validation — duplicate keys would break {#each (error)}
-	const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
+	const allErrors = $derived(field.displayed);
 	const invalid = $derived(allErrors.length > 0);
 	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
 	const messageId = $derived(`${id}-message`);
@@ -167,7 +175,7 @@
 
 	/** Undefined (nothing selected) is validated as '' so `z.string().min(1, 'msg')` works. */
 	function validateSelection(candidate: V | undefined) {
-		field.validate(candidate ?? '', schema, 'change', 'change');
+		field.validate(candidate ?? '', schema, 'change', validateOn);
 	}
 
 	function select(next: V) {
@@ -221,7 +229,7 @@
 					dismissedByPointer = false;
 				} else {
 					query = '';
-					field.validate(value ?? '', schema, 'blur', 'both');
+					field.validate(value ?? '', schema, 'blur', validateOn);
 				}
 			}}
 		>
@@ -260,7 +268,7 @@
 						{...(rest as Record<string, unknown>)}
 						onblur={(event: FocusEvent) => {
 							onblur?.(event as never);
-							field.validate(value ?? '', schema, 'blur', 'both');
+							field.validate(value ?? '', schema, 'blur', validateOn);
 						}}
 					>
 						{#if startIcon}

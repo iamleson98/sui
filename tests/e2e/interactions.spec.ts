@@ -417,3 +417,67 @@ test.describe("focus, clear geometry and layout regressions", () => {
     expect(height).toBeGreaterThan(80);
   });
 });
+
+test.describe("validation timing (blur-first, then eager)", () => {
+  const form = (page: Page) => page.locator("form");
+
+  test("auto: quiet while typing, validates on blur, revalidates on change", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+    const email = page.getByLabel("Email");
+
+    // typing a first answer stays quiet — no premature scolding
+    await email.fill("nope");
+    await expect(form(page).getByText("Enter a valid email")).toBeHidden();
+
+    // blur validates — no submit needed
+    await email.blur();
+    await expect(form(page).getByText("Enter a valid email")).toBeVisible();
+
+    // touched now: fixing it clears the error on the keystroke
+    await email.fill("ada@example.com");
+    await expect(form(page).getByText("Enter a valid email")).toBeHidden();
+  });
+
+  test("select: blurring an untouched required select shows its error", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+    const role = page.getByRole("button", { name: "Role" });
+
+    await role.focus();
+    await role.blur();
+    await expect(form(page).getByText("Pick a role")).toBeVisible();
+  });
+
+  test("stale submit errors clear per-field without re-submitting", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+
+    // failed submit stamps every error
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(
+      form(page).getByText("Name must be at least 2 characters"),
+    ).toBeVisible();
+
+    // fixing ONE field clears just that error — the rest stay
+    await page.getByLabel("Name").fill("Ada Lovelace");
+    await expect(
+      form(page).getByText("Name must be at least 2 characters"),
+    ).toBeHidden();
+    await expect(form(page).getByText("Pick a role")).toBeVisible();
+  });
+
+  test("failed submit moves focus to the first invalid control", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(form(page).getByText("Pick a role")).toBeVisible();
+
+    const name = page.getByLabel("Name");
+    await expect(name).toBeFocused();
+  });
+});

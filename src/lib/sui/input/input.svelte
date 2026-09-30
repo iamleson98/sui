@@ -3,6 +3,7 @@
         import type { HTMLInputAttributes } from 'svelte/elements';
         import type { ZodType } from 'zod';
         import type { SuiActionSnippet, SuiFieldVariant, SuiIconComponent, SuiSize } from '../types.js';
+        import type { SuiValidateOn } from '../zod.js';
 
         export type SuiInputProps = Omit<HTMLInputAttributes, 'size' | 'value' | 'class'> & {
                 /** Field label rendered above the control. */
@@ -19,10 +20,10 @@
                 endIcon?: SuiIconComponent;
                 /** Interactive snippet rendered at the end (buttons, toggles…). */
                 action?: SuiActionSnippet;
-                /** zod v4 schema — validated on change/blur, errors render below. */
+                /** zod v4 schema — validated on blur (then on change once touched), errors render below. */
                 schema?: ZodType;
-                /** When to run `schema`. Default `both`. */
-                validateOn?: 'change' | 'blur' | 'both' | 'none';
+                /** When to run `schema`. Default `auto` (blur first, then every change). */
+                validateOn?: SuiValidateOn;
                 /** Manually supplied error messages (shown in addition to schema errors). */
                 errors?: string[];
                 /** Mark the label with a required indicator. */
@@ -62,7 +63,7 @@
                 endIcon,
                 action,
                 schema,
-                validateOn = 'both',
+                validateOn = 'auto',
                 errors: externalErrors = [],
                 required = false,
                 validateDebounce = 0,
@@ -81,6 +82,10 @@
 
         const field = new SuiFieldState();
 
+        // fresh external errors (new `errors` prop reference) re-take the
+        // display; re-passing an unchanged list never resurrects cleared ones
+        $effect(() => field.syncExternal(externalErrors));
+
         let validateTimer: ReturnType<typeof setTimeout> | undefined;
         let pendingValue = '';
 
@@ -98,7 +103,7 @@
 
         // deduped: the same message can arrive from both the `errors` prop (server)
         // and the local zod validation — duplicate keys would break {#each (error)}
-        const allErrors = $derived([...new Set([...externalErrors, ...field.errors])]);
+        const allErrors = $derived(field.displayed);
         const invalid = $derived(allErrors.length > 0);
         const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
         const messageId = $derived(`${id}-message`);
