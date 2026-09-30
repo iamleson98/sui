@@ -14,13 +14,19 @@ export type { SuiSize, SuiFieldVariant, SuiItem, SuiIconComponent, SuiActionSnip
 export {
         SUI_CONTROL,
         SUI_CONTROL_MIN,
+        SUI_TEXTAREA,
         SUI_SQUARE,
         SUI_ICON,
         SUI_LABEL,
         SUI_SUBTEXT,
         SUI_SKELETON_W,
         SUI_FIELD_CONTROL,
+        SUI_FIELD_TRIGGER,
         SUI_FIELD_TEXT,
+        SUI_CLEAR_PE,
+        SUI_CLEAR_END,
+        SUI_CLEAR_SIZE,
+        SUI_CHEVRON_PIN,
         suiEffectiveVariant
 } from './styles.js';
 

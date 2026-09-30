@@ -325,3 +325,95 @@ test.describe("keyboard + a11y", () => {
     await expect(age).toHaveAttribute("aria-sort", "ascending");
   });
 });
+
+test.describe("focus, clear geometry and layout regressions", () => {
+  test("combobox: Esc returns focus, outside click lets it leave", async ({
+    page,
+  }) => {
+    await page.goto("/selection");
+    const trigger = page.getByRole("button", { name: "Owner" });
+
+    // keyboard dismissal returns focus to the trigger (a11y contract)
+    await trigger.click();
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+
+    // pointer dismissal must not yank focus back — the field goes idle
+    await trigger.click();
+    await page.locator("h1").click({ position: { x: 4, y: 4 } });
+    await page.waitForTimeout(250);
+    expect(
+      await trigger.evaluate((el) => document.activeElement === el),
+    ).toBe(false);
+  });
+
+  test("multi-select: outside click leaves the trigger unfocused", async ({
+    page,
+  }) => {
+    await page.goto("/selection");
+    const trigger = page.getByRole("combobox", { name: /tags/i });
+
+    await trigger.click();
+    await page.locator("h1").click({ position: { x: 4, y: 4 } });
+    await page.waitForTimeout(250);
+    expect(
+      await trigger.evaluate((el) => document.activeElement === el),
+    ).toBe(false);
+  });
+
+  test("select: clear button hugs the chevron instead of floating in dead space", async ({
+    page,
+  }) => {
+    await page.goto("/selection");
+    const trigger = page.getByRole("button", { name: /country/i });
+    await trigger.click();
+    await page.getByRole("option", { name: /germany/i }).click();
+    await expect(trigger).toContainText("Germany");
+
+    const geo = await page.evaluate(() => {
+      const trig = document.querySelector("[data-sui-select]")!;
+      const clear = document.querySelector("[data-sui-clear]")!;
+      const chevron = [...trig.querySelectorAll(":scope > svg")].pop()!;
+      const t = trig.getBoundingClientRect();
+      const c = clear.getBoundingClientRect();
+      const s = chevron.getBoundingClientRect();
+      return {
+        clearRightGap: t.right - c.right, // ✕ near the border (was 32+ dead)
+        chevronRightGap: t.right - s.right, // chevron is the rightmost glyph
+        chevronLeftOfClearGap: s.left - c.right, // small gap between ✕ and chevron
+      };
+    });
+    // ✕ close to the end border, chevron rightmost, both separated by a hair
+    expect(geo.clearRightGap).toBeLessThan(34);
+    expect(geo.chevronRightGap).toBeLessThan(14);
+    expect(geo.chevronLeftOfClearGap).toBeGreaterThan(0);
+    expect(geo.chevronLeftOfClearGap).toBeLessThan(10);
+  });
+
+  test("data table: virtualized body gets a real pixel height", async ({
+    page,
+  }) => {
+    await page.goto("/data-table");
+
+    const body = page.locator("[data-sui-data-table-body]").first();
+    const style = (await body.getAttribute("style")) ?? "";
+    // regression: an unevaluated `{$store…}` rendered as literal text → 0px body
+    expect(style).toMatch(/height:\s*\d+(\.\d+)?px/);
+
+    // the scroll area actually fills its max-height instead of collapsing
+    // to a header-only strip
+    const clientH = await page
+      .locator("[data-sui-data-table-scroll]")
+      .first()
+      .evaluate((el) => el.clientHeight);
+    expect(clientH).toBeGreaterThan(300);
+  });
+
+  test("textarea: renders as a real multi-line field", async ({ page }) => {
+    await page.goto("/input");
+    const wrap = page.locator('[data-sui-control="textarea"]').first();
+    const height = await wrap.evaluate((el) => el.getBoundingClientRect().height);
+    // rows=4 ≈ 96px; the old bug squeezed it into a 36px one-line box
+    expect(height).toBeGreaterThan(80);
+  });
+});

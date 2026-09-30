@@ -176,6 +176,32 @@ describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 		render(SuiSelect, { label: 'Country', items: countries, clearable: true });
 		expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 	});
+
+	it('reserves end padding and pins the chevron while the clear overlay is visible', () => {
+		const { container } = render(SuiSelect, { label: 'Country', items: countries, value: 'nl', clearable: true });
+		const trigger = container.querySelector('[data-sui-select]') as HTMLElement;
+		const clear = screen.getByRole('button', { name: 'Clear selection' });
+		// ✕ zone reserved so the value never slides under the overlay
+		expect(trigger.className).toMatch(/\bpe-14\b/);
+		// chevron pinned far-right inside the reserved zone (no dead gap)
+		expect(trigger.className).toContain('[&>svg:last-of-type]:absolute');
+		// ✕ itself sits between the value and the chevron
+		expect(clear.className).toMatch(/\bend-7\b/);
+		expect(clear.className).toMatch(/\bsize-6\b/);
+	});
+
+	it('does not reserve the ✕ zone when nothing is selected', () => {
+		const { container } = render(SuiSelect, { label: 'Country', items: countries, clearable: true });
+		const trigger = container.querySelector('[data-sui-select]') as HTMLElement;
+		expect(trigger.className).not.toMatch(/\bpe-14\b/);
+		expect(trigger.className).not.toContain('[&>svg:last-of-type]:absolute');
+	});
+
+	it('sizes the clear hit area down for xs/sm triggers', () => {
+		render(SuiSelect, { label: 'Country', items: countries, value: 'nl', clearable: true, size: 'sm' });
+		const clear = screen.getByRole('button', { name: 'Clear selection' });
+		expect(clear.className).toMatch(/\bsize-5\b/);
+	});
 });
 
 describe('SuiSelect — field anatomy & variants', () => {

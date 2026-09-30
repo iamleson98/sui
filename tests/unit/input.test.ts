@@ -119,6 +119,18 @@ describe('SuiTextarea', () => {
 		expect(screen.getByLabelText('Bio')).toHaveAttribute('rows', '5');
 	});
 
+	it('wraps the textarea in a box that grows with rows, not a fixed one-line height', () => {
+		const { container } = render(SuiTextarea, { label: 'Bio', rows: 4 });
+		const wrapper = container.querySelector('[data-sui-control="textarea"]') as HTMLElement;
+		const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
+		// no fixed control height on the wrapper — the textarea's rows drive it
+		expect(wrapper.className).not.toMatch(/\bh-\d\b/);
+		// the inner textarea owns the horizontal padding (no double padding)
+		expect(wrapper.className).not.toMatch(/\bpx-\d\b/);
+		expect(textarea.className).toMatch(/\bpx-3\b/);
+		expect(textarea.rows).toBe(4);
+	});
+
 	it('validates with zod and shows the message', async () => {
 		const { container } = render(SuiTextarea, {
 			label: 'Bio',

@@ -59,10 +59,9 @@
         import {
                 suiEffectiveVariant,
                 SUI_CHIP,
-                SUI_CONTROL,
                 SUI_CONTROL_MIN,
-                SUI_FIELD_CONTROL,
                 SUI_FIELD_TEXT,
+                SUI_FIELD_TRIGGER,
                 SUI_ICON,
                 SUI_LABEL,
                 SUI_SUBTEXT
@@ -199,6 +198,13 @@
         let triggerWidth = $state(0);
         let listEl: HTMLElement | null = $state(null);
 
+        // bits-ui's FocusScope returns DOM focus to the trigger whenever the
+        // content unmounts. That is right for Esc / keyboard selection, but
+        // after an outside-CLICK dismissal the focus should follow the pointer
+        // out of the field — otherwise the trigger keeps the focused look
+        // forever. Tracked here and honored in `onCloseAutoFocus` below.
+        let dismissedByPointer = false;
+
         let loadedSource = $state<SuiSource<SuiItem<V>> | undefined>(undefined);
         $effect(() => {
                 if (source === undefined) return;
@@ -282,7 +288,9 @@
                         bind:open
                         onOpenChange={(next) => {
                                 open = next;
-                                if (!next) {
+                                if (next) {
+                                        dismissedByPointer = false;
+                                } else {
                                         query = '';
                                         field.validate(value, schema, 'blur', 'both');
                                 }
@@ -312,9 +320,9 @@
                                                 aria-haspopup="listbox"
                                                 aria-controls={listboxId}
                                                 class={cn(
-                                                        'border-input bg-transparent dark:bg-input/30 dark:focus:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full cursor-pointer items-start rounded-md border transition-[color,box-shadow] outline-none',
+                                                        'border-input bg-transparent dark:bg-input/30 dark:focus-visible:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full cursor-pointer items-start rounded-md border transition-[color,box-shadow] outline-none',
                                                         SUI_CONTROL_MIN[size],
-                                                        SUI_FIELD_CONTROL[effVariant],
+                                                        SUI_FIELD_TRIGGER[effVariant],
                                                         className
                                                 )}
                                                 {...(rest as Record<string, unknown>)}
@@ -445,6 +453,11 @@
                                 class="sui-multi-select-content z-50 w-(--sui-trigger-width) gap-0 p-1.5"
                                 style="--sui-trigger-width: {triggerWidth}px"
                                 align="start"
+                                onInteractOutside={() => (dismissedByPointer = true)}
+                                onEscapeKeydown={() => (dismissedByPointer = false)}
+                                onCloseAutoFocus={(event) => {
+                                        if (dismissedByPointer) event.preventDefault();
+                                }}
                         >
                                 <Command.Root data-sui-multi-select-command shouldFilter={infinite ? false : searchable}>
                                         {#if searchable}

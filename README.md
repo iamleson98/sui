@@ -118,7 +118,8 @@ Every control also exports `validate(): string[]` and `reset()` methods for subm
 
 - **Static options:** `items: SuiItem[]` — see below
 - **Async + infinite scroll:** `source: SuiSource<SuiItem>` — the first page is prefetched, and streaming the next page is automatic: as the user scrolls towards the bottom of the list the component pre-fetches the next page (256 px before the end) and appends its items, so scrolling just continues. A `Loading more…` row signals in-flight pages and fetch failures surface through `errorText` with a `role="alert"` message.
-- **Clearable:** the ✕ is a real `<button type="button">` rendered *outside* the trigger (nested interactive elements are invalid HTML) — clicking it clears the selection without opening the menu and returns focus to the trigger.
+- **Clearable:** the ✕ is a real `<button type="button">` rendered *outside* the trigger (nested interactive elements are invalid HTML) — clicking it clears the selection without opening the menu and returns focus to the trigger. While it is visible the chevron is pinned to the trigger's end edge and the ✕ sits between the value and the chevron, so there is no dead gap before the border.
+- **Focus behavior:** triggers style their focused look with `focus-visible` (not `focus-within`): the menu hands DOM focus back to the trigger on close, and only keyboard focus paints the focused border. Dismissing the menu with an outside click lets the focus follow the pointer out of the field; `Esc` and keyboard selection return focus to the trigger as keyboard users expect.
 
 ```ts
 type SuiItem = { value: string; label: string; description?: string; disabled?: boolean };

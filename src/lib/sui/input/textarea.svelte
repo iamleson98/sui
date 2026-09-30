@@ -28,11 +28,11 @@
         import { SuiFieldState } from '../field.svelte.js';
         import {
                 suiEffectiveVariant,
-                SUI_CONTROL,
                 SUI_FIELD_CONTROL,
                 SUI_FIELD_TEXT,
                 SUI_LABEL,
-                SUI_SUBTEXT
+                SUI_SUBTEXT,
+                SUI_TEXTAREA
         } from '../styles.js';
         import { cn } from '$lib/utils.js';
 
@@ -79,7 +79,10 @@
         }
 </script>
 
-<!-- Single root: the field never leaks layout primitives into the parent. -->
+<!-- Single root: the field never leaks layout primitives into the parent.
+     The wrapper has no fixed height and no horizontal padding — the inner
+     <textarea rows> drives the height and owns its px-3 py-2 padding, so the
+     field renders as a real multi-line box instead of a one-line input. -->
 <div class={cn('flex w-full flex-col', className)} data-sui-field="textarea" data-sui-size={size}>
         {#if label}
                 <label
@@ -102,7 +105,7 @@
                 data-invalid={invalid || undefined}
                 class={cn(
                         'border-input bg-transparent dark:bg-input/30 dark:focus-within:bg-input/50 focus-within:ring-3 shadow-xs relative flex w-full rounded-md border transition-[color,box-shadow] outline-none',
-                        SUI_CONTROL[size],
+                        SUI_TEXTAREA[size],
                         SUI_FIELD_CONTROL[effVariant]
                 )}
         >
@@ -138,7 +141,7 @@
                 {...rest}
         ></textarea>
         {#if action}
-                <span data-sui-action class="flex shrink-0 items-center self-start pt-1 pe-1">
+                <span data-sui-action class="flex shrink-0 items-center self-start pe-2.5 pt-2">
                         {@render action({ size })}
                 </span>
         {/if}

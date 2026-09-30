@@ -192,6 +192,16 @@ describe('SuiDataTable', () => {
                 expect(container.querySelector('[data-sui-data-table]')).toHaveAttribute('data-sui-size', 'lg');
                 expect(container.querySelector('[data-sui-data-table-body] td')?.className).toContain('py-3.5');
         });
+
+        it('gives the virtualized body a real pixel height (not an unevaluated template)', () => {
+                // regression: `height: {$rowVirtualizer.getTotalSize()}px` (brace
+                // without the $) renders as literal text → invalid CSS → 0px body
+                // → the table collapses to a header-only strip.
+                const { container } = render(SuiDataTable, { data, columns, virtual: true });
+                const style = container.querySelector('[data-sui-data-table-body]')?.getAttribute('style') ?? '';
+                expect(style).toMatch(/height:\s*\d+(\.\d+)?px/);
+                expect(style).not.toContain('{');
+        });
 });
 
 describe('SuiDataTableSkeleton', () => {

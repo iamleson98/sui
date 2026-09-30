@@ -57,11 +57,13 @@
         import { observeSentinel } from '../intersection.js';
         import {
                 suiEffectiveVariant,
+                SUI_CHEVRON_PIN,
                 SUI_CLEAR_END,
                 SUI_CLEAR_PE,
+                SUI_CLEAR_SIZE,
                 SUI_CONTROL,
-                SUI_FIELD_CONTROL,
                 SUI_FIELD_TEXT,
+                SUI_FIELD_TRIGGER,
                 SUI_LABEL,
                 SUI_SUBTEXT
         } from '../styles.js';
@@ -206,10 +208,12 @@
                                 aria-invalid={invalid || undefined}
                                 aria-describedby={describedBy}
                                 class={cn(
-                                        'border-input bg-transparent dark:bg-input/30 dark:focus:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full items-center rounded-md border transition-[color,box-shadow] outline-none',
+                                        'border-input bg-transparent dark:bg-input/30 dark:focus-visible:bg-input/50 focus-visible:ring-3 shadow-xs relative flex w-full items-center rounded-md border transition-[color,box-shadow] outline-none',
                                         SUI_CONTROL[size],
-                                        SUI_FIELD_CONTROL[effVariant],
+                                        SUI_FIELD_TRIGGER[effVariant],
+                                        // reserve the ✕ zone and pin the chevron far-right inside it
                                         clearable && hasValue && SUI_CLEAR_PE[size],
+                                        clearable && hasValue && SUI_CHEVRON_PIN,
                                         className
                                 )}
                                 {...(rest as Record<string, unknown>)}
@@ -313,7 +317,7 @@
                         <button
                                 type="button"
                                 data-sui-clear
-                                class="{SUI_CLEAR_END[size]} text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 absolute top-1/2 z-10 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-2"
+                                class="{SUI_CLEAR_END[size]} {SUI_CLEAR_SIZE[size]} text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 absolute top-1/2 z-10 flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-2"
                                 aria-label="Clear selection"
                                 onclick={(event) => {
                                         event.preventDefault();

@@ -416,7 +416,7 @@
 
                                 <tbody
                                         class="relative"
-                                        style={gridMode ? `display:grid; height: {$rowVirtualizer.getTotalSize()}px;` : ''}
+                                        style={gridMode ? `display:grid; height: ${$rowVirtualizer.getTotalSize()}px;` : ''}
                                         data-sui-data-table-body
                                 >
                                         {#if loading}
