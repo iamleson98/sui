@@ -2,6 +2,7 @@
 	import { Command as CommandPrimitive } from "bits-ui";
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { cn } from "$lib/utils.js";
+	import { containedScrollIntoView } from "./contained-scroll-into-view.js";
 
 	let {
 		ref = $bindable(null),
@@ -9,6 +10,15 @@
 		children,
 		...restProps
 	}: CommandPrimitive.ItemProps = $props();
+
+	// bits-ui scrolls items into view with `scrollIntoView`, which can race
+	// floating-ui positioning and scroll the whole page — contain it to the
+	// command list instead (see contained-scroll-into-view.ts)
+	$effect(() => {
+		if (!ref) return;
+		const release = containedScrollIntoView(ref);
+		return () => release.destroy();
+	});
 </script>
 
 

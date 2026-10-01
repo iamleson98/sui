@@ -191,6 +191,66 @@ test.describe("select / combobox / multi-select", () => {
       .poll(async () => options(page).count(), { timeout: 10_000 })
       .toBeGreaterThan(initial);
   });
+
+  // Regression: bits-ui's Command calls item.scrollIntoView() right when the
+  // menu mounts — before floating-ui has positioned the portal. The native
+  // call then scrolls the PAGE (the popup still sits at the top of the
+  // document flow), so opening a select further down a form yanked the page
+  // back to the top. The command items contain their scrollIntoView to the
+  // command list, so the page must never move.
+  test("scroll stability: opening and driving selects while scrolled keeps the page anchored", async ({
+    page,
+  }) => {
+    await page.goto("/selection");
+    const pageY = () => page.evaluate(() => window.scrollY);
+
+    // combobox: open while scrolled, navigate with the keyboard, filter
+    const combobox = page.locator("[data-sui-combobox]");
+    await combobox.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(250);
+    const y0 = await pageY();
+
+    await combobox.click();
+    await expect(page.locator("[data-sui-combobox-list]")).toBeVisible();
+    // the highlighted item must still be revealed INSIDE the list —
+    // keyboard navigation scrolling is preserved, just contained
+    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(150);
+    expect(Math.abs((await pageY()) - y0)).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Escape");
+
+    // multi-select: selections keep the menu open, each one re-triggers the
+    // command's scroll-into-view on the newly selected item
+    const multi = page.locator("[data-sui-multi-select]").first();
+    await multi.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(250);
+    const y1 = await pageY();
+
+    await multi.click();
+    const items = page.locator("[data-sui-multi-select-list] [data-sui-option]");
+    await expect(items.first()).toBeVisible({ timeout: 10_000 });
+
+    // NOTE: raw mouse input for the item clicks. locator.click()'s
+    // actionability layer scrolls via CDP scrollIntoViewIfNeeded, which
+    // walks every scrollable ancestor INCLUDING the page when the popup is
+    // mid-reposition (selecting renders chips, the trigger grows, floating-ui
+    // moves the popup) — a testing artifact that real users cannot hit,
+    // since raw input events carry no scroll machinery.
+    const clickItem = async (n: number) => {
+      const box = await items.nth(n).boundingBox();
+      if (!box) throw new Error(`option ${n} has no box`);
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    };
+    await clickItem(1);
+    await page.waitForTimeout(150);
+    await clickItem(3);
+    await page.waitForTimeout(150);
+    for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(150);
+
+    expect(Math.abs((await pageY()) - y1)).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Escape");
+  });
 });
 
 test.describe("data table", () => {

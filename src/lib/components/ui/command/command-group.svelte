@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Command as CommandPrimitive, useId } from "bits-ui";
 	import { cn } from "$lib/utils.js";
+	import { containedScrollIntoView } from "./contained-scroll-into-view.js";
 
 	let {
 		ref = $bindable(null),
@@ -12,6 +13,15 @@
 	}: CommandPrimitive.GroupProps & {
 		heading?: string;
 	} = $props();
+
+	// bits-ui scrolls group headings into view when the first item of a group
+	// is selected — contain that scroll to the command list (page-jump fix)
+	let headingRef: HTMLElement | null = $state(null);
+	$effect(() => {
+		if (!headingRef) return;
+		const release = containedScrollIntoView(headingRef);
+		return () => release.destroy();
+	});
 </script>
 
 <CommandPrimitive.Group
@@ -22,7 +32,7 @@
 	{...restProps}
 >
 	{#if heading}
-		<CommandPrimitive.GroupHeading class="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+		<CommandPrimitive.GroupHeading bind:ref={headingRef} class="px-2 py-1.5 text-xs font-medium text-muted-foreground">
 			{heading}
 		</CommandPrimitive.GroupHeading>
 	{/if}
