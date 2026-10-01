@@ -1,16 +1,10 @@
 <script lang="ts">
-	import {
-		SuiSelect,
-		SuiCombobox,
-		SuiMultiSelect,
-		SuiSelectSkeleton,
-		SuiComboboxSkeleton,
-		SuiMultiSelectSkeleton,
-		cursorSource,
-		offsetSource,
-		type SuiItem,
-		type SuiSource
-	} from '$lib/sui';
+	import Seo from '$lib/demo/seo.svelte';
+	import { SuiSelect, SuiSelectSkeleton } from '$lib/sui/select/index.js';
+	import { SuiCombobox, SuiComboboxSkeleton } from '$lib/sui/combobox/index.js';
+	import { SuiMultiSelect, SuiMultiSelectSkeleton } from '$lib/sui/multi-select/index.js';
+	import { cursorSource, offsetSource, type SuiSource } from '$lib/sui/pagination.js';
+	import type { SuiItem } from '$lib/sui/types.js';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
 	import { z } from 'zod';
@@ -104,7 +98,7 @@
 />`;
 </script>
 
-<svelte:head><title>Selection · sui</title></svelte:head>
+<Seo path="/selection" />
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">Select · Combobox · MultiSelect</h1>
 

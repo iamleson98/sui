@@ -13,19 +13,19 @@
  */
 
 export type FitChipOptions = {
-        /** Rendered width of each chip, in px (measured). */
-        widths: number[];
-        /** Inner width available for chips, in px (measured). */
-        available: number;
-        /** Width of the "+n" overflow badge, in px (measured). */
-        badgeWidth: number;
-        /** Horizontal gap between chips, in px (defaults to 4). */
-        gap?: number;
-        /**
-         * Minimum chips that must remain visible when collapsing
-         * (defaults to 1 — never collapse below one visible chip).
-         */
-        minVisible?: number;
+	/** Rendered width of each chip, in px (measured). */
+	widths: number[];
+	/** Inner width available for chips, in px (measured). */
+	available: number;
+	/** Width of the "+n" overflow badge, in px (measured). */
+	badgeWidth: number;
+	/** Horizontal gap between chips, in px (defaults to 4). */
+	gap?: number;
+	/**
+	 * Minimum chips that must remain visible when collapsing
+	 * (defaults to 1 — never collapse below one visible chip).
+	 */
+	minVisible?: number;
 };
 
 /**
@@ -41,32 +41,32 @@ export type FitChipOptions = {
  *   `minVisible` so callers can fall back gracefully
  */
 export function fitChipCount({
-        widths,
-        available,
-        badgeWidth,
-        gap = 4,
-        minVisible = 1
+	widths,
+	available,
+	badgeWidth,
+	gap = 4,
+	minVisible = 1
 }: FitChipOptions): number {
-        const total = widths.length;
-        if (total === 0) return 0;
-        if (!(available > 0)) return Math.min(minVisible, total);
+	const total = widths.length;
+	if (total === 0) return 0;
+	if (!(available > 0)) return Math.min(minVisible, total);
 
-        const rowWidth = (count: number): number =>
-                widths.slice(0, count).reduce((sum, w) => sum + w, 0) + gap * Math.max(0, count - 1);
+	const rowWidth = (count: number): number =>
+		widths.slice(0, count).reduce((sum, w) => sum + w, 0) + gap * Math.max(0, count - 1);
 
-        if (rowWidth(total) <= available) return total;
+	if (rowWidth(total) <= available) return total;
 
-        const budget = available - badgeWidth - gap;
-        if (budget <= 0) return Math.min(minVisible, total);
+	const budget = available - badgeWidth - gap;
+	if (budget <= 0) return Math.min(minVisible, total);
 
-        let count = 0;
-        let used = 0;
-        for (let i = 0; i < total; i++) {
-                const w = widths[i] ?? 0;
-                const next = used === 0 ? w : used + gap + w;
-                if (next > budget) break;
-                used = next;
-                count++;
-        }
-        return Math.max(Math.min(minVisible, total), count);
+	let count = 0;
+	let used = 0;
+	for (let i = 0; i < total; i++) {
+		const w = widths[i] ?? 0;
+		const next = used === 0 ? w : used + gap + w;
+		if (next > budget) break;
+		used = next;
+		count++;
+	}
+	return Math.max(Math.min(minVisible, total), count);
 }

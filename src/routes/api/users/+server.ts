@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
+// Dynamic endpoint (query-param driven) — opted out of the root layout's
+// prerender = true so it stays a live server route in every deployment.
+export const prerender = false;
+
 /**
  * Cursor-based paginated REST endpoint (the recommended pattern for
  * infinite scroll — see /pagination for the full guide).

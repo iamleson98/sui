@@ -8,6 +8,7 @@ import {
 	type SuiDataTableColumn,
 	type SuiTableFeatures
 } from './columns.js';
+import { suiCsvCell, suiRowsToCsv, suiDownloadCsv, type SuiCsvColumn } from './csv.js';
 
 export {
 	Root as SuiDataTable,
@@ -23,5 +24,10 @@ export {
 	SUI_TABLE_FEATURES,
 	type SuiColumnMeta,
 	type SuiDataTableColumn,
-	type SuiTableFeatures
+	type SuiTableFeatures,
+	//
+	suiCsvCell,
+	suiRowsToCsv,
+	suiDownloadCsv,
+	type SuiCsvColumn
 };

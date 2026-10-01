@@ -1,7 +1,17 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
-@import "@fontsource-variable/inter";
+
+/* Self-hosted Inter variable font — latin subset only (48 KB vs 232 KB for
+   all seven subsets), swapped in on first paint and preloaded in app.html. */
+@font-face {
+	font-family: 'Inter Variable';
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 900;
+	src: url('/fonts/inter-latin-var-wght.woff2') format('woff2-variations');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+	}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -125,5 +135,90 @@
 	}
 	html {
 		@apply font-sans;
+	}
+
+	/* ---- mobile ergonomics (applies to the demo app; sui ships the same
+	rules via its data attributes so consumers can copy this block) ---- */
+
+	/* Kill the 300ms double-tap-zoom delay on every interactive control. */
+	[data-sui-trigger],
+	[data-sui-field] button,
+	[data-sui-field] [role='combobox'] {
+		touch-action: manipulation;
+	}
+
+	/* No grey flash on tap; focus-visible rings carry the affordance. */
+	[data-sui-field] button,
+	[data-sui-field] [role='combobox'] {
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	/* iOS Safari zooms the viewport when focusing an input rendered below
+	16px — bump every entry control to 16px on coarse pointers only, so
+	desktop typography stays untouched. */
+	@media (pointer: coarse) {
+		[data-sui-field] input,
+		[data-sui-field] textarea,
+		[data-sui-trigger],
+		[data-sui-combobox-input],
+		[data-sui-field] [role='combobox'] {
+			font-size: 1rem;
+		}
+	}
+
+	/* 44px minimum hit areas on coarse pointers for the small round
+	affordances (icon buttons, clear buttons, chip removes) — the visual
+	size stays, the touch target grows via a pseudo-element. */
+	@media (pointer: coarse) {
+		[data-sui-clear],
+		[data-sui-badge-remove],
+		[data-sui-badge-overflow],
+		[data-sui-badge-collapse] {
+			position: relative;
+		}
+		[data-sui-clear]::after,
+		[data-sui-badge-remove]::after,
+		[data-sui-badge-overflow]::after,
+		[data-sui-badge-collapse]::after {
+			content: '';
+			position: absolute;
+			inset: -0.625rem;
+		}
+	}
+
+	/* Dropdown lists must not chain scroll to the page behind them. */
+	[data-sui-combobox-list],
+	[data-sui-multi-select-list],
+	[data-sui-select-list] {
+		overscroll-behavior: contain;
+	}
+
+	/* Respect users who prefer less motion: kill entrance/exit and spin
+	animations, keep opacity transitions (they are not vestibular
+	triggers). */
+	@media (prefers-reduced-motion: reduce) {
+		[data-sui-field] *,
+		[data-sui-field] *::before,
+		[data-sui-field] *::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+
+	/* Sticky pinned table columns: a hairline + soft inner shadow on the
+	freeze edge separates the pinned cells from the content scrolling
+	beneath them. `left` = the right edge of the last left-pinned
+	column; `right` = the left edge of the first right-pinned column. */
+	[data-sui-pin-shadow='left'] {
+		box-shadow:
+			inset -1px 0 0 var(--border),
+			inset -10px 0 12px -10px color-mix(in oklab, var(--foreground) 20%, transparent);
+	}
+	[data-sui-pin-shadow='right'] {
+		box-shadow:
+			inset 1px 0 0 var(--border),
+			inset 10px 0 12px -10px color-mix(in oklab, var(--foreground) 20%, transparent);
 	}
 }

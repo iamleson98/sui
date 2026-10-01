@@ -1,14 +1,12 @@
 <script lang="ts">
-	import {
-		SuiInput,
-		SuiTextarea,
-		SuiCheckbox,
-		SuiRadioGroup,
-		SuiSelect,
-		SuiButton,
-		SuiMultiSelect,
-		focusFirstInvalid
-	} from '$lib/sui';
+	import Seo from '$lib/demo/seo.svelte';
+	import { SuiInput, SuiTextarea } from '$lib/sui/input/index.js';
+	import { SuiCheckbox } from '$lib/sui/checkbox/index.js';
+	import { SuiRadioGroup } from '$lib/sui/radio-group/index.js';
+	import { SuiSelect } from '$lib/sui/select/index.js';
+	import { SuiButton } from '$lib/sui/button/index.js';
+	import { SuiMultiSelect } from '$lib/sui/multi-select/index.js';
+	import { focusFirstInvalid } from '$lib/sui/form.js';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
 	import { z } from 'zod';
@@ -106,7 +104,7 @@ const result = schema.safeParse(candidate);
 if (!result.success) focusFirstInvalid(formEl);`;
 </script>
 
-<svelte:head><title>Validation · sui</title></svelte:head>
+<Seo path="/validation" />
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">zod v4 Validation</h1>
 

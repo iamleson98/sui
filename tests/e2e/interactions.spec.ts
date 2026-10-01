@@ -100,8 +100,8 @@ test.describe("select / combobox / multi-select", () => {
     // the clear button must live outside the trigger (no nested buttons)
     expect(
       await clear.evaluate((el) => {
-        const ancestor = el.closest("button");
-        return ancestor !== null && ancestor !== el;
+	const ancestor = el.closest("button");
+	return ancestor !== null && ancestor !== el;
       }),
     ).toBe(false);
     await clear.click();
@@ -312,6 +312,61 @@ test.describe("data table", () => {
     // still windowed after a deep scroll
     expect(await bigBody.locator("tr").count()).toBeLessThan(120);
   });
+
+  test("pinned columns stay frozen while the table scrolls horizontally", async ({
+    page,
+  }) => {
+    await page.goto("/data-table");
+
+    const section = page
+      .locator("section")
+      .filter({ hasText: "Pinned columns + CSV export" });
+    const scroll = section.locator("[data-sui-data-table-scroll]");
+    const firstName = section
+      .locator('[data-sui-data-table-body] td')
+      .nth(1); // selection cell is nth(0); firstName is the left-pinned column
+
+    await expect(firstName).toContainText("Minh"); // deterministic fixture
+    const before = await firstName.boundingBox();
+
+    // scroll the table horizontally — the pinned cell must not move
+    await scroll.evaluate((el) => {
+      el.scrollLeft = 240;
+    });
+    await page.waitForTimeout(200);
+    const after = await firstName.boundingBox();
+
+    expect(after?.x).toBeCloseTo(before!.x, 0);
+    // the freeze edge carries the shadow affordance
+    await expect(
+      section.locator('[data-sui-pin-shadow="left"]').first(),
+    ).toBeVisible();
+  });
+
+  test("exportable tables download the rows as a CSV file", async ({
+    page,
+  }) => {
+    await page.goto("/data-table");
+
+    const section = page
+      .locator("section")
+      .filter({ hasText: "Pinned columns + CSV export" });
+    const exportButton = section.locator("[data-sui-data-table-export]");
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      exportButton.click(),
+    ]);
+    expect(await download.suggestedFilename()).toBe("people.csv");
+    // rows render through a Blob URL; assert some content by streaming it
+    const stream = await download.createReadStream();
+    let csv = "";
+    for await (const chunk of stream) csv += chunk.toString();
+    expect(csv).toContain('"First name","Last name","Email","Age","Visits"');
+    expect(csv).toContain("Minh");
+    // display columns (Status / Progress / Actions) are not exported
+    expect(csv).not.toContain("single");
+  });
 });
 
 test.describe("button", () => {
@@ -438,9 +493,9 @@ test.describe("focus, clear geometry and layout regressions", () => {
       const c = clear.getBoundingClientRect();
       const s = chevron.getBoundingClientRect();
       return {
-        clearRightGap: t.right - c.right, // ✕ near the border (was 32+ dead)
-        chevronRightGap: t.right - s.right, // chevron is the rightmost glyph
-        chevronLeftOfClearGap: s.left - c.right, // small gap between ✕ and chevron
+	clearRightGap: t.right - c.right, // ✕ near the border (was 32+ dead)
+	chevronRightGap: t.right - s.right, // chevron is the rightmost glyph
+	chevronLeftOfClearGap: s.left - c.right, // small gap between ✕ and chevron
       };
     });
     // ✕ close to the end border, chevron rightmost, both separated by a hair

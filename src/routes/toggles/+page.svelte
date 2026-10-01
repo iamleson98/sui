@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { SuiCheckbox, SuiSwitch, SuiRadioGroup, SuiCheckboxSkeleton, SuiRadioSkeleton, SuiSwitchSkeleton } from '$lib/sui';
+	import { SuiCheckbox, SuiCheckboxSkeleton } from '$lib/sui/checkbox/index.js';
+import { SuiSwitch, SuiSwitchSkeleton } from '$lib/sui/switch/index.js';
+import { SuiRadioGroup, SuiRadioSkeleton } from '$lib/sui/radio-group/index.js';
+	import Seo from '$lib/demo/seo.svelte';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
 	import { z } from 'zod';
@@ -38,7 +41,7 @@
 />`;
 </script>
 
-<svelte:head><title>Toggles · sui</title></svelte:head>
+<Seo path="/toggles" />
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">Checkbox · Switch · Radio</h1>
 

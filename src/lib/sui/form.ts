@@ -29,14 +29,14 @@
  * ```
  */
 export function focusFirstInvalid(root: ParentNode): boolean {
-        const candidates = root.querySelectorAll<HTMLElement>(
-                'input, textarea, select, button, [role="combobox"]'
-        );
-        for (const el of candidates) {
-                if (!el.closest('[data-invalid]')) continue;
-                if (el.matches(':disabled, [aria-disabled="true"], [type="hidden"]')) continue;
-                el.focus();
-                return true;
-        }
-        return false;
+	const candidates = root.querySelectorAll<HTMLElement>(
+		'input, textarea, select, button, [role="combobox"]'
+	);
+	for (const el of candidates) {
+		if (!el.closest('[data-invalid]')) continue;
+		if (el.matches(':disabled, [aria-disabled="true"], [type="hidden"]')) continue;
+		el.focus();
+		return true;
+	}
+	return false;
 }

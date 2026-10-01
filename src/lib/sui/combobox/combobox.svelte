@@ -52,10 +52,12 @@
 <script lang="ts" generics="V extends string = string">
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import * as Command from '$lib/components/ui/command/index.js';
+	import * as Drawer from '$lib/components/ui/drawer/index.js';
 	import SuiIcon from '../sui-icon.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { SuiInfiniteList } from '../infinite-list.svelte.js';
 	import { observeSentinel } from '../intersection.js';
+	import { suiMobileQuery } from '../mobile.svelte.js';
 	import {
 		suiEffectiveVariant,
 		SUI_CHEVRON_PIN,
@@ -106,6 +108,8 @@
 	}: SuiComboboxProps<V> = $props();
 
 	const field = new SuiFieldState();
+	// mobile: options render in a drag-to-dismiss bottom sheet (vaul)
+	const isMobile = suiMobileQuery();
 
 	// fresh external errors (new `errors` prop reference) re-take the
 	// display; re-passing an unchanged list never resurrects cleared ones
@@ -186,6 +190,17 @@
 		onSelect?.(next, resolvedItems.find((item) => item.value === next));
 	}
 
+	/** Shared by the popover and the mobile bottom sheet. */
+	function handleOpenChange(next: boolean) {
+				open = next;
+				if (next) {
+					dismissedByPointer = false;
+				} else {
+					query = '';
+					field.validate(value ?? '', schema, 'blur', validateOn);
+	}
+	}
+
 	function clear() {
 		value = undefined;
 		validateSelection(undefined);
@@ -196,7 +211,7 @@
 
 	export function validate(): string[] {
 		return field.forceValidate(value ?? '', schema);
-	}
+				}
 
 	export function reset(): void {
 		field.reset();
@@ -221,23 +236,11 @@
 
 	<!-- bind:clientWidth keeps the dropdown exactly as wide as the trigger -->
 	<div class="relative w-full" bind:clientWidth={triggerWidth}>
-		<Popover.Root
-			bind:open
-			onOpenChange={(next) => {
-				open = next;
-				if (next) {
-					dismissedByPointer = false;
-				} else {
-					query = '';
-					field.validate(value ?? '', schema, 'blur', validateOn);
-				}
-			}}
-		>
-			<!-- Element delegation: bits-ui merges its own aria-haspopup="dialog"
-			     after consumer props, so we spread its props onto our button and
-			     override the combobox semantics afterwards. -->
-			<Popover.Trigger>
-				{#snippet child({ props })}
+		<!-- The trigger button is identical in both modes — only the host
+		changes: anchored Popover on desktop, bottom-sheet Drawer on
+		phones. Element delegation passes each host's props onto our
+		button (click toggling, aria-expanded, data-state…). -->
+		{#snippet triggerButton(props: Record<string, unknown>)}
 					<!-- aria-invalid on a trigger button mirrors the shadcn-svelte
 					     select-trigger pattern; the checker is stricter than ARIA-in-HTML
 					     consumers expect here. -->
@@ -269,8 +272,8 @@
 						onblur={(event: FocusEvent) => {
 							onblur?.(event as never);
 							field.validate(value ?? '', schema, 'blur', validateOn);
-						}}
-					>
+			}}
+		>
 						{#if startIcon}
 							<span class="text-muted-foreground pointer-events-none shrink-0">
 								<SuiIcon icon={startIcon} {size} />
@@ -296,7 +299,7 @@
 								onpointerdown={(e) => e.stopPropagation()}
 								onclick={(e) => e.stopPropagation()}
 								onkeydown={(e) => e.stopPropagation()}
-							>
+					>
 								{@render action()}
 							</span>
 						{/if}
@@ -306,24 +309,16 @@
 						/>
 					</button>
 				{/snippet}
-			</Popover.Trigger>
-			<Popover.Content
-				class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 p-1.5"
-				style="--sui-trigger-width: {triggerWidth}px"
-				align="start"
-				onInteractOutside={() => (dismissedByPointer = true)}
-				onEscapeKeydown={() => (dismissedByPointer = false)}
-				onCloseAutoFocus={(event) => {
-					if (dismissedByPointer) event.preventDefault();
-				}}
-			>
+
+		<!-- The option list is shared verbatim between popover and drawer. -->
+		{#snippet listbox(listHeightClass: string)}
 				<!-- Selection is handled by each Command.Item's onSelect; a controlled
 				     `value` on Command.Root makes bits-ui reconcile on mount, which
 				     immediately re-selects and closes the popover. -->
 				<Command.Root
 					data-sui-combobox-command
 					shouldFilter={infinite ? false : searchable}
-				>
+							>
 					{#if searchable}
 						<div class="border-b border-border px-0.5 pb-2.5 mb-1">
 							<Command.Input
@@ -333,13 +328,13 @@
 							/>
 						</div>
 					{/if}
-					<Command.List id={listboxId} data-sui-combobox-list class="max-h-64 px-0.5">
+				<Command.List id={listboxId} data-sui-combobox-list class="{listHeightClass} px-0.5">
 						{#if infinite && list.error}
 							<div
 								class="text-destructive flex items-center justify-center gap-2 px-2.5 py-3 text-sm"
 								data-sui-combobox-error
 								role="alert"
-							>
+			>
 								{errorText}
 							</div>
 						{/if}
@@ -357,7 +352,7 @@
 								disabled={item.disabled || undefined}
 								onSelect={() => select(item.value)}
 								class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
-							>
+				>
 								<CheckIcon
 									class="{SUI_ICON[size]} shrink-0 transition-opacity {item.value === value ? 'opacity-100' : 'opacity-0'}"
 								/>
@@ -386,8 +381,55 @@
 						{/if}
 					</Command.List>
 				</Command.Root>
+		{/snippet}
+
+		{#if isMobile.current}
+			<!-- Mobile: platform-native picker pattern — full-width bottom sheet
+			with drag-to-dismiss, body scroll lock and safe-area padding. -->
+			<Drawer.Root bind:open onOpenChange={handleOpenChange}>
+				<Drawer.Trigger>
+				{#snippet child({ props })}
+						{@render triggerButton(props as Record<string, unknown>)}
+					{/snippet}
+				</Drawer.Trigger>
+				<Drawer.Content
+					class="mx-0 max-h-[85dvh] gap-0 px-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sui-combobox-sheet"
+					data-sui-combobox-content
+				onInteractOutside={() => (dismissedByPointer = true)}
+				onEscapeKeydown={() => (dismissedByPointer = false)}
+					onCloseAutoFocus={(event: Event) => {
+					if (dismissedByPointer) event.preventDefault();
+						}}
+							>
+					<Drawer.Title class="sr-only">{typeof label === 'string' ? label : placeholder}</Drawer.Title>
+					<Drawer.Description class="sr-only">Choose an option</Drawer.Description>
+					{@render listbox('max-h-[60dvh]')}
+				</Drawer.Content>
+			</Drawer.Root>
+			{:else}
+			<Popover.Root bind:open onOpenChange={handleOpenChange}>
+			<!-- Element delegation: bits-ui merges its own aria-haspopup="dialog"
+			     after consumer props, so we spread its props onto our button and
+			     override the combobox semantics afterwards. -->
+			<Popover.Trigger>
+					{#snippet child({ props })}
+						{@render triggerButton(props as Record<string, unknown>)}
+					{/snippet}
+			</Popover.Trigger>
+			<Popover.Content
+				class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 p-1.5"
+				style="--sui-trigger-width: {triggerWidth}px"
+				align="start"
+					onInteractOutside={() => (dismissedByPointer = true)}
+					onEscapeKeydown={() => (dismissedByPointer = false)}
+				onCloseAutoFocus={(event) => {
+						if (dismissedByPointer) event.preventDefault();
+				}}
+							>
+					{@render listbox('max-h-64')}
 			</Popover.Content>
 		</Popover.Root>
+		{/if}
 
 		{#if clearable && hasValue}
 			<!-- Clear affordance rendered OUTSIDE the trigger button (nested
@@ -406,7 +448,7 @@
 			>
 				<SuiIcon icon={XIcon} size="xs" />
 			</button>
-		{/if}
+			{/if}
 	</div>
 
 	{#if invalid || subText}
@@ -423,7 +465,7 @@
 				{/each}
 			{:else}
 				{subText}
-			{/if}
+	{/if}
 		</div>
 	{/if}
 </div>

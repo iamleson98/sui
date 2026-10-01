@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { SuiButton, SuiIconButton, SuiButtonSkeleton, SuiIconButtonSkeleton } from '$lib/sui';
+	import {
+	SuiButton,
+	SuiIconButton,
+	SuiButtonSkeleton,
+	SuiIconButtonSkeleton
+} from '$lib/sui/button/index.js';
+	import Seo from '$lib/demo/seo.svelte';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -30,7 +36,7 @@
 <SuiIconButton icon={TrashIcon} label="Delete" size="sm" />`;
 </script>
 
-<svelte:head><title>Button · sui</title></svelte:head>
+<Seo path="/button" />
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">Button</h1>
 

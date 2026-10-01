@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import type { Snippet } from 'svelte';
-	import { SuiIconButton } from '$lib/sui';
+	import SuiIconButton from '$lib/sui/button/icon-button.svelte';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';

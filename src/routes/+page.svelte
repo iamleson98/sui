@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { SuiButton } from '$lib/sui';
+	import { SuiButton } from '$lib/sui/button/index.js';
 	import CodeBlock from '$lib/demo/code-block.svelte';
+	import Seo from '$lib/demo/seo.svelte';
+	import { SITE_DESCRIPTION } from '$lib/demo/site';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
@@ -47,7 +49,23 @@
 			body: 'Every control has a size-matched skeleton with an optional label placeholder.'
 		}
 	];
+	const jsonLd = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'SoftwareApplication',
+		name: 'sui',
+		description: SITE_DESCRIPTION,
+		applicationCategory: 'DeveloperApplication',
+		operatingSystem: 'Web',
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }
+	});
 </script>
+
+<Seo path="/" />
+<svelte:head>
+	<!-- {@html}: script content is raw text in HTML; Svelte's text escaping
+	would corrupt the JSON, {@html} keeps it verbatim -->
+	{@html `<script type="application/ld+json">${jsonLd}</` + 'script>'}
+</svelte:head>
 
 <div class="flex flex-col items-center py-8 text-center">
 	<span class="bg-primary/10 text-primary mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium">

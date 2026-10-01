@@ -12,22 +12,22 @@
 // core types & styles
 export type { SuiSize, SuiFieldVariant, SuiItem, SuiIconComponent, SuiActionSnippet } from './types.js';
 export {
-        SUI_CONTROL,
-        SUI_CONTROL_MIN,
-        SUI_TEXTAREA,
-        SUI_SQUARE,
-        SUI_ICON,
-        SUI_LABEL,
-        SUI_SUBTEXT,
-        SUI_SKELETON_W,
-        SUI_FIELD_CONTROL,
-        SUI_FIELD_TRIGGER,
-        SUI_FIELD_TEXT,
-        SUI_CLEAR_PE,
-        SUI_CLEAR_END,
-        SUI_CLEAR_SIZE,
-        SUI_CHEVRON_PIN,
-        suiEffectiveVariant
+	SUI_CONTROL,
+	SUI_CONTROL_MIN,
+	SUI_TEXTAREA,
+	SUI_SQUARE,
+	SUI_ICON,
+	SUI_LABEL,
+	SUI_SUBTEXT,
+	SUI_SKELETON_W,
+	SUI_FIELD_CONTROL,
+	SUI_FIELD_TRIGGER,
+	SUI_FIELD_TEXT,
+	SUI_CLEAR_PE,
+	SUI_CLEAR_END,
+	SUI_CLEAR_SIZE,
+	SUI_CHEVRON_PIN,
+	suiEffectiveVariant
 } from './styles.js';
 
 // zod validation helpers
@@ -37,17 +37,18 @@ export { focusFirstInvalid } from './form.js';
 
 // pagination / infinite scroll
 export {
-        offsetSource,
-        cursorSource,
-        type SuiSource,
-        type SuiPageRequest,
-        type SuiPageResult,
-        type SuiOffsetPage,
-        type SuiCursorPage
+	offsetSource,
+	cursorSource,
+	type SuiSource,
+	type SuiPageRequest,
+	type SuiPageResult,
+	type SuiOffsetPage,
+	type SuiCursorPage
 } from './pagination.js';
 export { SuiInfiniteList, type SuiInfiniteListOptions } from './infinite-list.svelte.js';
 export { observeSentinel, findScrollParent } from './intersection.js';
 export { fitChipCount, type FitChipOptions } from './chip-fit.js';
+export { SUI_MOBILE_QUERY, suiMobileQuery } from './mobile.svelte.js';
 
 // skeleton primitives
 export * from './skeleton/index.js';
@@ -62,3 +63,4 @@ export * from './select/index.js';
 export * from './combobox/index.js';
 export * from './multi-select/index.js';
 export * from './data-table/index.js';
+export * from './error-summary/index.js';

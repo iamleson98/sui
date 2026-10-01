@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodeBlock from '$lib/demo/code-block.svelte';
+	import Seo from '$lib/demo/seo.svelte';
 	import Section from '$lib/demo/section.svelte';
 
 	const cursorServer = `// GET /api/users?cursor=<opaque>&size=25&q=<query>   (cursor / keyset)
@@ -13,7 +14,7 @@ app.get('/api/users', async (req, res) => {
   const rows = await db.user.findMany({
     where: cursor
       ? { OR: [{ createdAt: { lt: cursor.createdAt } },
-              { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
+	      { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
       : undefined,
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: size + 1           // fetch one extra to detect hasMore
@@ -42,7 +43,8 @@ app.get('/api/products', async (req, res) => {
   res.json({ items, page, size, total, hasMore: (page + 1) * size < total });
 });`;
 
-	const clientCursor = `import { cursorSource, SuiCombobox } from '$lib/sui';
+	const clientCursor = `import { SuiCombobox } from '$lib/sui/combobox/index.js';
+	import { cursorSource } from '$lib/sui/pagination.js';
 
 // adapts YOUR response envelope into a SuiSource
 const users = cursorSource(async ({ cursor, size, query, signal }) => {
@@ -53,7 +55,8 @@ const users = cursorSource(async ({ cursor, size, query, signal }) => {
 
 <SuiCombobox label="Owner" source={users} pageSize={25} bind:value={owner} />`;
 
-	const clientOffset = `import { offsetSource, SuiMultiSelect } from '$lib/sui';
+	const clientOffset = `import { SuiMultiSelect } from '$lib/sui/multi-select/index.js';
+	import { offsetSource } from '$lib/sui/pagination.js';
 
 const products = offsetSource(async ({ page, size, query, signal }) => {
   const res = await fetch(\`/api/products?page=\${page}&size=\${size}\`, { signal });
@@ -91,7 +94,7 @@ const products = offsetSource(async ({ page, size, query, signal }) => {
 	];
 </script>
 
-<svelte:head><title>Pagination · sui</title></svelte:head>
+<Seo path="/pagination" />
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">REST Pagination Patterns</h1>
 

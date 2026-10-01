@@ -1,21 +1,18 @@
 <script lang="ts">
-	import {
-		SuiButtonSkeleton,
-		SuiIconButtonSkeleton,
-		SuiInputSkeleton,
-		SuiTextareaSkeleton,
-		SuiSelectSkeleton,
-		SuiComboboxSkeleton,
-		SuiMultiSelectSkeleton,
-		SuiCheckboxSkeleton,
-		SuiRadioSkeleton,
-		SuiSwitchSkeleton,
-		SuiDataTableSkeleton
-	} from '$lib/sui';
+	import Seo from '$lib/demo/seo.svelte';
+	import { SuiButtonSkeleton, SuiIconButtonSkeleton } from '$lib/sui/button/index.js';
+	import { SuiInputSkeleton, SuiTextareaSkeleton } from '$lib/sui/input/index.js';
+	import { SuiSelectSkeleton } from '$lib/sui/select/index.js';
+	import { SuiComboboxSkeleton } from '$lib/sui/combobox/index.js';
+	import { SuiMultiSelectSkeleton } from '$lib/sui/multi-select/index.js';
+	import { SuiCheckboxSkeleton } from '$lib/sui/checkbox/index.js';
+	import { SuiRadioSkeleton } from '$lib/sui/radio-group/index.js';
+	import { SuiSwitchSkeleton } from '$lib/sui/switch/index.js';
+	import { SuiDataTableSkeleton } from '$lib/sui/data-table/index.js';
 	import Section from '$lib/demo/section.svelte';
 </script>
 
-<svelte:head><title>Skeletons · sui</title></svelte:head>
+<Seo path="/skeletons" />
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">Skeletons</h1>
 

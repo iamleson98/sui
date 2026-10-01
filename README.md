@@ -32,9 +32,11 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 | --- | --- |
 | Form controls | `SuiInput`, `SuiTextarea`, `SuiSelect`, `SuiCombobox`, `SuiMultiSelect`, `SuiCheckbox`, `SuiRadioGroup`, `SuiSwitch` |
 | Actions | `SuiButton`, `SuiIconButton` |
-| Data | `SuiDataTable` (+ `suiColumn` helper, `renderComponent`), `SuiDataTableSkeleton` |
+| Data | `SuiDataTable` (+ `suiColumn` helper, `renderComponent`), `SuiDataTableSkeleton`, CSV helpers (`suiDownloadCsv`, `suiRowsToCsv`, `suiCsvCell`) |
+| Error handling | `SuiErrorSummary` (WCAG 3.3.1 error box), `focusFirstInvalid()` |
 | Skeletons | `SuiInputSkeleton`, `SuiTextareaSkeleton`, `SuiSelectSkeleton`, `SuiComboboxSkeleton`, `SuiMultiSelectSkeleton`, `SuiCheckboxSkeleton`, `SuiRadioGroupSkeleton`, `SuiSwitchSkeleton`, `SuiButtonSkeleton`, `SuiSkeleton` |
 | Infinite scroll | `SuiSource`, `offsetSource()`, `cursorSource()`, `SuiInfiniteList`, `observeSentinel()` |
+| Mobile | `suiMobileQuery()` / `SUI_MOBILE_QUERY` — the breakpoint where the select family switches to bottom sheets |
 | Validation | zod v4 helpers — `suiValidate()`, `SuiFieldState` — plus the `schema` prop on every form control |
 | Design tokens | `SuiSize` scale + semantic variant maps (`SUI_CONTROL`, `SUI_FIELD_CONTROL`, …) shared by every component |
 
@@ -55,7 +57,10 @@ sui is consumed as source (like shadcn-svelte itself) — copy `src/lib/sui` (an
 # inside your SvelteKit project
 npx sv add tailwindcss            # Tailwind v4
 npx shadcn-svelte@latest init     # shadcn-svelte base
-npm i zod @tanstack/svelte-table @tanstack/svelte-virtual @lucide/svelte tailwind-variants
+npm i zod @tanstack/svelte-table @tanstack/svelte-virtual @lucide/svelte vaul-svelte tailwind-variants
+
+# vaul-svelte powers the mobile bottom sheets; also grab the drawer
+# primitive: npx shadcn-svelte@latest add drawer   (see Mobile below)
 
 # then copy from this repo:
 #   src/lib/sui          → your src/lib/sui
@@ -110,6 +115,7 @@ Every control also exports `validate(): string[]` and `reset()` methods for subm
 </script>
 
 <form onsubmit={onSubmit} novalidate>
+  <SuiErrorSummary id="form-errors" {errors} />
   <SuiInput bind:this={nameRef} label="Name" schema={schema.shape.name} bind:value={name} />
 </form>
 ```
@@ -148,6 +154,25 @@ type SuiItem = { value: string; label: string; description?: string; disabled?: 
 
 - `maxDisplay="responsive"` (default) — Ant Design `maxTagCount="responsive"` behaviour: chips are measured and as many fit in the trigger as the width allows, the rest collapse into a **“+n” pill** (hover shows the hidden labels, click expands to show every chip with a “Show less” control)
 - `maxDisplay={3}` — a fixed cap
+
+### Mobile
+
+Below `640px` (the `sm` breakpoint) every select-family control swaps its anchored popover for a **drag-to-dismiss bottom sheet** (vaul) — the platform-native picker pattern on phones. The branch is chosen live by an SSR-safe media query (`suiMobileQuery()`), so there is no hydration mismatch and no layout shift when the viewport crosses the breakpoint:
+
+- full-width sheet rising from the bottom, capped at 85dvh, safe-area padded (`env(safe-area-inset-bottom)`)
+- drag down or tap the overlay to dismiss; selecting in `SuiSelect` / `SuiCombobox` commits and closes, `SuiMultiSelect` stays open for multi-selection
+- the trigger (label, variant, error styling, validation wiring) is the exact same component on both branches — only the host changes
+
+On coarse pointers the demo `app.css` ships the ergonomics rules sui's data attributes are designed for (copy the block into your app):
+
+- `touch-action: manipulation` on every trigger — kills the 300ms double-tap-zoom delay
+- transparent `-webkit-tap-highlight-color` — no grey tap flash
+- 16px text in inputs — iOS Safari refuses to zoom the viewport on focus
+- 44px hit areas (via `::after` insets) on the small round affordances: clear buttons, chip removes, the "+n" pill
+- `overscroll-behavior: contain` on open dropdowns — scroll chains never leak to the page behind
+- `prefers-reduced-motion` disables entrance/exit animations
+
+`SuiInput` also derives mobile keyboard niceties from `type`: `inputmode` (`email` / `tel` / `url` / `decimal`) plus `autocapitalize="none"` / `autocorrect="off"` on email fields. Pass your own `inputmode` to override.
 
 ## Infinite scroll & REST pagination
 
@@ -221,7 +246,26 @@ Both adapters give the component everything it needs and nothing more: pages are
 
 Features: sorting (none → asc → desc, `aria-sort` wired), global search, column visibility menu, row selection with a select-all and live footer count, pagination (client, server or none — `onPageChange` + `rowCount` for server mode), density sizes, loading/empty states, and virtual scrolling on by default (`virtual={true}` renders only the visible window of a 10,000-row list).
 
-Column `meta` options: `align`, `width`, `class`, `hiddenByDefault`.
+**Column pinning** — freeze columns to an edge while the rest scroll horizontally with `meta.pinned`:
+
+```ts
+const columns = [
+  col.accessor('name', { header: 'Name', meta: { pinned: 'left', width: 120 } }),
+  col.accessor('email', { header: 'Email', meta: { width: 220 } }),
+  col.display({
+    id: 'actions',
+    header: '',
+    meta: { pinned: 'right', width: 90 },
+    cell: ({ row }) => renderComponent(RowActions, { person: row.original })
+  })
+] as SuiDataTableColumn<Person>[];
+```
+
+Pinned columns should declare an explicit `width` (or `size`) so the sticky offsets stay deterministic; with row selection enabled the checkbox column pins along with them. Freeze edges get a hairline + soft inner shadow so the scrolling content reads as passing *underneath*. Pinning composes with virtual scrolling.
+
+**CSV export** — `exportable` adds a toolbar button that downloads the current filtered rows as RFC 4180 CSV (`exportFilename` to rename). Values are quoted/escaped correctly, dates serialize as ISO, leading `=` / `+` / `-` / `@` are prefixed to neutralize spreadsheet formula injection, display columns are skipped, and the file ships with a UTF-8 BOM so Excel opens it cleanly. The `suiDownloadCsv` / `suiRowsToCsv` / `suiCsvCell` helpers are exported for custom export flows.
+
+Column `meta` options: `align`, `width`, `class`, `hiddenByDefault`, `pinned`.
 
 ## Skeletons
 
@@ -244,18 +288,20 @@ Every interactive component has a size-matched skeleton with the same public siz
 - combobox pattern with `role="combobox"` triggers, `listbox`/`option` roles, `aria-expanded`
 - table headers are sortable buttons with `aria-sort`; selection uses real checkboxes with `aria-label`s
 - loading indicators expose `role="status"`; fetch failures use `role="alert"`
+- `SuiErrorSummary` + `focusFirstInvalid()` implement the WCAG 3.3.1 failed-submit pattern (one error box, focus the first invalid control)
+- mobile sheets are vaul dialogs with `aria-modal`, labelled by the field label, keyboard-dismissable
 
 ## Testing
 
 sui ships with the two-tier test setup the library itself uses:
 
 ```sh
-npm run test              # vitest + @testing-library/svelte (127 unit tests)
-npm run test:e2e          # Playwright: interaction + visual regression (real Chromium)
+npm run test              # vitest + @testing-library/svelte (208 unit tests)
+npm run test:e2e          # Playwright: desktop + mobile projects (44 tests)
 npm run test:e2e:update   # regenerate visual baselines
 ```
 
-The unit suite covers props/ARIA/wiring in jsdom; the Playwright suite runs against the built demo app in a real browser (infinite scroll, floating positioning, focus management, full form flows) plus per-route visual baselines under `tests/e2e/__screenshots__`.
+The unit suite covers props/ARIA/wiring in jsdom; the Playwright suite runs against the built demo app in a real browser — a desktop Chromium project (infinite scroll, floating positioning, focus management, full form flows, pinned-column geometry, CSV downloads, visual baselines) plus a **Pixel 7 mobile project** (bottom-sheet behavior, 16px inputs, coarse-pointer ergonomics).
 
 ## Demo app
 
@@ -266,16 +312,18 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/` | overview + philosophy |
 | `/input` | labels, icons, actions, variants, zod-as-you-type, sizes, skeletons |
 | `/button` | variants, icons, loading, shared size scale |
-| `/selection` | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase |
-| `/data-table` | sorting, search, selection, pagination, column visibility, 10k virtual rows |
+| `/selection` | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets |
+| `/data-table` | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows |
 | `/toggles` | checkbox / radio / switch with zod |
 | `/validation` | a complete form driven by one zod object schema + timing-mode playground |
 | `/pagination` | the infinite-scroll REST guide with live examples |
 | `/skeletons` | every skeleton, every size |
 
+The demo app itself doubles as the deployment reference: it prerenders every page to static HTML (adapter-node serves the pages statically and keeps the `/api` mock endpoints dynamic), ships per-route code splitting via rolldown `codeSplitting` groups (the table engine only downloads on `/data-table`; icons and the sui root helpers live in one cached chunk each), self-hosts the latin subset of Inter (48 KB woff2, preloaded — not the 232 KB all-subsets bundle), and wires the full SEO set per route: meta description, canonical, Open Graph/Twitter cards, `robots.txt` and a generated `sitemap.xml`. Copy any of it from `src/lib/demo/seo.svelte`, `src/lib/demo/site.ts` and `vite.config.ts`.
+
 ## Credits
 
-Built on [shadcn-svelte](https://shadcn-svelte.com) (design system + 58 primitives), [bits-ui](https://bits-ui.com) (headless behaviors), [TanStack Table](https://tanstack.com/table) + [TanStack Virtual](https://tanstack.com/virtual), and [zod](https://zod.dev). Icons by [lucide](https://lucide.dev).
+Built on [shadcn-svelte](https://shadcn-svelte.com) (design system; sui keeps the 10 primitives it actually uses — button, popover, command, select, checkbox, switch, radio-group, dropdown-menu, badge, drawer), [bits-ui](https://bits-ui.com) (headless behaviors), [vaul-svelte](https://vaul-svelte.com) (mobile bottom sheets), [TanStack Table](https://tanstack.com/table) + [TanStack Virtual](https://tanstack.com/virtual), and [zod](https://zod.dev). Icons by [lucide](https://lucide.dev).
 
 ## License
 
