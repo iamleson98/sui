@@ -103,5 +103,10 @@ test('coarse-pointer ergonomics: no tap highlight, no double-tap zoom delay', as
 	// Chromium sometimes serializes the (correctly transparent) tap
 	// highlight as '' — accept the transparent serializations only
 	expect(['', 'rgba(0, 0, 0, 0)', 'transparent']).toContain(styles.tap);
-	expect(styles.touch).toBe('manipulation');
+	// With several vendor stylesheets in play the first computed-style read
+	// can land mid-recalc and report '' — poll until the browser settles
+	// instead of racing it (the value itself is deterministic).
+	await expect
+		.poll(() => trigger.evaluate((el) => getComputedStyle(el).touchAction), { timeout: 3_000 })
+		.toBe('manipulation');
 });

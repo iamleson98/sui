@@ -318,12 +318,13 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/validation` | a complete form driven by one zod object schema + timing-mode playground |
 | `/pagination` | the infinite-scroll REST guide with live examples |
 | `/skeletons` | every skeleton, every size |
+| `/showcase` | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit |
 
 The demo app itself doubles as the deployment reference: it prerenders every page to static HTML (adapter-node serves the pages statically and keeps the `/api` mock endpoints dynamic), ships per-route code splitting via rolldown `codeSplitting` groups (the table engine only downloads on `/data-table`; icons and the sui root helpers live in one cached chunk each), self-hosts the latin subset of Inter (48 KB woff2, preloaded — not the 232 KB all-subsets bundle), and wires the full SEO set per route: meta description, canonical, Open Graph/Twitter cards, `robots.txt` and a generated `sitemap.xml`. Copy any of it from `src/lib/demo/seo.svelte`, `src/lib/demo/site.ts` and `vite.config.ts`.
 
 ## Credits
 
-Built on [shadcn-svelte](https://shadcn-svelte.com) (design system; sui keeps the 10 primitives it actually uses — button, popover, command, select, checkbox, switch, radio-group, dropdown-menu, badge, drawer), [bits-ui](https://bits-ui.com) (headless behaviors), [vaul-svelte](https://vaul-svelte.com) (mobile bottom sheets), [TanStack Table](https://tanstack.com/table) + [TanStack Virtual](https://tanstack.com/virtual), and [zod](https://zod.dev). Icons by [lucide](https://lucide.dev).
+Built on [shadcn-svelte](https://shadcn-svelte.com) (design system; the sui primitives wrap the 10 controls they need, and the `/showcase` app installs the rest of the registry — sidebar, charts, calendar, carousel, sonner, …), [bits-ui](https://bits-ui.com) (headless behaviors), [vaul-svelte](https://vaul-svelte.com) (mobile bottom sheets), [LayerChart](https://layerchart.com) (the chart primitives behind shadcn-svelte charts), [TanStack Table](https://tanstack.com/table) + [TanStack Virtual](https://tanstack.com/virtual), and [zod](https://zod.dev). Icons by [lucide](https://lucide.dev).
 
 ## License
 
