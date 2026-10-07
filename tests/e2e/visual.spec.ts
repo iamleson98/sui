@@ -40,9 +40,25 @@ test('visual baseline: open select menu', async ({ page }) => {
 
 test('visual baseline: validation errors', async ({ page }) => {
         await page.goto('/validation');
-        await page.getByRole('button', { name: 'Create account' }).click();
-        // zod messages for every required field (scoped: the page's code sample
-        // quotes the same strings)
-        await expect(page.locator('form').getByText('Pick a role')).toBeVisible();
+        // the page renders two forms — stamp errors on the manual-wiring one
+        // (a plain <form>; scoped also because the page's code samples quote
+        // the same messages)
+        const form = page.locator('form:not([data-sui-form])');
+        await form.getByRole('button', { name: 'Create account' }).click();
+        await expect(form.getByText('Pick a role')).toBeVisible();
         await expect(page).toHaveScreenshot('validation-errors.png');
+});
+
+test('visual baseline: validation (schema-driven)', async ({ page }) => {
+        await page.goto('/validation');
+        // failed submit on the createSuiForm flagship: error summary + every
+        // inline message revealed (the summary links quote the same strings,
+        // so assert the inline message element)
+        const form = page.locator('form[data-sui-form]');
+        await form.getByRole('button', { name: 'Create account' }).click();
+        await expect(page.locator('#account-error-summary')).toBeVisible();
+        await expect(
+                form.locator("[data-sui-field-message]", { hasText: 'Pick a role' })
+        ).toBeVisible();
+        await expect(page).toHaveScreenshot('validation-schema-form.png');
 });

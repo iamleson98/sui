@@ -92,6 +92,8 @@ import {
 
 One zod object schema drives the whole form. `createSuiForm` returns a reactive form instance; pass its field handles to any sui control through the `field` prop and everything wires itself — values, validation timing, error display, submit parsing, even focus management:
 
+> **Client-side first.** All validation runs in the browser — `handleSubmit` parses the schema before your `onsubmit` callback ever runs. There is deliberately no server-side validation integration (no form actions, no superforms-style server round-trip) yet; the `setErrors` API and the throw-a-`ZodError` pattern are generic escape hatches for merging errors that *your own* submit code produces (e.g. a backend rejection) back onto fields.
+
 ```svelte
 <script lang="ts">
   import { createSuiForm, SuiForm } from '$lib/sui';
@@ -144,7 +146,7 @@ That's the whole feature — the application code never calls `safeParse`, never
 The timing follows the same research as the per-field mode (Baymard / react-hook-form `onTouched` / superforms `auto`), extended to the whole-schema level the way superforms and react-hook-form do it:
 
 - **Pristine fields are never scolded.** Errors display only on *revealed* fields — a field reveals on its first blur, on a discrete change (select/combobox/multi-select/checkbox/radio/switch — every interaction is a completed answer), or after a failed submit.
-- **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to *any* field, so cross-field rules (password ≠ confirm) stay fresh the moment the *other* field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet.
+- **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to *any* field, so cross-field rules (password ≠ confirm) stay fresh the moment the *other* field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet. One zod caveat to know: `.refine` callbacks only run when the object *shape* parses — while other fields are still invalid, cross-field errors wait quietly (standard zod behavior; same gotcha as superforms).
 - **A failed submit reveals every invalid field at once** and, from then on, any edit re-validates instantly (react-hook-form `isSubmitted` semantics). `<SuiForm>` additionally moves focus to the first invalid control on desktop (WCAG 3.3.1) and only scroll-snaps to it on mobile, where focus would open the on-screen keyboard and hide the message.
 - **Server errors taint-clear.** `form.setErrors({ email: 'Already registered' })` displays immediately and survives blurring — but the first edit of that field hands display back to the schema, so stale server messages never linger (superforms tainted-field behavior).
 

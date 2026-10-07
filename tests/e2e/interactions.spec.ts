@@ -100,8 +100,8 @@ test.describe("select / combobox / multi-select", () => {
     // the clear button must live outside the trigger (no nested buttons)
     expect(
       await clear.evaluate((el) => {
-	const ancestor = el.closest("button");
-	return ancestor !== null && ancestor !== el;
+        const ancestor = el.closest("button");
+        return ancestor !== null && ancestor !== el;
       }),
     ).toBe(false);
     await clear.click();
@@ -389,10 +389,12 @@ test.describe("full form + zod submit flow", () => {
     page,
   }) => {
     await page.goto("/validation");
-    // scope to the form: the demo's code sample quotes the same messages
-    const form = page.locator("form");
+    // the page renders two forms — target the manual-wiring one (a plain
+    // <form>); its code sample also quotes the same messages, so stay inside
+    // the form element
+    const form = page.locator('form:not([data-sui-form])');
 
-    await page.getByRole("button", { name: "Create account" }).click();
+    await form.getByRole("button", { name: "Create account" }).click();
     await expect(
       form.getByText("Name must be at least 2 characters"),
     ).toBeVisible();
@@ -400,17 +402,17 @@ test.describe("full form + zod submit flow", () => {
     await expect(form.getByText("Select at least one topic")).toBeVisible();
 
     // fill everything correctly
-    await page.getByLabel("Name").fill("Minh Nguyen");
-    await page.getByLabel("Email").fill("minh@example.com");
-    await page.getByRole("button", { name: "Role" }).click();
+    await form.getByLabel("Name").fill("Minh Nguyen");
+    await form.getByLabel("Email").fill("minh@example.com");
+    await form.getByRole("button", { name: "Role" }).click();
     await page.getByRole("option", { name: "Admin" }).click();
-    await page.getByRole("combobox", { name: /topics/i }).click();
+    await form.getByRole("combobox", { name: /topics/i }).click();
     await page.getByRole("option", { name: "Svelte", exact: true }).click();
     await page.getByRole("option", { name: "UI design", exact: true }).click();
     await page.keyboard.press("Escape");
-    await page.getByLabel(/accept the terms/i).check();
+    await form.getByLabel(/accept the terms/i).check();
 
-    await page.getByRole("button", { name: "Create account" }).click();
+    await form.getByRole("button", { name: "Create account" }).click();
     await expect(page.getByText(/"name": "Minh Nguyen"/)).toBeVisible();
     await expect(page.getByText(/"role": "admin"/)).toBeVisible();
     await expect(page.getByText(/"topics": \[/)).toBeVisible();
@@ -422,7 +424,10 @@ test.describe("keyboard + a11y", () => {
     page,
   }) => {
     await page.goto("/validation");
-    const name = page.getByLabel("Name"); // label text is "Name *"
+    // the page renders two identical forms — target the manual-wiring one
+    const name = page
+      .locator('form:not([data-sui-form])')
+      .getByLabel("Name"); // label text is "Name *"
     await name.fill("x");
     await name.fill("");
     await name.blur();
@@ -493,9 +498,9 @@ test.describe("focus, clear geometry and layout regressions", () => {
       const c = clear.getBoundingClientRect();
       const s = chevron.getBoundingClientRect();
       return {
-	clearRightGap: t.right - c.right, // ✕ near the border (was 32+ dead)
-	chevronRightGap: t.right - s.right, // chevron is the rightmost glyph
-	chevronLeftOfClearGap: s.left - c.right, // small gap between ✕ and chevron
+        clearRightGap: t.right - c.right, // ✕ near the border (was 32+ dead)
+        chevronRightGap: t.right - s.right, // chevron is the rightmost glyph
+        chevronLeftOfClearGap: s.left - c.right, // small gap between ✕ and chevron
       };
     });
     // ✕ close to the end border, chevron rightmost, both separated by a hair
@@ -534,13 +539,15 @@ test.describe("focus, clear geometry and layout regressions", () => {
 });
 
 test.describe("validation timing (blur-first, then eager)", () => {
-  const form = (page: Page) => page.locator("form");
+  // the /validation page renders two forms — these target the manual-wiring
+  // one (a plain <form>); the schema-driven one has its own describe below
+  const form = (page: Page) => page.locator('form:not([data-sui-form])');
 
   test("auto: quiet while typing, validates on blur, revalidates on change", async ({
     page,
   }) => {
     await page.goto("/validation");
-    const email = page.getByLabel("Email");
+    const email = form(page).getByLabel("Email");
 
     // typing a first answer stays quiet — no premature scolding
     await email.fill("nope");
@@ -559,7 +566,7 @@ test.describe("validation timing (blur-first, then eager)", () => {
     page,
   }) => {
     await page.goto("/validation");
-    const role = page.getByRole("button", { name: "Role" });
+    const role = form(page).getByRole("button", { name: "Role" });
 
     await role.focus();
     await role.blur();
@@ -572,13 +579,13 @@ test.describe("validation timing (blur-first, then eager)", () => {
     await page.goto("/validation");
 
     // failed submit stamps every error
-    await page.getByRole("button", { name: "Create account" }).click();
+    await form(page).getByRole("button", { name: "Create account" }).click();
     await expect(
       form(page).getByText("Name must be at least 2 characters"),
     ).toBeVisible();
 
     // fixing ONE field clears just that error — the rest stay
-    await page.getByLabel("Name").fill("Ada Lovelace");
+    await form(page).getByLabel("Name").fill("Ada Lovelace");
     await expect(
       form(page).getByText("Name must be at least 2 characters"),
     ).toBeHidden();
@@ -589,10 +596,143 @@ test.describe("validation timing (blur-first, then eager)", () => {
     page,
   }) => {
     await page.goto("/validation");
-    await page.getByRole("button", { name: "Create account" }).click();
+    await form(page).getByRole("button", { name: "Create account" }).click();
     await expect(form(page).getByText("Pick a role")).toBeVisible();
 
-    const name = page.getByLabel("Name");
+    const name = form(page).getByLabel("Name");
     await expect(name).toBeFocused();
+  });
+});
+
+test.describe("schema-driven form (createSuiForm) — client-side validation", () => {
+  // the flagship section renders <SuiForm>, marked with data-sui-form;
+  // everything below happens in the browser — onsubmit only runs after the
+  // client-side schema has already passed
+  const form = (page: Page) => page.locator("form[data-sui-form]");
+  // inline field messages — the error summary links quote the same strings,
+  // so always scope text assertions to [data-sui-field-message]
+  const inlineMessage = (page: Page, text: string) =>
+    form(page).locator("[data-sui-field-message]", { hasText: text });
+
+  test("a failed submit reveals every error, the summary, and focus", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+    const suiForm = form(page);
+
+    // client-side first: an empty submit is rejected in the browser —
+    // onsubmit never runs and every invalid field is revealed at once
+    await suiForm.getByRole("button", { name: "Create account" }).click();
+    const name = suiForm.getByLabel("Name");
+    await expect(name).toBeFocused(); // WCAG 3.3.1 focus management
+    await expect(name).toHaveAttribute("aria-invalid", "true");
+    await expect(suiForm.getByLabel("Email")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    // the error summary lists every invalid field as a focusable link:
+    // name, email, password, role, topics, accept (confirm is valid when empty)
+    const summary = page.locator("#account-error-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary.getByRole("listitem")).toHaveCount(6);
+    await expect(
+      summary.getByRole("link", { name: "Name must be at least 2 characters" }),
+    ).toBeVisible();
+
+    // a summary link focuses its field without hash navigation
+    await summary.getByRole("link", { name: "Enter a valid email" }).click();
+    await expect(suiForm.getByLabel("Email")).toBeFocused();
+  });
+
+  test("pristine fields stay quiet; cross-field refinements stay fresh", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+    const suiForm = form(page);
+    // /^Password/ anchors the match — a plain substring would also hit
+    // "Confirm password"
+    const password = suiForm.getByLabel(/^Password/);
+    const confirm = suiForm.getByLabel(/^Confirm password/);
+    const mismatch = () => inlineMessage(page, "Passwords don't match");
+
+    // make everything else valid first: zod only runs `.refine` when the
+    // object shape parses, so the password/confirm rule needs a valid shape
+    // to speak up at all
+    await suiForm.getByLabel("Name").fill("Ada Lovelace");
+    await suiForm.getByLabel("Email").fill("ada@example.com");
+    await suiForm.getByRole("button", { name: "Role" }).click();
+    await page.getByRole("option", { name: "Admin" }).click();
+    await suiForm.getByRole("combobox", { name: /topics/i }).click();
+    await page.getByRole("option", { name: "Svelte", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await suiForm.getByLabel(/accept the terms/i).check();
+
+    // mid-keystroke a pristine field is never scolded
+    await password.fill("short");
+    await expect(
+      inlineMessage(page, "Use at least 8 characters"),
+    ).toBeHidden();
+
+    // the first blur validates, then every change re-validates
+    await password.blur();
+    await expect(
+      inlineMessage(page, "Use at least 8 characters"),
+    ).toBeVisible();
+    await password.fill("supersecret");
+    await expect(
+      inlineMessage(page, "Use at least 8 characters"),
+    ).toBeHidden();
+
+    // reveal gating: confirm is still pristine — its mismatch stays hidden
+    // even though the refinement already failed on the last password change
+    await confirm.fill("supersecr");
+    await expect(mismatch()).toBeHidden();
+
+    // once revealed, the whole-schema rule speaks up
+    await confirm.blur();
+    await expect(mismatch()).toBeVisible();
+
+    // editing the OTHER field keeps the rule fresh — no blur needed
+    await password.fill("supersecret2");
+    await expect(mismatch()).toBeVisible();
+    await confirm.fill("supersecret2");
+    await expect(mismatch()).toBeHidden();
+  });
+
+  test("submit parses client-side; thrown ZodErrors map back and taint-clear", async ({
+    page,
+  }) => {
+    await page.goto("/validation");
+    const suiForm = form(page);
+
+    // fill a fully valid form (client-side schema passes)
+    await suiForm.getByLabel("Name").fill("Ada Lovelace");
+    await suiForm.getByLabel("Email").fill("taken@example.com");
+    await suiForm.getByLabel(/^Password/).fill("supersecret");
+    await suiForm.getByLabel(/^Confirm password/).fill("supersecret");
+    await suiForm.getByRole("button", { name: "Role" }).click();
+    await page.getByRole("option", { name: "Admin" }).click();
+    await suiForm.getByRole("combobox", { name: /topics/i }).click();
+    await page.getByRole("option", { name: "Svelte", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await suiForm.getByLabel(/accept the terms/i).check();
+
+    // the demo's onsubmit throws a ZodError after its simulated round-trip —
+    // the form maps it onto the email field, no manual parsing anywhere
+    await suiForm.getByRole("button", { name: "Create account" }).click();
+    const taken = inlineMessage(page, "That email is already registered.");
+    await expect(taken).toBeVisible({ timeout: 10_000 });
+
+    // the first edit hands display back to the client-side schema
+    await suiForm.getByLabel("Email").fill("ada@example.com");
+    await expect(taken).toBeHidden();
+
+    // a clean submit delivers the zod-parsed, typed payload to onsubmit
+    await suiForm.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByText(/"name": "Ada Lovelace"/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText(/"email": "ada@example.com"/)).toBeVisible();
   });
 });
