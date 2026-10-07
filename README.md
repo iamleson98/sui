@@ -24,7 +24,17 @@ sui exists to remove boilerplate. A typical form field needs a label, helper tex
 />
 ```
 
-No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll listener code.
+```svelte
+<!-- or wire the ENTIRE form from one zod schema — values, validation
+     timing and error display all automatic -->
+<SuiForm {form}>
+  <SuiInput field={form.fields.email} label="Email" type="email" required />
+  <SuiCheckbox field={form.fields.accept} label="I accept the terms" />
+  <SuiButton type="submit">Create account</SuiButton>
+</SuiForm>
+```
+
+No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll listener code, no manual `safeParse`/error mapping.
 
 ## What's inside
 
@@ -38,13 +48,14 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 | Infinite scroll | `SuiSource`, `offsetSource()`, `cursorSource()`, `SuiInfiniteList`, `observeSentinel()` |
 | Mobile | `suiMobileQuery()` / `SUI_MOBILE_QUERY` — the breakpoint where the select family switches to bottom sheets |
 | Validation | zod v4 helpers — `suiValidate()`, `SuiFieldState` — plus the `schema` prop on every form control |
+| Schema-driven forms | `createSuiForm()`, `<SuiForm>`, `form.fields.*` handles (one zod schema wires values, timing, errors, submit parsing) |
 | Design tokens | `SuiSize` scale + semantic variant maps (`SUI_CONTROL`, `SUI_FIELD_CONTROL`, …) shared by every component |
 
 ## Design principles
 
 1. **One shared size scale.** `size="sm"` on an input, a button, a select trigger and a skeleton all produce exactly the same height. Mixed-size rows line up pixel-for-pixel.
 2. **Semantic color variants.** `variant="info"` (blue, the normal state), `"success"` (green), `"warning"` (yellow) and `"error"` (red) style the **label, border, focus ring and helper text** together, consistently across all form controls. Validation errors always win and force the `error` appearance everywhere.
-3. **zod v4 as the only validation language.** Pass any `ZodType` — a primitive (`z.email(...)`) or a slice of an object schema (`schema.shape.email`) — and the field validates as the user types, with ARIA wiring (`aria-invalid`, `aria-describedby`, `aria-live`) handled for you.
+3. **zod v4 as the only validation language.** Pass any `ZodType` — a primitive (`z.email(...)`) or a slice of an object schema (`schema.shape.email`) — and the field validates as the user types, with ARIA wiring (`aria-invalid`, `aria-describedby`, `aria-live`) handled for you. For whole forms, `createSuiForm(schema)` drives every field from the one schema — no `safeParse`, no error mapping, no per-field refs.
 4. **Labels are props.** `label`, `subText`, `startIcon`, `endIcon`, `action` (an interactive snippet in the field's end slot) exist on every control that can show them.
 5. **Every component has a skeleton.** Same sizes, optional label row: `<SuiInputSkeleton size="sm" label={true} />`.
 6. **REST-native infinite scroll.** Selects, comboboxes and multi-selects take a `source` — a typed async page loader over cursor *or* offset pagination — and load more pages as the user scrolls the option list. See the [pagination guide](#infinite-scroll--rest-pagination).
@@ -77,6 +88,87 @@ import {
 } from '$lib/sui';
 ```
 
+## Schema-driven forms — createSuiForm
+
+One zod object schema drives the whole form. `createSuiForm` returns a reactive form instance; pass its field handles to any sui control through the `field` prop and everything wires itself — values, validation timing, error display, submit parsing, even focus management:
+
+```svelte
+<script lang="ts">
+  import { createSuiForm, SuiForm } from '$lib/sui';
+  import { z, ZodError } from 'zod';
+
+  const schema = z.object({
+    email: z.email('Enter a valid email'),
+    password: z.string().min(8, 'Use at least 8 characters'),
+    confirm: z.string(),
+    accept: z.literal(true, { error: 'Please accept the terms' })
+  }).refine((d) => d.password === d.confirm, {
+    path: ['confirm'], error: "Passwords don't match"
+  });
+
+  const form = createSuiForm(schema, {
+    onsubmit: async (data) => {
+      // data is the zod-parsed, typed, transformed output
+      await api.createAccount(data);
+      // server-side validation failures map straight back onto fields:
+      if (taken(data.email)) throw new ZodError([
+        { code: 'custom', input: data.email, path: ['email'], message: 'Already registered' }
+      ]);
+    }
+  });
+</script>
+
+<SuiForm {form}>
+  {#if form.hasErrors}<SuiErrorSummary errors={form.errorSummary} id="errors" />{/if}
+  <SuiInput field={form.fields.email} label="Email" type="email" required />
+  <SuiInput field={form.fields.password} label="Password" type="password" required />
+  <SuiInput field={form.fields.confirm} label="Confirm" type="password" required />
+  <SuiCheckbox field={form.fields.accept} label="I accept the terms" required />
+  <SuiButton type="submit" loading={form.isSubmitting}>Create account</SuiButton>
+</SuiForm>
+```
+
+That's the whole feature — the application code never calls `safeParse`, never maps `issue.path`, never threads `errors` props or `bind:this` refs.
+
+### Options
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `initialValues` | schema-derived | Seed values layered over smart defaults: `''` for strings, `false` for booleans, `[]` for arrays, `{}` for nested objects, `z.default()` values, `undefined` for enums/literals/numbers |
+| `validateOn` | `'auto'` | Form-wide timing — `auto` (blur first, then eager), `blur`, `change`, `both`, `none` |
+| `debounce` | `0` | Debounce (ms) for change-driven validation |
+| `onsubmit` | — | Receives the parsed output; throw a `ZodError` to map server issues back onto fields (any other error becomes `form.formErrors`) |
+
+### Smart semantics (research-backed)
+
+The timing follows the same research as the per-field mode (Baymard / react-hook-form `onTouched` / superforms `auto`), extended to the whole-schema level the way superforms and react-hook-form do it:
+
+- **Pristine fields are never scolded.** Errors display only on *revealed* fields — a field reveals on its first blur, on a discrete change (select/combobox/multi-select/checkbox/radio/switch — every interaction is a completed answer), or after a failed submit.
+- **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to *any* field, so cross-field rules (password ≠ confirm) stay fresh the moment the *other* field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet.
+- **A failed submit reveals every invalid field at once** and, from then on, any edit re-validates instantly (react-hook-form `isSubmitted` semantics). `<SuiForm>` additionally moves focus to the first invalid control on desktop (WCAG 3.3.1) and only scroll-snaps to it on mobile, where focus would open the on-screen keyboard and hide the message.
+- **Server errors taint-clear.** `form.setErrors({ email: 'Already registered' })` displays immediately and survives blurring — but the first edit of that field hands display back to the schema, so stale server messages never linger (superforms tainted-field behavior).
+
+### Reactive form state
+
+```ts
+form.values                    // live, deeply reactive — edit directly
+form.fields.email              // handle: .value, .errors, .invalid, .touched, .dirty
+form.field('address.city')     // nested paths use dotted keys
+form.isValid                   // silent full-schema check (no display changes)
+form.formErrors                // root-level refine errors
+form.errorSummary              // ready-made entries for <SuiErrorSummary>
+form.isSubmitting / isSubmitted / submitCount
+
+// programmatic control
+form.validate()                // full validation, reveals everything
+form.setErrors({ email: ['Taken'] })   // server errors ('' or '_form' = form-level)
+form.setValues({ email: 'a@b.co' })    // silent merge
+form.reset()                   // values → defaults, state forgotten
+form.handleSubmit(event)       // manual submit handler for plain <form> elements
+```
+
+Nested object schemas work with dotted paths: `form.fields['address']` binds the whole sub-object, `form.field('address.city')` reaches one leaf. Schemas must be synchronous — move async checks (username availability, …) into `onsubmit`.
+
 ## Form controls
 
 All form controls share this core API:
@@ -89,12 +181,13 @@ All form controls share this core API:
 | `variant` | `'info' \| 'success' \| 'warning' \| 'error'` | Semantic color state (default `info`) |
 | `startIcon` / `endIcon` | lucide component | Icons inside the field |
 | `action` | `Snippet` | Interactive content in the field's end slot (buttons, availability checks, …) |
-| `schema` | `ZodType` | Validated per `validateOn` timing (see below) |
+| `schema` | `ZodType` | Validated per `validateOn` timing (see below). Ignored when `field` is set |
+| `field` | `SuiFieldHandle` | **Schema-driven wiring** — a field handle from `createSuiForm` (`form.fields.email`). Takes over the value, validation timing and error display; `bind:value`/`schema`/`errors` become unnecessary (see [Schema-driven forms](#schema-driven-forms--createSuiform)) |
 | `validateOn` | `'auto' \| 'change' \| 'blur' \| 'both' \| 'none'` | When the schema runs — `auto` for text fields, `both` for pickers/toggles (defaults) |
 | `errors` | `string[]` | External errors (server-side validation) — shown until the user edits the field |
 | `required` | `boolean` | Adds the `*` marker and `aria-required` |
 
-Every control also exports `validate(): string[]` and `reset()` methods for submit-time flows:
+Every control also exports `validate(): string[]` and `reset()` methods — useful when you wire fields **manually** (per-field `schema` props instead of `createSuiForm`):
 
 ```svelte
 <script lang="ts">
@@ -296,7 +389,7 @@ Every interactive component has a size-matched skeleton with the same public siz
 sui ships with the two-tier test setup the library itself uses:
 
 ```sh
-npm run test              # vitest + @testing-library/svelte (208 unit tests)
+npm run test              # vitest + @testing-library/svelte (235 unit tests)
 npm run test:e2e          # Playwright: desktop + mobile projects (44 tests)
 npm run test:e2e:update   # regenerate visual baselines
 ```
@@ -315,7 +408,7 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/selection` | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets |
 | `/data-table` | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows |
 | `/toggles` | checkbox / radio / switch with zod |
-| `/validation` | a complete form driven by one zod object schema + timing-mode playground |
+| `/validation` | a schema-driven `createSuiForm` form (cross-field refinement, server-error mapping, error summary) + the manual per-field-schema form + timing-mode playground |
 | `/pagination` | the infinite-scroll REST guide with live examples |
 | `/skeletons` | every skeleton, every size |
 | `/showcase` | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit |

@@ -18,15 +18,6 @@
  * Call AFTER the DOM has settled — in a submit handler, `await tick()`
  * between updating error state and calling this, so the fresh
  * `data-invalid` attributes are painted.
- *
- * ```svelte
- * <form
- *   onsubmit={(e) => {
- *     e.preventDefault();
- *     if (!validateAll()) { await tick(); focusFirstInvalid(e.currentTarget); }
- *   }}
- * />
- * ```
  */
 export function focusFirstInvalid(root: ParentNode): boolean {
 	const candidates = root.querySelectorAll<HTMLElement>(
