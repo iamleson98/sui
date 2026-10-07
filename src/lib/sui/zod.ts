@@ -1,18 +1,17 @@
-import type { ZodType } from 'zod';
+import { suiParse, type SuiSchemaLike } from './form/schema.js';
 
 /**
- * Parses a value against a zod v4 schema and returns deduplicated,
- * user-facing error messages. Returns an empty array when the schema
- * is missing or the value is valid.
+ * Parses a value against any supported schema (zod v4, or any Standard
+ * Schema v1 vendor) and returns deduplicated, user-facing error messages.
+ * Returns an empty array when the schema is missing or the value is valid.
  */
-export function suiValidate(schema: ZodType | undefined, value: unknown): string[] {
+export function suiValidate(schema: SuiSchemaLike | undefined, value: unknown): string[] {
 	if (!schema) return [];
-	const result = schema.safeParse(value);
-	if (result.success) return [];
+	const result = suiParse(schema, value, 'sui');
+	if (result.ok) return [];
 	const messages: string[] = [];
-	for (const issue of result.error.issues) {
-		const message = issue.message || 'Invalid value';
-		if (!messages.includes(message)) messages.push(message);
+	for (const issue of result.issues) {
+		if (!messages.includes(issue.message)) messages.push(issue.message);
 	}
 	return messages;
 }

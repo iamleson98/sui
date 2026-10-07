@@ -93,7 +93,7 @@ import {
 
 ## Schema-driven forms — createSuiForm
 
-One zod object schema drives the whole form. `createSuiForm` returns a reactive form instance; pass its field handles to any sui control through the `field` prop and everything wires itself — values, validation timing, error display, submit parsing, even focus management:
+One schema drives the whole form — zod v4 is the blessed path (smart defaults + precise field typing), and any [Standard Schema v1](https://standardschema.dev) vendor (Valibot, ArkType, Effect) works at the same boundary. `createSuiForm` returns a reactive form instance; pass its field handles to any sui control through the `field` prop and everything wires itself — values, validation timing, error display, async validators, submit parsing, even focus management:
 
 > **Client-side first.** All validation runs in the browser — `handleSubmit` parses the schema before your `onsubmit` callback ever runs. There is deliberately no server-side validation integration (no form actions, no superforms-style server round-trip) yet; the `setErrors` API and the throw-a-`ZodError` pattern are generic escape hatches for merging errors that _your own_ submit code produces (e.g. a backend rejection) back onto fields.
 
@@ -115,10 +115,18 @@ One zod object schema drives the whole form. `createSuiForm` returns a reactive 
 		});
 
 	const form = createSuiForm(schema, {
+		// centralised copy / i18n — rescues vendor default messages
+		messages: { email: 'Enter an address like name@example.com' },
+		// async validators: debounced, cancellable, submit-flushed
+		asyncValidators: {
+			email: async (v) => (await api.available(v)) || 'Already registered'
+		},
+		rewardValid: true, // green "reward early" ring on valid fields
 		onsubmit: async (data) => {
-			// data is the zod-parsed, typed, transformed output
+			// data is the parsed, typed, transformed output
 			await api.createAccount(data);
-			// server-side validation failures map straight back onto fields:
+			// server-side validation failures map straight back onto
+			// fields (ZodError, or any issue-carrying error):
 			if (taken(data.email))
 				throw new ZodError([
 					{ code: 'custom', input: data.email, path: ['email'], message: 'Already registered' }
@@ -127,7 +135,9 @@ One zod object schema drives the whole form. `createSuiForm` returns a reactive 
 	});
 </script>
 
-<SuiForm {form}>
+<!-- showFormErrors renders form.formErrors (root refines, server-level
+     rejections) as a focusable banner above the content -->
+<SuiForm {form} showFormErrors>
 	{#if form.hasErrors}<SuiErrorSummary errors={form.errorSummary} id="errors" />{/if}
 	<SuiInput field={form.fields.email} label="Email" type="email" required />
 	<SuiInput field={form.fields.password} label="Password" type="password" required />
@@ -141,12 +151,19 @@ That's the whole feature — the application code never calls `safeParse`, never
 
 ### Options
 
-| Option          | Default        | Notes                                                                                                                                                                                   |
-| --------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `initialValues` | schema-derived | Seed values layered over smart defaults: `''` for strings, `false` for booleans, `[]` for arrays, `{}` for nested objects, `z.default()` values, `undefined` for enums/literals/numbers |
-| `validateOn`    | `'auto'`       | Form-wide timing — `auto` (blur first, then eager), `blur`, `change`, `both`, `none`                                                                                                    |
-| `debounce`      | `0`            | Debounce (ms) for change-driven validation                                                                                                                                              |
-| `onsubmit`      | —              | Receives the parsed output; throw a `ZodError` to map server issues back onto fields (any other error becomes `form.formErrors`)                                                        |
+| Option            | Default        | Notes                                                                                                                                                                                   |
+| ----------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `initialValues`   | schema-derived | Seed values layered over smart defaults: `''` for strings, `false` for booleans, `[]` for arrays, `{}` for nested objects, `z.default()` values, `undefined` for enums/literals/numbers |
+| `validateOn`      | `'auto'`       | Form-wide timing — `auto` (blur first, then eager), `blur`, `change`, `both`, `none`                                                                                                    |
+| `debounce`        | `0`            | Debounce (ms) for change-driven validation                                                                                                                                              |
+| `fields`          | —              | Per-field overrides merged over the globals: `{ email: { validateOn: 'change', debounce: 150 } }`                                                                                       |
+| `messages`        | —              | Centralised message overrides (copy / i18n), keyed by field path — `''`/`'_form'` for form-level, `'*'` wildcard; string or `(issue) => string`                                         |
+| `asyncValidators` | —              | `{ path: async (value, values) => message or string[] or true }` — run after the sync schema passes, debounced, cancellable, flushed on submit                                          |
+| `asyncDebounce`   | `400`          | Debounce (ms) for async validators (per-field override: `fields.path.asyncDebounce`)                                                                                                    |
+| `checkingMessage` | `'Checking…'`  | Text controls show while a field's async validator runs (spinner included)                                                                                                              |
+| `focusOnSubmit`   | `'summary'`    | Failed-submit focus: `'summary'` (error summary box, GOV.UK pattern) → banner → first invalid field; or `'field'` / `'none'`                                                            |
+| `rewardValid`     | `false`        | Revealed, valid, answered fields earn a subtle success ring ("reward early")                                                                                                            |
+| `onsubmit`        | —              | Receives the parsed output; throw a `ZodError` (or any issue-carrying error) to map server issues back onto fields (any other error becomes `form.formErrors`)                          |
 
 ### Smart semantics (research-backed)
 
@@ -154,18 +171,22 @@ The timing follows the same research as the per-field mode (Baymard / react-hook
 
 - **Pristine fields are never scolded.** Errors display only on _revealed_ fields — a field reveals on its first blur, on a discrete change (select/combobox/multi-select/checkbox/radio/switch — every interaction is a completed answer), or after a failed submit.
 - **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to _any_ field, so cross-field rules (password ≠ confirm) stay fresh the moment the _other_ field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet. One zod caveat to know: `.refine` callbacks only run when the object _shape_ parses — while other fields are still invalid, cross-field errors wait quietly (standard zod behavior; same gotcha as superforms).
-- **A failed submit reveals every invalid field at once** and, from then on, any edit re-validates instantly (react-hook-form `isSubmitted` semantics). `<SuiForm>` additionally moves focus to the first invalid control on desktop (WCAG 3.3.1) and only scroll-snaps to it on mobile, where focus would open the on-screen keyboard and hide the message.
+- **A failed submit reveals every invalid field at once** and, from then on, any edit re-validates instantly (react-hook-form `isSubmitted` semantics). `<SuiForm>` then focuses the error summary box when one is rendered (the GOV.UK pattern — screen readers announce the whole problem list at once, and its links walk users to each field), falling back to the form-error banner, then to the first invalid control on desktop (WCAG 3.3.1); on mobile it scroll-snaps instead, where focus would open the on-screen keyboard and hide the message.
 - **Server errors taint-clear.** `form.setErrors({ email: 'Already registered' })` displays immediately and survives blurring — but the first edit of that field hands display back to the schema, so stale server messages never linger (superforms tainted-field behavior).
+- **Async validators run after the sync schema passes** — debounced (default 400ms), cancelled on new input (latest value wins; in-flight runs for the same value are deduped, so no duplicate network calls), memoised per value, surfaced as a `Checking…` state (`field.isValidating`) and taint-cleared exactly like server errors. A submit **flushes** any stale checks before `onsubmit` runs, so a form is never "submitted valid" while an availability check is still pending.
+- **Message overrides rescue vendor copy.** zod's "Invalid input: expected string, received undefined" is not user copy — `messages: { email: 'Enter an address like name@example.com' }` (string or resolver) fixes it centrally, i18n-ready. Server-side messages are never overridden — server copy is authoritative.
 
 ### Reactive form state
 
 ```ts
 form.values; // live, deeply reactive — edit directly
-form.fields.email; // handle: .value, .errors, .invalid, .touched, .dirty
+form.fields.email; // handle: .value, .errors, .invalid, .touched, .dirty,
+//                .isValidating, .valid, .rewardValid, .checkingMessage
 form.field('address.city'); // nested paths use dotted keys
 form.isValid; // silent full-schema check (no display changes)
-form.formErrors; // root-level refine errors
+form.formErrors; // root refine + server-level errors (render via showFormErrors)
 form.errorSummary; // ready-made entries for <SuiErrorSummary>
+form.isValidating; // paths with async validators currently running
 form.isSubmitting / isSubmitted / submitCount;
 
 // programmatic control
@@ -174,9 +195,14 @@ form.setErrors({ email: ['Taken'] }); // server errors ('' or '_form' = form-lev
 form.setValues({ email: 'a@b.co' }); // silent merge
 form.reset(); // values → defaults, state forgotten
 form.handleSubmit(event); // manual submit handler for plain <form> elements
+
+// server payloads → setErrors shape, one line:
+import { suiErrors } from '$lib/sui';
+form.setErrors(suiErrors.fromResponse(await response.json()));
+// or .fromIssues(issues) / .fromZodError(error)
 ```
 
-Nested object schemas work with dotted paths: `form.fields['address']` binds the whole sub-object, `form.field('address.city')` reaches one leaf. Schemas must be synchronous — move async checks (username availability, …) into `onsubmit`.
+Nested object schemas work with dotted paths: `form.fields['address']` binds the whole sub-object, `form.field('address.city')` reaches one leaf. Sync schemas are parsed on every trigger (~1.4 µs/parse for a 9-field schema — the whole-schema-per-keystroke design is effectively free); async checks belong in `asyncValidators` (field-level, debounced, checking state) or `onsubmit` (submit-time). Non-zod schemas derive no smart defaults — pass `initialValues`.
 
 ## Form controls
 
@@ -185,12 +211,12 @@ All form controls share this core API:
 | Prop                    | Type                                               | Notes                                                                                                                                                                                                                                                               |
 | ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `label`                 | `string \| Snippet`                                | Rendered above the field, associated for screen readers                                                                                                                                                                                                             |
-| `subText`               | `string`                                           | Muted helper text below the field                                                                                                                                                                                                                                   |
+| `subText`               | `string`                                           | Helper text below the field — stays visible (and `aria-describedby`-associated) when errors appear, per GOV.UK                                                                                                                                                      |
 | `size`                  | `'sm' \| 'md' \| 'lg'`                             | Shared height/typography scale (default `md`)                                                                                                                                                                                                                       |
 | `variant`               | `'info' \| 'success' \| 'warning' \| 'error'`      | Semantic color state (default `info`)                                                                                                                                                                                                                               |
 | `startIcon` / `endIcon` | lucide component                                   | Icons inside the field                                                                                                                                                                                                                                              |
 | `action`                | `Snippet`                                          | Interactive content in the field's end slot (buttons, availability checks, …)                                                                                                                                                                                       |
-| `schema`                | `ZodType`                                          | Validated per `validateOn` timing (see below). Ignored when `field` is set                                                                                                                                                                                          |
+| `schema`                | zod or any Standard Schema                         | Validated per `validateOn` timing (see below). Ignored when `field` is set                                                                                                                                                                                          |
 | `field`                 | `SuiFieldHandle`                                   | **Schema-driven wiring** — a field handle from `createSuiForm` (`form.fields.email`). Takes over the value, validation timing and error display; `bind:value`/`schema`/`errors` become unnecessary (see [Schema-driven forms](#schema-driven-forms--createSuiform)) |
 | `name`                  | `string`                                           | Registers the control for `createSuiSubmitter` orchestration — the schema path it maps to. Ignored when `field` is set                                                                                                                                              |
 | `validateOn`            | `'auto' \| 'change' \| 'blur' \| 'both' \| 'none'` | When the schema runs — `auto` for text fields, `both` for pickers/toggles (defaults)                                                                                                                                                                                |
@@ -218,7 +244,7 @@ Keep your own `bind:value` state and still delete the whole hand-rolled submit h
 </form>
 ```
 
-A failed submit highlights every invalid field at once (editing one clears just its error, no re-submit needed) and focus lands on the first problem — scrolled into view on touch devices. A `ZodError` thrown from `onvalid` maps back onto fields exactly like `createSuiForm`'s `onsubmit`; root refine issues collect in `submit.formErrors`. Because this mode keeps the values in your hands, it composes with non-sui fields and page-owned state; when the form engine can own the values, prefer `createSuiForm`.
+A failed submit highlights every invalid field at once (editing one clears just its error, no re-submit needed) and focus lands on the error summary when one is rendered, else the first problem — scrolled into view on touch devices. A `ZodError` (or any issue-carrying error) thrown from `onvalid` maps back onto fields exactly like `createSuiForm`'s `onsubmit`; root refine issues collect in `submit.formErrors`. The submitter accepts the same `messages` copy map, and its `focusOnSubmit` option (`'summary' | 'field' | 'none'`) mirrors the form engine's. Because this mode keeps the values in your hands, it composes with non-sui fields and page-owned state; when the form engine can own the values, prefer `createSuiForm`.
 
 Controls bound to a `field` handle ignore `name` — the engine already drives them. Individual fields can still validate standalone via the `schema` prop (see [Validation timing](#validation-timing)); every control also exports `validate(): string[]` and `reset()` methods for fully manual wiring.
 
@@ -388,10 +414,13 @@ Every interactive component has a size-matched skeleton with the same public siz
 
 - labels bound to controls (`for`/`id`), required markers with `sr-only` text
 - `aria-invalid` + `aria-describedby` + `aria-live` on every field message
+- **persistent live regions** — each field's message region is mounted empty before any message exists, so the first announcement is never silently dropped (the classic live-region-created-with-content failure in NVDA/JAWS/VoiceOver)
+- **hint + error coexistence** (GOV.UK / WCAG 3.3.2): `subText` keeps its own id and stays visible when errors appear; `aria-describedby` references both ids in reading order
 - combobox pattern with `role="combobox"` triggers, `listbox`/`option` roles, `aria-expanded`
 - table headers are sortable buttons with `aria-sort`; selection uses real checkboxes with `aria-label`s
 - loading indicators expose `role="status"`; fetch failures use `role="alert"`
-- `SuiErrorSummary` + `focusFirstInvalid()` implement the WCAG 3.3.1 failed-submit pattern (one error box, focus the first invalid control)
+- `SuiErrorSummary` (focusable, `tabindex="-1"`) + `focusFirstInvalid()` implement the WCAG 3.3.1 / GOV.UK failed-submit pattern: the summary box receives focus and announces the whole problem list; its links focus each field without hash navigation
+- async validation exposes a visible `Checking…` state (spinner + text) so its latency is never invisible
 - mobile sheets are vaul dialogs with `aria-modal`, labelled by the field label, keyboard-dismissable
 
 ## Testing
@@ -399,8 +428,8 @@ Every interactive component has a size-matched skeleton with the same public siz
 sui ships with the two-tier test setup the library itself uses:
 
 ```sh
-npm run test              # vitest + @testing-library/svelte (235 unit tests)
-npm run test:e2e          # Playwright: desktop + mobile projects (44 tests)
+npm run test              # vitest + @testing-library/svelte (310 unit tests)
+npm run test:e2e          # Playwright: desktop + mobile projects (50 tests)
 npm run test:e2e:update   # regenerate visual baselines
 ```
 
@@ -410,18 +439,18 @@ The unit suite covers props/ARIA/wiring in jsdom; the Playwright suite runs agai
 
 The repo's routes are a live showcase of every component — run `npm run dev` and browse:
 
-| Route         | Shows                                                                                                                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/`           | overview + philosophy                                                                                                                                                                                        |
-| `/input`      | labels, icons, actions, variants, zod-as-you-type, sizes, skeletons                                                                                                                                          |
-| `/button`     | variants, icons, loading, shared size scale                                                                                                                                                                  |
-| `/selection`  | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets                                                                                           |
-| `/data-table` | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows                                                                                                      |
-| `/toggles`    | checkbox / radio / switch with zod                                                                                                                                                                           |
-| `/validation` | a schema-driven `createSuiForm` form (cross-field refinement, server-error mapping, error summary) + a hand-wired `createSuiSubmitter` form + per-field timing playground                                    |
-| `/pagination` | the infinite-scroll REST guide with live examples                                                                                                                                                            |
-| `/skeletons`  | every skeleton, every size                                                                                                                                                                                   |
-| `/showcase`   | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit |
+| Route         | Shows                                                                                                                                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`           | overview + philosophy                                                                                                                                                                                                                                             |
+| `/input`      | labels, icons, actions, variants, zod-as-you-type, sizes, skeletons                                                                                                                                                                                               |
+| `/button`     | variants, icons, loading, shared size scale                                                                                                                                                                                                                       |
+| `/selection`  | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets                                                                                                                                                |
+| `/data-table` | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows                                                                                                                                                           |
+| `/toggles`    | checkbox / radio / switch with zod                                                                                                                                                                                                                                |
+| `/validation` | a schema-driven `createSuiForm` form (async availability check with live `Checking…` state, message overrides, form-error banner, GOV.UK summary focus, reward ring, server-error mapping) + a hand-wired `createSuiSubmitter` form + per-field timing playground |
+| `/pagination` | the infinite-scroll REST guide with live examples                                                                                                                                                                                                                 |
+| `/skeletons`  | every skeleton, every size                                                                                                                                                                                                                                        |
+| `/showcase`   | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit                                                      |
 
 The demo app itself doubles as the deployment reference: it prerenders every page to static HTML (adapter-node serves the pages statically and keeps the `/api` mock endpoints dynamic), ships per-route code splitting via rolldown `codeSplitting` groups (the table engine only downloads on `/data-table`; icons and the sui root helpers live in one cached chunk each), self-hosts the latin subset of Inter (48 KB woff2, preloaded — not the 232 KB all-subsets bundle), and wires the full SEO set per route: meta description, canonical, Open Graph/Twitter cards, `robots.txt` and a generated `sitemap.xml`. Copy any of it from `src/lib/demo/seo.svelte`, `src/lib/demo/site.ts` and `vite.config.ts`.
 

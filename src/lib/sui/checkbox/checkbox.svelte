@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
-	import type { ZodType } from 'zod';
+	import type { SuiSchemaLike } from '../form/schema.js';
 	import type { SuiFieldVariant, SuiSize } from '../types.js';
 	import type { SuiFieldHandle } from '../form/index.js';
 
@@ -13,7 +13,7 @@
 		size?: SuiSize;
 		variant?: SuiFieldVariant;
 		/** zod v4 schema (typically `z.boolean()`). Ignored when `field` is set. */
-		schema?: ZodType;
+		schema?: SuiSchemaLike;
 		/** When to run `schema`. Default `both` (change + blur). */
 		validateOn?: 'auto' | 'change' | 'blur' | 'both' | 'none';
 		errors?: string[];
@@ -101,9 +101,17 @@
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
-	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
+	const effVariant = $derived(
+		suiEffectiveVariant(f?.rewardValid ? 'success' : variant, invalid ? allErrors : undefined)
+	);
+	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
-	const describedBy = $derived(invalid || subText ? messageId : undefined);
+	// hint + error coexist in the description (GOV.UK pattern; the old
+	// derivation pointed at a non-existent id whenever only a hint showed)
+	const describedBy = $derived(
+		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
+			undefined
+	);
 
 	export function validate(): string[] {
 		if (f) return f.validate();
@@ -153,7 +161,7 @@
 		}}
 		{...rest as Record<string, unknown>}
 	/>
-	<div class="flex flex-col gap-0.5">
+	<div class="flex w-full flex-col">
 		{#if label}
 			<label
 				for={id}
@@ -170,21 +178,27 @@
 			</label>
 		{/if}
 		{#if subText}
-			<div class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}">
+			<div
+				id={hintId}
+				data-sui-field-hint
+				class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]} mt-0.5"
+			>
 				{#if typeof subText === 'string'}{subText}{:else}{@render subText()}{/if}
 			</div>
 		{/if}
-		{#if invalid}
-			<div
-				id={messageId}
-				data-sui-field-message
-				class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}"
-				aria-live="polite"
-			>
-				{#each allErrors as error (error)}
-					<div>{error}</div>
-				{/each}
-			</div>
-		{/if}
+		<!-- Persistent live region: mounted before any message appears, so the
+		     first announcement is not silently dropped. Collapses to zero height
+		     while empty. -->
+		<div
+			id={messageId}
+			data-sui-field-message={invalid || undefined}
+			class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}"
+			class:mt-0.5={invalid}
+			aria-live="polite"
+		>
+			{#each allErrors as error (error)}
+				<div>{error}</div>
+			{/each}
+		</div>
 	</div>
 </div>

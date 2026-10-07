@@ -1,15 +1,29 @@
-import { ZodError, type ZodType, type z } from 'zod';
 import type { SuiValidateOn } from '../zod.js';
+import {
+	suiIssuesFromError,
+	suiParse,
+	groupSuiIssues,
+	resolveSuiMessages,
+	type SuiFocusOnSubmit,
+	type SuiIn,
+	type SuiIssue,
+	type SuiMessages,
+	type SuiOut,
+	type SuiSchemaLike
+} from './schema.js';
+
+export type { SuiFocusOnSubmit };
 
 /**
  * Schema-driven form engine.
  *
- * One zod schema drives every field: values, validation timing, error
- * display and submit parsing. Application code never calls
- * `schema.safeParse` or maps `issue.path` to fields — pass a field handle
- * (`form.fields.email`) to any sui control and validation happens by
- * itself, following the researched "reward early, validate late" pattern
- * (Baymard / Adam Silver, react-hook-form `onTouched`, superforms `auto`):
+ * One schema (zod v4 — or any Standard Schema v1 vendor) drives every field:
+ * values, validation timing, error display and submit parsing. Application
+ * code never calls `schema.safeParse` or maps `issue.path` to fields — pass a
+ * field handle (`form.fields.email`) to any sui control and validation
+ * happens by itself, following the researched "reward early, validate late"
+ * pattern (Baymard / Adam Silver, react-hook-form `onTouched`, superforms
+ * `auto`):
  *
  * - a pristine text field is never scolded mid-keystroke — the first blur
  *   validates, then every change re-validates ("auto");
@@ -26,7 +40,10 @@ import type { SuiValidateOn } from '../zod.js';
  * - server errors set via `form.setErrors()` show immediately and are
  *   cleared the moment the user edits that field (superforms tainted
  *   fields);
- * - on success the `onsubmit` callback receives the zod-parsed, typed and
+ * - async validators (availability checks, strength meters) run after the
+ *   sync schema passes, debounced and cancellable, with a `Checking…`
+ *   state on the field and a submit-time flush;
+ * - on success the `onsubmit` callback receives the parsed, typed and
  *   transformed output — no manual parsing anywhere.
  */
 
@@ -39,6 +56,17 @@ import type { SuiValidateOn } from '../zod.js';
  *   answer, so under `'auto'` each change validates immediately.
  */
 export type SuiFormFieldMode = 'text' | 'discrete';
+
+/**
+ * An async validator: resolve with a message (or list of messages) to fail,
+ * or with anything else (`true`, `null`, `undefined`, `void`) to pass. A
+ * rejected validator surfaces its error message on the field — visible
+ * feedback beats silent failure.
+ */
+export type SuiAsyncValidator = (
+	value: unknown,
+	values: Record<string, unknown>
+) => Promise<string | string[] | true | null | undefined | void>;
 
 /**
  * Structural protocol controls consume via their `field` prop. Method
@@ -59,6 +87,18 @@ export type SuiFieldHandle<V = unknown> = {
 	readonly dirty: boolean;
 	/** The control's DOM id — registered by sui controls, used by error summaries. */
 	readonly controlId: string | undefined;
+	/** An async validator for this field is currently running. */
+	readonly isValidating: boolean;
+	/** Text the control shows while checking (from the form's `checkingMessage`). */
+	readonly checkingMessage: string;
+	/**
+	 * The field has been revealed AND currently validates AND holds a
+	 * meaningful value (`''`, `undefined`, `[]` and `false` don't count) —
+	 * the "reward early" signal.
+	 */
+	readonly valid: boolean;
+	/** `valid` gated on the form's `rewardValid` option — drives the success ring. */
+	readonly rewardValid: boolean;
 	/**
 	 * User-driven value change: writes the value, marks dirty/edited and
 	 * runs smart validation. Controls call this instead of assigning `value`.
@@ -76,14 +116,25 @@ export type SuiFieldHandle<V = unknown> = {
 	registerControl(id: string): void;
 };
 
+/** Per-field timing overrides, merged over the form-wide defaults. */
+export type SuiFieldOptions = {
+	/** When this field's schema runs (form-level `validateOn` by default). */
+	validateOn?: SuiValidateOn;
+	/** Debounce (ms) for this field's change validation (form `debounce` by default). */
+	debounce?: number;
+	/** Debounce (ms) for this field's async validator (form `asyncDebounce` by default). */
+	asyncDebounce?: number;
+};
+
 /** Options accepted by {@link createSuiForm}. */
-export type SuiFormOptions<Schema extends ZodType> = {
+export type SuiFormOptions<Schema extends SuiSchemaLike> = {
 	/**
 	 * Seed values layered on top of the schema-derived defaults
 	 * (strings → `''`, booleans → `false`, arrays → `[]`, `z.default()`
-	 * → its value, everything else → `undefined`).
+	 * → its value, everything else → `undefined`). Non-zod schemas derive
+	 * no defaults — pass everything you need here.
 	 */
-	initialValues?: Partial<z.input<Schema>>;
+	initialValues?: Partial<SuiIn<Schema>>;
 	/**
 	 * When validation runs for text fields. `'auto'` (default) = blur
 	 * first, then every change; discrete controls always validate on
@@ -92,24 +143,57 @@ export type SuiFormOptions<Schema extends ZodType> = {
 	validateOn?: SuiValidateOn;
 	/** Debounce (ms) applied to change-driven validation. Default `0`. */
 	debounce?: number;
+	/** Per-field overrides merged over the global timing config. */
+	fields?: Record<string, SuiFieldOptions>;
 	/**
-	 * Called with the zod-parsed output when a submit passes validation.
-	 * Throw a `ZodError` to map server-side issues back onto fields; any
-	 * other thrown error becomes a form-level error.
+	 * Centralised message overrides (copy / i18n rescue layer), keyed by
+	 * field path — `''` / `'_form'` target form-level messages, `'*'`
+	 * matches every field. Applied after issue grouping keys are known.
 	 */
-	onsubmit?: (data: z.output<Schema>, form: SuiFormInstance<Schema>) => void | Promise<void>;
+	messages?: SuiMessages;
+	/**
+	 * Async validators keyed by field path. They run once the sync schema
+	 * passes for that (revealed) field, debounced, cancellable; their
+	 * messages display exactly like server errors and clear on edit.
+	 * Submit flushes any stale checks before calling `onsubmit`.
+	 */
+	asyncValidators?: Record<string, SuiAsyncValidator>;
+	/** Debounce (ms) for async validators. Default `400`. */
+	asyncDebounce?: number;
+	/** Text controls show while an async validator runs. Default `'Checking…'`. */
+	checkingMessage?: string;
+	/**
+	 * Where focus lands after a failed submit: `'summary'` (default) —
+	 * the error summary box (GOV.UK pattern) when one is rendered, else
+	 * the form-error banner, else the first invalid field; `'field'` —
+	 * always the first invalid field; `'none'` — no focus management.
+	 */
+	focusOnSubmit?: SuiFocusOnSubmit;
+	/**
+	 * Reward revealed, valid, non-empty fields with a subtle success ring
+	 * (the "reward early" half of the Baymard pattern). Default `false`.
+	 */
+	rewardValid?: boolean;
+	/**
+	 * Called with the parsed output when a submit passes validation.
+	 * Throw a `ZodError` (or any issue-carrying error) to map server-side
+	 * issues back onto fields; any other thrown error becomes a
+	 * form-level error.
+	 */
+	onsubmit?: (data: SuiOut<Schema>, form: SuiFormInstance<Schema>) => void | Promise<void>;
 };
 
 /**
- * Per-key field handles, typed on the **edit side** (`z.input`) — the
+ * Per-key field handles, typed on the **edit side** (input) — the
  * shape controls bind while the user is typing. Top-level schema keys map
- * straight through; nested paths via `form.field('a.b')`.
+ * straight through (zod schemas; other vendors resolve to `unknown` — use
+ * `form.field('path')` there); nested paths via `form.field('a.b')`.
  */
-export type SuiFieldsFor<Schema extends ZodType> = {
-	[K in keyof z.input<Schema> & string]-?: SuiFormField<z.input<Schema>[K]>;
+export type SuiFieldsFor<Schema extends SuiSchemaLike> = {
+	[K in keyof SuiIn<Schema> & string]-?: SuiFormField<SuiIn<Schema>[K]>;
 };
 
-/** True for thenables — guards against async zod schemas sneaking in. */
+/** True for thenables — guards against async schemas sneaking in. */
 function isPromiseLike(value: unknown): value is Promise<unknown> {
 	return (
 		typeof value === 'object' &&
@@ -121,16 +205,17 @@ function isPromiseLike(value: unknown): value is Promise<unknown> {
 /**
  * Smart per-type default: `''` for strings, `false` for booleans, `[]` for
  * arrays/sets, `{}` for nested objects, `z.default()` values, `undefined`
- * for enums/literals/numbers/dates (nothing chosen yet).
+ * for enums/literals/numbers/dates (nothing chosen yet). Only meaningful
+ * for zod schemas — other vendors pass `initialValues` instead.
  */
-function schemaDefault(schema: ZodType): unknown {
+function schemaDefault(schema: SuiSchemaLike): unknown {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const def = (schema as any)?.def as
 		| {
 				type: string;
-				innerType?: ZodType;
-				in?: ZodType;
-				items?: ZodType[];
+				innerType?: SuiSchemaLike;
+				in?: SuiSchemaLike;
+				items?: SuiSchemaLike[];
 				defaultValue?: unknown;
 		  }
 		| undefined;
@@ -167,9 +252,9 @@ function schemaDefault(schema: ZodType): unknown {
 }
 
 /** Defaults for every key of a `z.object` shape (refinements keep `.shape`). */
-function schemaDefaults(schema: ZodType): Record<string, unknown> {
+function schemaDefaults(schema: SuiSchemaLike): Record<string, unknown> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const shape = (schema as any)?.shape as Record<string, ZodType> | undefined;
+	const shape = (schema as any)?.shape as Record<string, SuiSchemaLike> | undefined;
 	if (!shape) return {};
 	const out: Record<string, unknown> = {};
 	for (const [key, sub] of Object.entries(shape)) {
@@ -203,16 +288,34 @@ function setByPath(obj: Record<string, unknown>, path: string, value: unknown): 
 	cur[keys[keys.length - 1]] = value;
 }
 
+/** Does a value count as "answered"? (drives the reward ring) */
+function hasMeaningfulValue(value: unknown): boolean {
+	if (value === undefined || value === null || value === '' || value === false) return false;
+	if (Array.isArray(value) && value.length === 0) return false;
+	return true;
+}
+
+/** Normalises an async validator's resolution into displayable errors. */
+function asyncOutcomeToErrors(outcome: unknown): string[] {
+	if (typeof outcome === 'string') return outcome ? [outcome] : [];
+	if (Array.isArray(outcome)) {
+		return outcome.filter((m): m is string => typeof m === 'string' && m.length > 0);
+	}
+	// true / null / undefined / void / false → valid (booleans are ignored:
+	// return a message to fail)
+	return [];
+}
+
 /**
  * A single field's handle: what sui controls consume through the `field`
  * prop. Thin — all state lives on the owning {@link SuiFormInstance}.
  */
 export class SuiFormField<V = unknown> {
-	#form: SuiFormInstance<ZodType>;
+	#form: SuiFormInstance<SuiSchemaLike>;
 	#path: string;
 	#controlId = $state<string | undefined>(undefined);
 
-	constructor(form: SuiFormInstance<ZodType>, path: string) {
+	constructor(form: SuiFormInstance<SuiSchemaLike>, path: string) {
 		this.#form = form;
 		this.#path = path;
 	}
@@ -249,6 +352,24 @@ export class SuiFormField<V = unknown> {
 
 	get controlId(): string | undefined {
 		return this.#controlId;
+	}
+
+	get isValidating(): boolean {
+		return !!this.#form.isValidating[this.#path];
+	}
+
+	get checkingMessage(): string {
+		return this.#form.checkingMessage;
+	}
+
+	get valid(): boolean {
+		if (!this.#form.revealed[this.#path]) return false;
+		if (this.errors.length > 0) return false;
+		return hasMeaningfulValue(this.value);
+	}
+
+	get rewardValid(): boolean {
+		return this.#form.rewardValid && this.valid;
 	}
 
 	/** User-driven change — the control's event path. */
@@ -288,10 +409,9 @@ export class SuiFormField<V = unknown> {
  * `field` prop, and read reactive state (`values`, `formErrors`,
  * `isSubmitting`, …) anywhere in the template.
  */
-export class SuiFormInstance<Schema extends ZodType> {
+export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	#schema: Schema;
-	#options: SuiFormOptions<Schema> &
-		Required<Pick<SuiFormOptions<Schema>, 'validateOn' | 'debounce'>>;
+	#options: SuiFormOptions<Schema>;
 	#defaults: Record<string, unknown>;
 	#handles = new Map<string, SuiFormField<never>>();
 	#fieldsProxy: SuiFieldsFor<Schema> | undefined;
@@ -302,11 +422,15 @@ export class SuiFormInstance<Schema extends ZodType> {
 	 * programmatic changes (`form.values.email = '…'`); reads are
 	 * reactive anywhere in a template or effect.
 	 */
-	values = $state<Record<string, unknown>>({}) as z.output<Schema>;
+	values = $state<Record<string, unknown>>({}) as SuiOut<Schema>;
 	/** Schema issues from the last validation run, by dotted path (`''` = form-level). */
 	issues = $state<Record<string, string[]>>({});
 	/** External (server) errors by dotted path — cleared when the field is edited. */
 	external = $state<Record<string, string[]>>({});
+	/** Async validator results by dotted path — cleared when the field is edited. */
+	asyncIssues = $state<Record<string, string[]>>({});
+	/** Async validators currently running, by dotted path. */
+	isValidating = $state<Record<string, boolean>>({});
 	/** Reveal gate per path: errors display only on fields the user has earned. */
 	revealed = $state<Record<string, boolean>>({});
 	/** Blurred at least once. */
@@ -317,13 +441,19 @@ export class SuiFormInstance<Schema extends ZodType> {
 	dirty = $state<Record<string, boolean>>({});
 	/** Completed submit attempts (success or failure). */
 	submitCount = $state(0);
-	/** An `onsubmit` callback is currently running. */
+	/** An async flush or `onsubmit` callback is currently running. */
 	isSubmitting = $state(false);
 	#submittedInvalid = $state(false);
+	// async validator bookkeeping: debounce timers, run ids (cancellation),
+	// in-flight runs (same-value dedup) and last-checked value memos
+	#asyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	#asyncRuns = new Map<string, number>();
+	#asyncInflight = new Map<string, { value: unknown; promise: Promise<void> }>();
+	#asyncMemo = new Map<string, { value: unknown; errors: string[] }>();
 
 	constructor(schema: Schema, options: SuiFormOptions<Schema> = {}) {
 		this.#schema = schema;
-		this.#options = { validateOn: 'auto', debounce: 0, ...options };
+		this.#options = options;
 		this.#defaults = {
 			...schemaDefaults(schema),
 			...(options.initialValues as Record<string, unknown> | undefined)
@@ -335,9 +465,9 @@ export class SuiFormInstance<Schema extends ZodType> {
 
 	// ------------------------------------------------------------ reactive
 
-	/** Silent validity check — never mutates display state. */
+	/** Silent validity check — never mutates display state (sync schema only). */
 	get isValid(): boolean {
-		return this.#parseNow().success;
+		return this.#parseNow().ok;
 	}
 
 	/** True after at least one completed submit attempt. */
@@ -345,17 +475,39 @@ export class SuiFormInstance<Schema extends ZodType> {
 		return this.submitCount > 0;
 	}
 
-	/** Form-level (root / `refine` without path) errors, local + external. */
+	/** Form-level (root / `refine` without path) errors, local + external + async. */
 	get formErrors(): string[] {
-		return [...new Set([...(this.issues[''] ?? []), ...(this.external[''] ?? [])])];
+		return [
+			...new Set([
+				...(this.issues[''] ?? []),
+				...(this.external[''] ?? []),
+				...(this.asyncIssues[''] ?? [])
+			])
+		];
 	}
 
 	get hasErrors(): boolean {
 		return (
 			this.formErrors.length > 0 ||
 			Object.values(this.issues).some((list) => list.length > 0) ||
-			Object.values(this.external).some((list) => list.length > 0)
+			Object.values(this.external).some((list) => list.length > 0) ||
+			Object.values(this.asyncIssues).some((list) => list.length > 0)
 		);
+	}
+
+	/** Text controls show while an async validator runs (`checkingMessage` option). */
+	get checkingMessage(): string {
+		return this.#options.checkingMessage ?? 'Checking…';
+	}
+
+	/** Where focus lands after a failed submit (`focusOnSubmit` option, default `'summary'`). */
+	get focusOnSubmit(): SuiFocusOnSubmit {
+		return this.#options.focusOnSubmit ?? 'summary';
+	}
+
+	/** Whether revealed valid fields get the success ring (`rewardValid` option). */
+	get rewardValid(): boolean {
+		return this.#options.rewardValid === true;
 	}
 
 	/**
@@ -363,9 +515,13 @@ export class SuiFormInstance<Schema extends ZodType> {
 	 * a registered control — ready-made `{ fieldId, message }` links.
 	 */
 	get errorSummary(): { fieldId: string; message: string }[] {
-		const paths = [...new Set([...Object.keys(this.issues), ...Object.keys(this.external)])].filter(
-			(p) => p !== ''
-		);
+		const paths = [
+			...new Set([
+				...Object.keys(this.issues),
+				...Object.keys(this.external),
+				...Object.keys(this.asyncIssues)
+			])
+		].filter((p) => p !== '');
 		const order = Object.keys(this.values as Record<string, unknown>);
 		paths.sort((a, b) => {
 			const ia = order.indexOf(a.split('.')[0]);
@@ -405,14 +561,15 @@ export class SuiFormInstance<Schema extends ZodType> {
 
 	/**
 	 * The errors a field should display right now: nothing until the field
-	 * is revealed; afterwards the deduplicated union of external (server)
-	 * and local (schema) messages — server errors drop out once the field
-	 * has been edited, because they describe a previous value.
+	 * is revealed; afterwards the deduplicated union of external (server),
+	 * async and local (schema) messages — server/async errors drop out
+	 * once the field has been edited, because they describe a previous
+	 * value.
 	 */
 	displayedErrors(path: string): string[] {
 		if (!this.revealed[path]) return [];
 		const ext = this.edited[path] ? [] : (this.external[path] ?? []);
-		return [...new Set([...ext, ...(this.issues[path] ?? [])])];
+		return [...new Set([...ext, ...(this.asyncIssues[path] ?? []), ...(this.issues[path] ?? [])])];
 	}
 
 	/**
@@ -423,14 +580,23 @@ export class SuiFormInstance<Schema extends ZodType> {
 		setByPath(this.values as Record<string, unknown>, path, value);
 		this.dirty[path] = true;
 		this.edited[path] = true;
-		if (this.#options.validateOn === 'none') return;
-		if (!this.#shouldValidateChange(path, mode)) return;
+		// async (and server) errors describe the PREVIOUS value — drop them
+		// the moment the user edits; a fresh check is scheduled below
+		if (this.asyncIssues[path]) {
+			const next = { ...this.asyncIssues };
+			delete next[path];
+			this.asyncIssues = next;
+		}
+		const validateOn = this.#validateOnFor(path);
+		if (validateOn === 'none') return;
+		if (!this.#shouldValidateChange(path, mode, validateOn)) return;
 		// the user acted on this field — its own result may now display
 		this.revealed[path] = true;
 		const run = () => this.#runValidation(path);
-		if (this.#options.debounce > 0) {
+		const debounce = this.#debounceFor(path);
+		if (debounce > 0) {
 			clearTimeout(this.#timers.get(path));
-			this.#timers.set(path, setTimeout(run, this.#options.debounce));
+			this.#timers.set(path, setTimeout(run, debounce));
 		} else {
 			run();
 		}
@@ -441,7 +607,7 @@ export class SuiFormInstance<Schema extends ZodType> {
 		this.touched[path] = true;
 		clearTimeout(this.#timers.get(path));
 		this.#timers.delete(path);
-		const mode = this.#options.validateOn;
+		const mode = this.#validateOnFor(path);
 		if (mode === 'none' || mode === 'change') return;
 		this.revealed[path] = true;
 		this.#runValidation(path);
@@ -469,11 +635,14 @@ export class SuiFormInstance<Schema extends ZodType> {
 		this.revealed[path] = true;
 	}
 
-	/** Clear one field's local + external errors. @internal */
+	/** Clear one field's local + external + async errors. @internal */
 	clearField(path: string): void {
 		const ext = { ...this.external };
 		delete ext[path];
 		this.external = ext;
+		const asyncNext = { ...this.asyncIssues };
+		delete asyncNext[path];
+		this.asyncIssues = asyncNext;
 		if (this.issues[path]) {
 			const next = { ...this.issues };
 			delete next[path];
@@ -482,10 +651,24 @@ export class SuiFormInstance<Schema extends ZodType> {
 		this.revealed[path] = false;
 	}
 
-	#shouldValidateChange(path: string, mode: SuiFormFieldMode): boolean {
-		const m = this.#options.validateOn;
-		if (m === 'change' || m === 'both') return true;
-		if (m === 'auto') {
+	/** Form-level `validateOn`, overridable per field via `fields` option. */
+	#validateOnFor(path: string): SuiValidateOn {
+		return this.#options.fields?.[path]?.validateOn ?? this.#options.validateOn ?? 'auto';
+	}
+
+	/** Form-level sync debounce, overridable per field. */
+	#debounceFor(path: string): number {
+		return this.#options.fields?.[path]?.debounce ?? this.#options.debounce ?? 0;
+	}
+
+	/** Async validator debounce, overridable per field. Default 400ms. */
+	#asyncDebounceFor(path: string): number {
+		return this.#options.fields?.[path]?.asyncDebounce ?? this.#options.asyncDebounce ?? 400;
+	}
+
+	#shouldValidateChange(path: string, mode: SuiFormFieldMode, validateOn: SuiValidateOn): boolean {
+		if (validateOn === 'change' || validateOn === 'both') return true;
+		if (validateOn === 'auto') {
 			return (
 				mode === 'discrete' ||
 				!!this.touched[path] ||
@@ -502,58 +685,181 @@ export class SuiFormInstance<Schema extends ZodType> {
 	#runValidation(revealPath?: string): void {
 		if (revealPath) this.revealed[revealPath] = true;
 		const result = this.#parseNow();
-		if (result.success) {
+		if (result.ok) {
 			this.issues = {};
+		} else {
+			this.#applyIssues(result.issues);
+		}
+		this.#scheduleAsync(revealPath);
+	}
+
+	#parseNow(): ReturnType<typeof suiParse> {
+		return suiParse(this.#schema, this.values, 'createSuiForm');
+	}
+
+	/** Normalised + copy-overridden issues → grouped by dotted path. */
+	#applyIssues(issues: readonly SuiIssue[]): void {
+		this.issues = groupSuiIssues(resolveSuiMessages(issues, this.#options.messages));
+	}
+
+	// -------------------------------------------------------- async engine
+
+	/**
+	 * Schedules the async validator for a path — only when the field has
+	 * earned display rights, the sync schema is clean for it, and its
+	 * current value hasn't already been checked. Cancels anything pending
+	 * for the path first (newest input wins).
+	 */
+	#scheduleAsync(path?: string): void {
+		if (!path) return;
+		const validator = this.#options.asyncValidators?.[path];
+		if (!validator) return;
+		if (!this.revealed[path]) return;
+		if ((this.issues[path] ?? []).length > 0) {
+			// sync errors own the display — no point checking an invalid value
+			this.#cancelAsync(path);
+			this.#setAsyncIssues(path, []);
 			return;
 		}
-		this.#applyIssues(result.error);
+		const value = getByPath(this.values, path);
+		const inflight = this.#asyncInflight.get(path);
+		if (inflight && inflight.value === value) return; // this exact value is being checked
+		const memo = this.#asyncMemo.get(path);
+		if (memo && memo.value === value) return; // this exact value was checked
+		this.#cancelAsync(path);
+		const runId = (this.#asyncRuns.get(path) ?? 0) + 1;
+		this.#asyncRuns.set(path, runId);
+		const wait = this.#asyncDebounceFor(path);
+		if (wait <= 0) {
+			void this.#runAsync(path, runId);
+			return;
+		}
+		const timer = setTimeout(() => {
+			this.#asyncTimers.delete(path);
+			void this.#runAsync(path, runId);
+		}, wait);
+		this.#asyncTimers.set(path, timer);
 	}
 
-	#parseNow(): { success: true; data: z.output<Schema> } | { success: false; error: ZodError } {
-		let result: ReturnType<ZodType['safeParse']>;
+	async #runAsync(path: string, runId: number): Promise<void> {
+		const validator = this.#options.asyncValidators?.[path];
+		if (!validator) return;
+		if (runId !== this.#asyncRuns.get(path)) return; // superseded meanwhile
+		const value = getByPath(this.values, path);
+		if ((this.issues[path] ?? []).length > 0) {
+			// sync errors appeared during the debounce — stand down (no memo:
+			// once sync clears, the same value still needs its async check)
+			this.#setValidating(path, false);
+			this.#setAsyncIssues(path, []);
+			return;
+		}
+		this.#setValidating(path, true);
+		const promise = this.#executeAsync(path, value, validator, runId);
+		this.#asyncInflight.set(path, { value, promise });
 		try {
-			result = this.#schema.safeParse(this.values);
-		} catch (cause) {
-			// zod v4 throws $ZodAsyncError during sync parse of async schemas
-			throw new Error(
-				'createSuiForm: the schema is asynchronous — use a synchronous zod schema (or move async checks into onsubmit).',
-				{ cause }
-			);
+			await promise;
+		} finally {
+			// only drop our own entry — a newer run may have replaced it
+			if (this.#asyncInflight.get(path)?.promise === promise) this.#asyncInflight.delete(path);
 		}
-		if (isPromiseLike(result)) {
-			throw new Error(
-				'createSuiForm: the schema is asynchronous — use a synchronous zod schema (or move async checks into onsubmit).'
-			);
-		}
-		return result as
-			{ success: true; data: z.output<Schema> } | { success: false; error: ZodError };
 	}
 
-	/** Group zod issues under full dotted paths (zod's flattenError only keys by the first segment). */
-	#applyIssues(error: ZodError): void {
-		const map: Record<string, string[]> = {};
-		for (const issue of error.issues) {
-			const key = issue.path.join('.');
-			const message = issue.message || 'Invalid value';
-			const list = map[key] ?? (map[key] = []);
-			if (!list.includes(message)) list.push(message);
+	/** Runs the validator and applies its result (unless superseded). */
+	async #executeAsync(
+		path: string,
+		value: unknown,
+		validator: SuiAsyncValidator,
+		runId: number
+	): Promise<void> {
+		let errors: string[];
+		try {
+			const outcome = await validator(value, this.values as Record<string, unknown>);
+			errors = asyncOutcomeToErrors(outcome);
+		} catch (error) {
+			// a rejected validator surfaces as a field error — visible
+			// feedback beats silent failure
+			errors = [error instanceof Error ? error.message : String(error)];
 		}
-		this.issues = map;
+		if (runId !== this.#asyncRuns.get(path)) return; // superseded while in flight
+		this.#setValidating(path, false);
+		this.#asyncMemo.set(path, { value, errors });
+		this.#setAsyncIssues(path, errors);
+	}
+
+	/** Cancels pending + in-flight async work for a path. */
+	#cancelAsync(path: string): void {
+		const timer = this.#asyncTimers.get(path);
+		if (timer) {
+			clearTimeout(timer);
+			this.#asyncTimers.delete(path);
+		}
+		this.#asyncInflight.delete(path);
+		// bump the run id so any in-flight promise is ignored when it resolves
+		this.#asyncRuns.set(path, (this.#asyncRuns.get(path) ?? 0) + 1);
+		this.#setValidating(path, false);
+	}
+
+	#setAsyncIssues(path: string, errors: string[]): void {
+		if (errors.length === 0) {
+			if (this.asyncIssues[path]) {
+				const next = { ...this.asyncIssues };
+				delete next[path];
+				this.asyncIssues = next;
+			}
+			return;
+		}
+		this.asyncIssues = { ...this.asyncIssues, [path]: errors };
+		this.revealed[path] = true; // an async failure must display
+	}
+
+	#setValidating(path: string, on: boolean): void {
+		if (!!this.isValidating[path] === on) return;
+		const next = { ...this.isValidating, [path]: on };
+		if (!on) delete next[path];
+		this.isValidating = next;
+	}
+
+	/**
+	 * Submit-time async gate: every configured async validator whose value
+	 * has not been checked runs NOW (un-debounced) and is awaited. Returns
+	 * false when any async error surfaced.
+	 */
+	async #flushAsync(): Promise<boolean> {
+		const validators = this.#options.asyncValidators;
+		if (!validators) return true;
+		const runs: Promise<void>[] = [];
+		for (const path of Object.keys(validators)) {
+			const value = getByPath(this.values, path);
+			const memo = this.#asyncMemo.get(path);
+			if (memo && memo.value === value) continue; // already checked
+			const inflight = this.#asyncInflight.get(path);
+			if (inflight && inflight.value === value) {
+				runs.push(inflight.promise); // being checked right now — await it
+				continue;
+			}
+			this.#cancelAsync(path);
+			const runId = (this.#asyncRuns.get(path) ?? 0) + 1;
+			this.#asyncRuns.set(path, runId);
+			runs.push(this.#runAsync(path, runId));
+		}
+		if (runs.length > 0) await Promise.all(runs);
+		return Object.values(this.asyncIssues).every((list) => list.length === 0);
 	}
 
 	// ------------------------------------------------------------ public API
 
 	/**
 	 * Validate the whole form. Every invalid field is revealed at once.
-	 * Returns overall validity.
+	 * Returns overall validity (sync schema only — async validators run on
+	 * edit/blur/submit, not here).
 	 */
 	validate(): boolean {
 		const result = this.#parseNow();
-		if (result.success) {
+		if (result.ok) {
 			this.issues = {};
 			return true;
 		}
-		this.#applyIssues(result.error);
+		this.#applyIssues(result.issues);
 		for (const path of Object.keys(this.issues)) this.revealed[path] = true;
 		return false;
 	}
@@ -576,14 +882,15 @@ export class SuiFormInstance<Schema extends ZodType> {
 		this.external = next;
 	}
 
-	/** Clear every error (local + external), keeping values and touched state. */
+	/** Clear every error (local + external + async), keeping values and touched state. */
 	clearErrors(): void {
 		this.issues = {};
 		this.external = {};
+		this.asyncIssues = {};
 	}
 
 	/** Shallow-merge values programmatically (no validation, marks dirty). */
-	setValues(patch: Partial<z.output<Schema>>): void {
+	setValues(patch: Partial<SuiOut<Schema>>): void {
 		for (const [key, value] of Object.entries(patch)) {
 			(this.values as Record<string, unknown>)[key] = value;
 			this.dirty[key] = true;
@@ -594,6 +901,8 @@ export class SuiFormInstance<Schema extends ZodType> {
 	reset(): void {
 		this.issues = {};
 		this.external = {};
+		this.asyncIssues = {};
+		this.isValidating = {};
 		this.revealed = {};
 		this.touched = {};
 		this.edited = {};
@@ -603,6 +912,11 @@ export class SuiFormInstance<Schema extends ZodType> {
 		this.#submittedInvalid = false;
 		for (const timer of this.#timers.values()) clearTimeout(timer);
 		this.#timers.clear();
+		for (const timer of this.#asyncTimers.values()) clearTimeout(timer);
+		this.#asyncTimers.clear();
+		this.#asyncRuns.clear();
+		this.#asyncInflight.clear();
+		this.#asyncMemo.clear();
 		const values = this.values as Record<string, unknown>;
 		for (const key of Object.keys(values)) delete values[key];
 		Object.assign(values, structuredClone(this.#defaults));
@@ -610,8 +924,9 @@ export class SuiFormInstance<Schema extends ZodType> {
 
 	/**
 	 * Submit handler for `<form onsubmit={form.handleSubmit}>` (or use the
-	 * `<SuiForm>` component). Validates the whole schema; on success the
-	 * `onsubmit` callback receives the parsed output. A thrown `ZodError`
+	 * `<SuiForm>` component). Validates the whole schema, flushes stale
+	 * async validators, and on success the `onsubmit` callback receives
+	 * the parsed output. A thrown `ZodError` (or any issue-carrying error)
 	 * maps back onto fields; other errors become form-level messages.
 	 * Returns whether the submit passed validation.
 	 */
@@ -619,8 +934,8 @@ export class SuiFormInstance<Schema extends ZodType> {
 		event?.preventDefault();
 		this.submitCount += 1;
 		const result = this.#parseNow();
-		if (!result.success) {
-			this.#applyIssues(result.error);
+		if (!result.ok) {
+			this.#applyIssues(result.issues);
 			// a failed attempt reveals every invalid field and puts the
 			// form into always-revalidate-on-change mode
 			for (const path of Object.keys(this.issues)) this.revealed[path] = true;
@@ -630,14 +945,31 @@ export class SuiFormInstance<Schema extends ZodType> {
 		this.issues = {};
 		this.#submittedInvalid = false;
 		const { onsubmit } = this.#options;
-		if (!onsubmit) return true;
+		const hasAsync = !!this.#options.asyncValidators;
+		if (!onsubmit && !hasAsync) return true;
+		// the async flush is real work (network) — the button should show it
 		this.isSubmitting = true;
 		try {
-			await onsubmit(result.data, this);
+			if (hasAsync) {
+				const asyncOk = await this.#flushAsync();
+				if (!asyncOk) {
+					// async failures surface exactly like failed parses:
+					// revealed, focusable, eagerly revalidated
+					for (const path of Object.keys(this.asyncIssues)) this.revealed[path] = true;
+					this.#submittedInvalid = true;
+					return false;
+				}
+			}
+			if (!onsubmit) return true;
+			await onsubmit(result.data as SuiOut<Schema>, this);
 			return true;
 		} catch (error) {
-			if (error instanceof ZodError) {
-				this.#applyIssues(error);
+			// ZodError and any issue-carrying error (Standard Schema vendors)
+			// map back onto fields. Server copy is authoritative — the messages
+			// override map does NOT re-resolve it.
+			const issues = suiIssuesFromError(error);
+			if (issues.length > 0) {
+				this.issues = groupSuiIssues(issues);
 				for (const path of Object.keys(this.issues)) this.revealed[path] = true;
 				this.#submittedInvalid = true;
 				return false;
@@ -668,7 +1000,7 @@ export class SuiFormInstance<Schema extends ZodType> {
  * </SuiForm>
  * ```
  */
-export function createSuiForm<Schema extends ZodType>(
+export function createSuiForm<Schema extends SuiSchemaLike>(
 	schema: Schema,
 	options: SuiFormOptions<Schema> = {}
 ): SuiFormInstance<Schema> {

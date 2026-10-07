@@ -1,4 +1,4 @@
-import type { ZodType } from 'zod';
+import type { SuiSchemaLike } from './form/schema.js';
 import type { SuiValidateOn } from './zod.js';
 import { shouldValidate, suiValidate } from './zod.js';
 
@@ -64,7 +64,7 @@ export class SuiFieldState {
 	 */
 	validate(
 		value: unknown,
-		schema: ZodType | undefined,
+		schema: SuiSchemaLike | undefined,
 		event: 'change' | 'blur',
 		validateOn: SuiValidateOn = 'auto'
 	): string[] {
@@ -83,7 +83,7 @@ export class SuiFieldState {
 	 * Does not mark the field edited — freshly submitted external errors
 	 * must stay visible even when a schema is absent.
 	 */
-	forceValidate(value: unknown, schema: ZodType | undefined): string[] {
+	forceValidate(value: unknown, schema: SuiSchemaLike | undefined): string[] {
 		this.touched = true;
 		this.errors = suiValidate(schema, value);
 		return this.errors;

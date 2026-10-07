@@ -234,7 +234,7 @@ describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 });
 
 describe('SuiSelect — field anatomy & variants', () => {
-	it('renders label, control and message inside one root element', () => {
+	it('renders label, control and hint inside one root element', () => {
 		const { container } = render(SuiSelect, {
 			label: 'Country',
 			items: countries,
@@ -246,9 +246,7 @@ describe('SuiSelect — field anatomy & variants', () => {
 		expect(root).toContainElement(
 			container.querySelector('[data-sui-control], [data-sui-trigger]') as HTMLElement
 		);
-		expect(root).toContainElement(
-			container.querySelector('[data-sui-field-message]') as HTMLElement
-		);
+		expect(root).toContainElement(container.querySelector('[data-sui-field-hint]') as HTMLElement);
 	});
 
 	it('tints the label and subtext with the variant color', () => {
@@ -259,7 +257,7 @@ describe('SuiSelect — field anatomy & variants', () => {
 			variant: 'success'
 		});
 		expect(container.querySelector('[data-sui-label]')?.className).toContain('text-green');
-		expect(container.querySelector('[data-sui-field-message]')?.className).toContain('text-green');
+		expect(container.querySelector('[data-sui-field-hint]')?.className).toContain('text-green');
 	});
 
 	it('forces the error variant on label and message when invalid', async () => {

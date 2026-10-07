@@ -1,15 +1,15 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
-	import type { ZodType } from 'zod';
 	import type { SuiActionSnippet, SuiFieldVariant, SuiIconComponent, SuiSize } from '../types.js';
 	import type { SuiValidateOn } from '../zod.js';
 	import type { SuiFieldHandle } from '../form/index.js';
+	import type { SuiSchemaLike } from '../form/schema.js';
 
 	export type SuiInputProps = Omit<HTMLInputAttributes, 'size' | 'value' | 'class'> & {
 		/** Field label rendered above the control. */
 		label?: string | Snippet;
-		/** Helper text rendered below the control (replaced by error messages when invalid). */
+		/** Helper text rendered below the control — stays visible (and associated) when errors appear. */
 		subText?: string;
 		/** sui size — heights match all other sui controls. Default `md`. */
 		size?: SuiSize;
@@ -21,8 +21,8 @@
 		endIcon?: SuiIconComponent;
 		/** Interactive snippet rendered at the end (buttons, toggles…). */
 		action?: SuiActionSnippet;
-		/** zod v4 schema — validated on blur (then on change once touched), errors render below. Ignored when `field` is set. */
-		schema?: ZodType;
+		/** zod v4 schema or any Standard Schema v1 schema — validated on blur (then on change once touched), errors render below. Ignored when `field` is set. */
+		schema?: SuiSchemaLike;
 		/** When to run `schema`. Default `auto` (blur first, then every change). */
 		validateOn?: SuiValidateOn;
 		/** Manually supplied error messages (shown in addition to schema errors). */
@@ -67,6 +67,7 @@
 		SUI_SUBTEXT
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	let {
 		label,
@@ -171,9 +172,20 @@
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
-	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
+	// reward early: a revealed, valid, answered field earns the success ring
+	const effVariant = $derived(
+		suiEffectiveVariant(f?.rewardValid ? 'success' : variant, invalid ? allErrors : undefined)
+	);
+	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
-	const describedBy = $derived(invalid || subText ? messageId : undefined);
+	const checking = $derived(!!f?.isValidating && !invalid);
+	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
+	// hint + error coexist in the description (GOV.UK: the hint must stay
+	// associated when errors appear — errors never replace instructions)
+	const describedBy = $derived(
+		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
+			undefined
+	);
 
 	/** Programmatically validate (e.g. on submit). */
 	export function validate(): string[] {
@@ -288,21 +300,37 @@
 		{/if}
 	</div>
 
-	{#if invalid || subText}
+	{#if subText}
+		<!-- GOV.UK pattern: the hint stays visible and associated when errors appear -->
 		<div
-			id={messageId}
-			data-sui-field-message
-			data-sui-variant={effVariant}
+			id={hintId}
+			data-sui-field-hint
 			class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]} mt-1.5"
-			aria-live="polite"
 		>
-			{#if invalid}
-				{#each allErrors as error (error)}
-					<div>{error}</div>
-				{/each}
-			{:else}
-				{subText}
-			{/if}
+			{subText}
 		</div>
 	{/if}
+	<!-- Persistent live region: mounted before any message appears, so the
+             first announcement is not silently dropped (a live region created
+             together with its content is frequently not announced). Collapses to
+             zero height while empty. -->
+	<div
+		id={messageId}
+		data-sui-field-message={invalid || checking || undefined}
+		data-sui-variant={effVariant}
+		class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}"
+		class:mt-1.5={invalid || checking}
+		aria-live="polite"
+	>
+		{#if invalid}
+			{#each allErrors as error (error)}
+				<div>{error}</div>
+			{/each}
+		{:else if checking}
+			<div class="flex items-center gap-1.5 text-muted-foreground">
+				<LoaderCircleIcon class="size-3 animate-spin" aria-hidden="true" />
+				{checkingText}
+			</div>
+		{/if}
+	</div>
 </div>

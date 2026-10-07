@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
-	import type { ZodType } from 'zod';
+	import type { SuiSchemaLike } from '../form/schema.js';
 	import type { SuiFieldVariant, SuiIconComponent, SuiItem, SuiSize } from '../types.js';
 	import type { SuiSource } from '../pagination.js';
 	import type { SuiValidateOn } from '../zod.js';
@@ -28,7 +28,7 @@
 		searchable?: boolean;
 		searchDebounce?: number;
 		/** zod v4 schema validated on change. */
-		schema?: ZodType;
+		schema?: SuiSchemaLike;
 		/** When to run `schema`. Default `both` (every selection + blur). */
 		validateOn?: SuiValidateOn;
 		errors?: string[];
@@ -90,6 +90,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	let {
 		items: staticItems,
@@ -241,9 +242,18 @@
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
-	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
+	const effVariant = $derived(
+		suiEffectiveVariant(f?.rewardValid ? 'success' : variant, invalid ? allErrors : undefined)
+	);
+	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
-	const describedBy = $derived(invalid || subText ? messageId : undefined);
+	const checking = $derived(!!f?.isValidating && !invalid);
+	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
+	// hint + error coexist in the description (GOV.UK pattern)
+	const describedBy = $derived(
+		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
+			undefined
+	);
 
 	let open = $state(false);
 	let query = $state('');
@@ -727,21 +737,36 @@
 		{/if}
 	</div>
 
-	{#if invalid || subText}
+	{#if subText}
+		<!-- GOV.UK pattern: the hint stays visible and associated when errors appear -->
 		<div
-			id={messageId}
-			data-sui-field-message
-			data-sui-variant={effVariant}
+			id={hintId}
+			data-sui-field-hint
 			class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]} mt-1.5"
-			aria-live="polite"
 		>
-			{#if invalid}
-				{#each allErrors as error (error)}
-					<div>{error}</div>
-				{/each}
-			{:else}
-				{subText}
-			{/if}
+			{subText}
 		</div>
 	{/if}
+	<!-- Persistent live region: mounted before any message appears, so the
+	     first announcement is not silently dropped. Collapses to zero height
+	     while empty. -->
+	<div
+		id={messageId}
+		data-sui-field-message={invalid || checking || undefined}
+		data-sui-variant={effVariant}
+		class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}"
+		class:mt-1.5={invalid || checking}
+		aria-live="polite"
+	>
+		{#if invalid}
+			{#each allErrors as error (error)}
+				<div>{error}</div>
+			{/each}
+		{:else if checking}
+			<div class="flex items-center gap-1.5 text-muted-foreground">
+				<LoaderCircleIcon class="size-3 animate-spin" aria-hidden="true" />
+				{checkingText}
+			</div>
+		{/if}
+	</div>
 </div>

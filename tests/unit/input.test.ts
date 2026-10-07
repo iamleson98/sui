@@ -50,15 +50,18 @@ describe('SuiInput', () => {
 		expect(screen.getByRole('button', { name: 'Toggle visibility' })).toBeInTheDocument();
 	});
 
-	it('shows subText until validation errors replace it', async () => {
+	it('keeps the hint visible (and associated) when validation errors appear', async () => {
 		const { container } = render(InputHarness, {
 			schema: z.string().min(5, 'Too short'),
 			validateDebounce: 0,
 			subText: 'We will never share your email.'
 		});
-		expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+		// hint renders in its own (id-carrying) element from the start
+		expect(container.querySelector('[data-sui-field-hint]')).toHaveTextContent(
 			'We will never share your email.'
 		);
+		// no message region content while valid
+		expect(container.querySelector('[data-sui-field-message]')).toBeNull();
 
 		const input = screen.getByLabelText('Email');
 		await userEvent.type(input, 'ab');
@@ -66,6 +69,11 @@ describe('SuiInput', () => {
 		await waitFor(() => {
 			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Too short');
 		});
+		// GOV.UK pattern: the hint stays visible when the error appears —
+		// errors never replace instructions
+		expect(container.querySelector('[data-sui-field-hint]')).toHaveTextContent(
+			'We will never share your email.'
+		);
 		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute(
 			'data-invalid',
 			'true'

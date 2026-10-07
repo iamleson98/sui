@@ -536,14 +536,18 @@ test.describe('validation timing (blur-first, then eager)', () => {
 
 		// the pristine required field stays quiet — no stuck-looking ring,
 		// the helper text keeps its place instead of an error message
+		const hint = page.locator('[data-sui-field="select"] [data-sui-field-hint]').first();
 		const message = page.locator('[data-sui-field="select"] [data-sui-field-message]').first();
 		await expect(trigger).not.toHaveAttribute('aria-invalid', 'true');
-		await expect(message).toHaveText(/Shipping origin/);
+		await expect(hint).toHaveText(/Shipping origin/);
+		await expect(message).toHaveCount(0); // no message region showing anything
 
 		// a genuine blur (keyboard) still validates — peeking is not answering
 		await trigger.focus();
 		await trigger.blur();
 		await expect(message).toHaveText(/Pick a country/);
+		// the hint stays visible alongside the error (GOV.UK pattern)
+		await expect(hint).toHaveText(/Shipping origin/);
 	});
 
 	test('combobox: opening and dismissing the popup never reveals errors', async ({ page }) => {
@@ -565,9 +569,12 @@ test.describe('validation timing (blur-first, then eager)', () => {
 	test('stale submit errors clear per-field without re-submitting', async ({ page }) => {
 		await page.goto('/validation');
 
-		// failed submit stamps every error
+		// failed submit stamps every error (generous timeout: hydrating the
+		// preview server under load can delay the first paint of errors)
 		await form(page).getByRole('button', { name: 'Create account' }).click();
-		await expect(form(page).getByText('Name must be at least 2 characters')).toBeVisible();
+		await expect(form(page).getByText('Name must be at least 2 characters')).toBeVisible({
+			timeout: 10_000
+		});
 
 		// fixing ONE field clears just that error — the rest stay
 		await form(page).getByLabel('Name').fill('Ada Lovelace');
@@ -595,7 +602,9 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 	const inlineMessage = (page: Page, text: string) =>
 		form(page).locator('[data-sui-field-message]', { hasText: text });
 
-	test('a failed submit reveals every error, the summary, and focus', async ({ page }) => {
+	test('a failed submit reveals every error, focuses the summary, links walk to fields', async ({
+		page
+	}) => {
 		await page.goto('/validation');
 		const suiForm = form(page);
 
@@ -603,13 +612,15 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 		// onsubmit never runs and every invalid field is revealed at once
 		await suiForm.getByRole('button', { name: 'Create account' }).click();
 		const name = suiForm.getByLabel('Name');
-		await expect(name).toBeFocused(); // WCAG 3.3.1 focus management
+		// GOV.UK error-summary pattern: focus lands on the summary box, which
+		// announces the whole problem list at once (WCAG 3.3.1)
+		const summary = page.locator('#account-error-summary');
+		await expect(summary).toBeFocused();
 		await expect(name).toHaveAttribute('aria-invalid', 'true');
 		await expect(suiForm.getByLabel('Email')).toHaveAttribute('aria-invalid', 'true');
 
 		// the error summary lists every invalid field as a focusable link:
 		// name, email, password, role, topics, accept (confirm is valid when empty)
-		const summary = page.locator('#account-error-summary');
 		await expect(summary).toBeVisible();
 		await expect(summary.getByRole('listitem')).toHaveCount(6);
 		await expect(
@@ -617,7 +628,7 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 		).toBeVisible();
 
 		// a summary link focuses its field without hash navigation
-		await summary.getByRole('link', { name: 'Enter a valid email' }).click();
+		await summary.getByRole('link', { name: 'Enter an address like name@example.com' }).click();
 		await expect(suiForm.getByLabel('Email')).toBeFocused();
 	});
 

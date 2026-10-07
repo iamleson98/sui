@@ -305,7 +305,7 @@ describe('createSuiForm — programmatic control', () => {
 			name: z.string().refine(async (v) => v.length > 2, 'too short')
 		});
 		const form = createSuiForm(asyncSchema);
-		expect(() => form.isValid).toThrowError(/synchronous zod schema/);
+		expect(() => form.isValid).toThrowError(/asynchronous/);
 	});
 });
 

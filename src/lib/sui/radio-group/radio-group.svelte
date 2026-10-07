@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
-	import type { ZodType } from 'zod';
+	import type { SuiSchemaLike } from '../form/schema.js';
 	import type { SuiFieldVariant, SuiItem, SuiSize } from '../types.js';
 	import type { SuiFieldHandle } from '../form/index.js';
 
@@ -18,7 +18,7 @@
 		/** Layout of the options. Default `vertical`. */
 		orientation?: 'vertical' | 'horizontal';
 		/** zod v4 schema. Ignored when `field` is set. */
-		schema?: ZodType;
+		schema?: SuiSchemaLike;
 		/** When to run `schema`. Default `both` (change + blur). */
 		validateOn?: 'auto' | 'change' | 'blur' | 'both' | 'none';
 		errors?: string[];
@@ -43,6 +43,7 @@
 	import { registerSuiField } from '../form/field-registry.js';
 	import { suiEffectiveVariant, SUI_FIELD_TEXT, SUI_LABEL, SUI_SUBTEXT } from '../styles.js';
 	import { cn } from '$lib/utils.js';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	let {
 		label,
@@ -107,9 +108,18 @@
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
-	const effVariant = $derived(suiEffectiveVariant(variant, invalid ? allErrors : undefined));
+	const effVariant = $derived(
+		suiEffectiveVariant(f?.rewardValid ? 'success' : variant, invalid ? allErrors : undefined)
+	);
+	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
-	const describedBy = $derived(invalid || subText ? messageId : undefined);
+	const checking = $derived(!!f?.isValidating && !invalid);
+	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
+	// hint + error coexist in the description (GOV.UK pattern)
+	const describedBy = $derived(
+		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
+			undefined
+	);
 
 	export function validate(): string[] {
 		if (f) return f.validate();
@@ -202,21 +212,36 @@
 		{/each}
 	</RadioGroup.Root>
 
-	{#if invalid || subText}
+	{#if subText}
+		<!-- GOV.UK pattern: the hint stays visible and associated when errors appear -->
 		<div
-			id={messageId}
-			data-sui-field-message
-			data-sui-variant={effVariant}
+			id={hintId}
+			data-sui-field-hint
 			class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]} mt-1.5"
-			aria-live="polite"
 		>
-			{#if invalid}
-				{#each allErrors as error (error)}
-					<div>{error}</div>
-				{/each}
-			{:else}
-				{subText}
-			{/if}
+			{subText}
 		</div>
 	{/if}
+	<!-- Persistent live region: mounted before any message appears, so the
+	     first announcement is not silently dropped. Collapses to zero height
+	     while empty. -->
+	<div
+		id={messageId}
+		data-sui-field-message={invalid || checking || undefined}
+		data-sui-variant={effVariant}
+		class="{SUI_SUBTEXT[size]} {SUI_FIELD_TEXT[effVariant]}"
+		class:mt-1.5={invalid || checking}
+		aria-live="polite"
+	>
+		{#if invalid}
+			{#each allErrors as error (error)}
+				<div>{error}</div>
+			{/each}
+		{:else if checking}
+			<div class="flex items-center gap-1.5 text-muted-foreground">
+				<LoaderCircleIcon class="size-3 animate-spin" aria-hidden="true" />
+				{checkingText}
+			</div>
+		{/if}
+	</div>
 </div>

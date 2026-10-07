@@ -78,11 +78,32 @@
 		.refine((d) => d.password === d.confirm, {
 			path: ['confirm'],
 			error: "Passwords don't match"
+		})
+		// a root-level refine: lands in form.formErrors → the banner
+		.refine((d) => d.name.toLowerCase() !== 'nimbus', {
+			error: 'The name “nimbus” is reserved — pick another.'
 		});
 
 	let accountResult = $state<z.output<typeof accountSchema> | null>(null);
 
 	const accountForm = createSuiForm(accountSchema, {
+		// centralised copy / i18n: overrides what users read, per field path
+		messages: {
+			email: (issue) =>
+				issue.message.includes('email') ? 'Enter an address like name@example.com' : issue.message,
+			topics: 'Pick at least one topic to follow.'
+		},
+		// async validation: runs after the sync schema passes, debounced,
+		// cancellable, with a live “Checking…” state and a submit-time flush
+		asyncValidators: {
+			name: async (value) => {
+				await new Promise((r) => setTimeout(r, 700)); // pretend network
+				return value === 'admin' ? 'That display name is already taken.' : true;
+			}
+		},
+		checkingMessage: 'Checking availability…',
+		// Baymard “reward early”: revealed, valid, answered fields go green
+		rewardValid: true,
 		onsubmit: async (data) => {
 			// simulate a server round-trip
 			await new Promise((r) => setTimeout(r, 600));
@@ -117,10 +138,17 @@
 
 // ONE call wires values, timing, error display and submit parsing
 const form = createSuiForm(schema, {
-  onsubmit: async (data) => await save(data) // zod-parsed + typed
+  onsubmit: async (data) => await save(data), // parsed + typed
+
+  // any Standard Schema vendor works too (valibot, ArkType…):
+  messages: { email: 'Enter an address like name@example.com' },
+  asyncValidators: {
+    name: async (v) => (await api.available(v)) || 'That name is taken'
+  },
+  rewardValid: true // green “reward early” ring on valid fields
 });
 
-<SuiForm {form}>
+<SuiForm {form} showFormErrors>
   <SuiInput field={form.fields.name} label="Name" required />
   <SuiSelect field={form.fields.role} items={roles} label="Role" />
   <SuiInput field={form.fields.password} label="Password" type="password" />
@@ -130,8 +158,10 @@ const form = createSuiForm(schema, {
 
 // reactive form state, server errors, programmatic control:
 form.isValid                              // silent full-schema check
-form.formErrors                           // root refine errors
-form.setErrors({ email: ['Taken'] })      // cleared once the field is edited
+form.formErrors                           // root refine errors (banner above)
+form.setErrors(suiErrors.fromResponse(    // server payload → field map
+  await response.json()
+))
 form.reset()`;
 
 	const code = `const schema = z.object({
@@ -168,17 +198,17 @@ const signup = createSuiSubmitter(schema, {
 
 <Section
 	title="Schema-driven forms — createSuiForm"
-	description="One zod schema wires the whole form — no safeParse, no flattenError, no per-field error props, no bind:this refs. Text fields stay quiet until the first blur, then validate on every keystroke; pickers validate on selection; the password/confirm refinement stays fresh without unmasking pristine fields. A failed submit reveals every error at once and focus lands on the first problem. Try taken@example.com to watch a server-side ZodError map back onto the email field — then edit it and watch the error clear."
+	description="One schema wires the whole form — no safeParse, no flattenError, no per-field error props, no bind:this refs. Text fields stay quiet until the first blur, then validate on every keystroke; pickers validate on selection; a failed submit reveals every error at once and focuses the error summary (GOV.UK pattern — its links jump to each field). Async validation runs after the sync schema passes — type admin as the name and watch “Checking availability…” turn into a field error; nimbus trips a root-level refine and renders in the banner. Valid fields earn a subtle green ring (“reward early”). Try taken@example.com to watch a server-side ZodError map back onto the email field — then edit it and watch the error clear."
 >
 	<div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-		<SuiForm form={accountForm} class="grid max-w-xl gap-5">
+		<SuiForm form={accountForm} showFormErrors class="grid max-w-xl gap-5">
 			{#if accountForm.errorSummary.length}
 				<SuiErrorSummary errors={accountForm.errorSummary} id="account-error-summary" />
 			{/if}
 			<SuiInput
 				field={accountForm.fields.name}
 				label="Name"
-				placeholder="Ada Lovelace"
+				placeholder="Ada Lovelace (try admin or nimbus)"
 				autocomplete="name"
 				required
 			/>

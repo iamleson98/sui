@@ -37,10 +37,11 @@
 	<div
 		{id}
 		role="alert"
+		tabindex="-1"
 		data-sui-error-summary
 		data-sui-variant="error"
 		class={cn(
-			'rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm',
+			'rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm outline-none',
 			className
 		)}
 	>
@@ -52,7 +53,7 @@
 			{#each errors as error (error.fieldId)}
 				<li>
 					<!-- href keeps the link semantics + keyboard focusable; the click
-						handler focuses the field without a hash navigation jump -->
+                                                handler focuses the field without a hash navigation jump -->
 					<a
 						href="#{error.fieldId}"
 						class="text-destructive underline underline-offset-2 hover:opacity-80"
