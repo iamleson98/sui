@@ -15,8 +15,46 @@ export const prerender = false;
 
 type User = { value: string; label: string; description: string };
 
-const FIRST_NAMES = ['Minh', 'Lena', 'Jonas', 'Aiko', 'Priya', 'Marco', 'Sofia', 'Kai', 'Nora', 'Omar', 'Elena', 'Tobias', 'Yuki', 'Ingrid', 'Pablo', 'Zara', 'Felix', 'Maya', 'Ravi', 'Clara'];
-const LAST_NAMES = ['Nguyen', 'Schmidt', 'Tanaka', 'Patel', 'Rossi', 'Silva', 'Okafor', 'Novak', 'Kim', 'Dubois', 'Herrera', 'Berg', 'Larsen', 'Costa', 'Weber', 'Ivanov'];
+const FIRST_NAMES = [
+	'Minh',
+	'Lena',
+	'Jonas',
+	'Aiko',
+	'Priya',
+	'Marco',
+	'Sofia',
+	'Kai',
+	'Nora',
+	'Omar',
+	'Elena',
+	'Tobias',
+	'Yuki',
+	'Ingrid',
+	'Pablo',
+	'Zara',
+	'Felix',
+	'Maya',
+	'Ravi',
+	'Clara'
+];
+const LAST_NAMES = [
+	'Nguyen',
+	'Schmidt',
+	'Tanaka',
+	'Patel',
+	'Rossi',
+	'Silva',
+	'Okafor',
+	'Novak',
+	'Kim',
+	'Dubois',
+	'Herrera',
+	'Berg',
+	'Larsen',
+	'Costa',
+	'Weber',
+	'Ivanov'
+];
 
 const TOTAL = 512;
 
@@ -49,7 +87,10 @@ function encodeCursor(index: number): string {
 function decodeCursor(cursor: string | null): number | null {
 	if (!cursor) return null;
 	try {
-		const padded = cursor.replaceAll('-', '+').replaceAll('_', '/').padEnd(Math.ceil(cursor.length / 4) * 4, '=');
+		const padded = cursor
+			.replaceAll('-', '+')
+			.replaceAll('_', '/')
+			.padEnd(Math.ceil(cursor.length / 4) * 4, '=');
 		const n = Number(atob(padded));
 		return Number.isFinite(n) && n >= 0 ? n : null;
 	} catch {

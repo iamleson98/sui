@@ -40,11 +40,11 @@
 		data-sui-error-summary
 		data-sui-variant="error"
 		class={cn(
-			'border-destructive/40 bg-destructive/5 rounded-md border px-4 py-3 text-sm',
+			'rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm',
 			className
 		)}
 	>
-		<p class="text-destructive flex items-center gap-2 font-medium">
+		<p class="flex items-center gap-2 font-medium text-destructive">
 			<AlertCircleIcon class="size-4 shrink-0" aria-hidden="true" />
 			{title}
 		</p>

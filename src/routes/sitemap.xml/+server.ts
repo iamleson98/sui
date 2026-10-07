@@ -7,7 +7,12 @@ export const prerender = true;
 export const GET: RequestHandler = async () => {
 	const urls = SITE_ROUTES.map((route) => {
 		const loc = `${SITE_ORIGIN}${route.path === '/' ? '' : route.path}`;
-		return ['\t<url>', `\t\t<loc>${loc}</loc>`, '\t\t<changefreq>monthly</changefreq>', '\t</url>'].join('\n');
+		return [
+			'\t<url>',
+			`\t\t<loc>${loc}</loc>`,
+			'\t\t<changefreq>monthly</changefreq>',
+			'\t</url>'
+		].join('\n');
 	}).join('\n');
 
 	const xml = [

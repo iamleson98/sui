@@ -24,14 +24,17 @@
 	<Avatar.Root class={className}>
 		<Avatar.Fallback
 			class="flex size-full items-center justify-center rounded-full text-[0.65em] font-semibold text-white select-none"
-			style="background: linear-gradient(135deg, oklch(0.72 0.14 {p.hue}), oklch(0.46 0.13 {p.hue + 42}))"
+			style="background: linear-gradient(135deg, oklch(0.72 0.14 {p.hue}), oklch(0.46 0.13 {p.hue +
+				42}))"
 		>
 			{p.initials}
 		</Avatar.Fallback>
 	</Avatar.Root>
 	{#if dot}
 		<span
-			class="{STATUS_COLOR[p.status]} ring-background absolute right-0 bottom-0 size-[0.34em] rounded-full ring-2"
+			class="{STATUS_COLOR[
+				p.status
+			]} absolute right-0 bottom-0 size-[0.34em] rounded-full ring-2 ring-background"
 			title="{p.name} is {p.status}"
 			aria-hidden="true"
 		></span>

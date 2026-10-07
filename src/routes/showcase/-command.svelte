@@ -73,13 +73,17 @@
 
 	function runResult(r: Result) {
 		if (r.kind === 'person') {
-			toast.info(`${r.label} — ${r.hint}`, { description: 'Profile cards open from avatars across the app.' });
+			toast.info(`${r.label} — ${r.hint}`, {
+				description: 'Profile cards open from avatars across the app.'
+			});
 		} else if (r.kind === 'issue') {
 			showcase.view = 'board';
 			toast.success(`Board filtered down to ${r.id}`, { description: r.label });
 		} else {
 			showcase.view = 'deployments';
-			toast.success(`Deployment history for ${r.label}`, { description: 'The table is fully searchable — try it there too.' });
+			toast.success(`Deployment history for ${r.label}`, {
+				description: 'The table is fully searchable — try it there too.'
+			});
 		}
 		open = false;
 	}
@@ -100,7 +104,7 @@
 		{#if searching}
 			<Command.Loading
 				progress={64}
-				class="bg-foreground/15 mx-2 mb-1 h-0.5 origin-left rounded-full transition-transform duration-500"
+				class="mx-2 mb-1 h-0.5 origin-left rounded-full bg-foreground/15 transition-transform duration-500"
 				style="transform: scaleX(0.64)"
 			/>
 		{/if}
@@ -180,7 +184,7 @@
 							<ServerIcon aria-hidden="true" />
 						{/if}
 						<span class="truncate">{r.label}</span>
-						<span class="text-muted-foreground ml-auto text-xs">{r.hint}</span>
+						<span class="ml-auto text-xs text-muted-foreground">{r.hint}</span>
 					</Command.Item>
 				{/each}
 			</Command.Group>

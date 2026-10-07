@@ -19,9 +19,5 @@
 	{#if label}
 		<SuiSkeleton data-sui-skeleton="label" data-sui-size={size} class="mb-1.5 h-4 w-1/3" />
 	{/if}
-	<SuiSkeleton
-		data-sui-skeleton="input"
-		data-sui-size={size}
-		class="{SUI_CONTROL[size]} w-full"
-	/>
+	<SuiSkeleton data-sui-skeleton="input" data-sui-size={size} class="{SUI_CONTROL[size]} w-full" />
 </SuiSkeletonContainer>

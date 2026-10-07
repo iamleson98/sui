@@ -81,7 +81,9 @@ describe('SuiSelect', () => {
 		await user.keyboard('{Escape}');
 		await user.tab();
 		await waitFor(() => {
-			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Pick a country');
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+				'Pick a country'
+			);
 			expect(container.querySelector('[data-sui-control], [data-sui-trigger]')).toBeTruthy();
 		});
 	});
@@ -106,7 +108,13 @@ describe('SuiSelect — infinite scroll', () => {
 			const next = page + size < 60 ? btoa(String(page + size)) : null;
 			return { items, nextCursor: next };
 		});
-		return { source, calls: 0, get calls2() { return state.calls } } as never;
+		return {
+			source,
+			calls: 0,
+			get calls2() {
+				return state.calls;
+			}
+		} as never;
 	}
 
 	it('loads the first page when opened', async () => {
@@ -159,7 +167,13 @@ describe('SuiSelect — infinite scroll', () => {
 describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 	it('is a real button outside the trigger that clears the value', async () => {
 		const onSelect = vi.fn();
-		render(SuiSelect, { label: 'Country', items: countries, value: 'nl', clearable: true, onSelect });
+		render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			value: 'nl',
+			clearable: true,
+			onSelect
+		});
 		const trigger = screen.getByRole('button', { name: 'Country' });
 		const clear = screen.getByRole('button', { name: 'Clear selection' });
 		// the clear button must not be nested inside the trigger button
@@ -178,7 +192,12 @@ describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 	});
 
 	it('reserves end padding and pins the chevron while the clear overlay is visible', () => {
-		const { container } = render(SuiSelect, { label: 'Country', items: countries, value: 'nl', clearable: true });
+		const { container } = render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			value: 'nl',
+			clearable: true
+		});
 		const trigger = container.querySelector('[data-sui-select]') as HTMLElement;
 		const clear = screen.getByRole('button', { name: 'Clear selection' });
 		// ✕ zone reserved so the value never slides under the overlay
@@ -191,14 +210,24 @@ describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 	});
 
 	it('does not reserve the ✕ zone when nothing is selected', () => {
-		const { container } = render(SuiSelect, { label: 'Country', items: countries, clearable: true });
+		const { container } = render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			clearable: true
+		});
 		const trigger = container.querySelector('[data-sui-select]') as HTMLElement;
 		expect(trigger.className).not.toMatch(/\bpe-14\b/);
 		expect(trigger.className).not.toContain('[&>svg:last-of-type]:absolute');
 	});
 
 	it('sizes the clear hit area down for xs/sm triggers', () => {
-		render(SuiSelect, { label: 'Country', items: countries, value: 'nl', clearable: true, size: 'sm' });
+		render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			value: 'nl',
+			clearable: true,
+			size: 'sm'
+		});
 		const clear = screen.getByRole('button', { name: 'Clear selection' });
 		expect(clear.className).toMatch(/\bsize-5\b/);
 	});
@@ -206,12 +235,20 @@ describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 
 describe('SuiSelect — field anatomy & variants', () => {
 	it('renders label, control and message inside one root element', () => {
-		const { container } = render(SuiSelect, { label: 'Country', items: countries, subText: 'Pick one' });
+		const { container } = render(SuiSelect, {
+			label: 'Country',
+			items: countries,
+			subText: 'Pick one'
+		});
 		const root = container.querySelector('[data-sui-field="select"]');
 		expect(root).toBeTruthy();
 		expect(root).toContainElement(container.querySelector('[data-sui-label]') as HTMLElement);
-		expect(root).toContainElement(container.querySelector('[data-sui-control], [data-sui-trigger]') as HTMLElement);
-		expect(root).toContainElement(container.querySelector('[data-sui-field-message]') as HTMLElement);
+		expect(root).toContainElement(
+			container.querySelector('[data-sui-control], [data-sui-trigger]') as HTMLElement
+		);
+		expect(root).toContainElement(
+			container.querySelector('[data-sui-field-message]') as HTMLElement
+		);
 	});
 
 	it('tints the label and subtext with the variant color', () => {
@@ -237,7 +274,9 @@ describe('SuiSelect — field anatomy & variants', () => {
 		await user.tab();
 		await waitFor(() => {
 			expect(container.querySelector('[data-sui-label]')?.className).toContain('text-red');
-			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Pick a country');
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+				'Pick a country'
+			);
 		});
 	});
 });

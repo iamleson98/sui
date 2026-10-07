@@ -98,21 +98,27 @@ const products = offsetSource(async ({ page, size, query, signal }) => {
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">REST Pagination Patterns</h1>
 
-<p class="text-muted-foreground mb-10 max-w-3xl text-sm leading-relaxed">
-	These are the backend conventions the sui selection components are built against.
-	Both demos on the <a class="text-primary underline" href="/selection">Selection page</a> run against real
-	endpoints in this app (<code>/api/users</code> cursor-style, <code>/api/products</code> offset-style) —
-	open the network tab while scrolling to watch them work.
+<p class="mb-10 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+	These are the backend conventions the sui selection components are built against. Both demos on
+	the <a class="text-primary underline" href="/selection">Selection page</a> run against real
+	endpoints in this app (<code>/api/users</code> cursor-style, <code>/api/products</code> offset-style)
+	— open the network tab while scrolling to watch them work.
 </p>
 
-<Section title="Cursor pagination (recommended for infinite scroll)" description="Keyset scan on (created_at, id). O(1)-ish per page at any depth, stable under inserts. Fetch size+1 rows to compute hasMore.">
+<Section
+	title="Cursor pagination (recommended for infinite scroll)"
+	description="Keyset scan on (created_at, id). O(1)-ish per page at any depth, stable under inserts. Fetch size+1 rows to compute hasMore."
+>
 	<CodeBlock title="server (express + prisma-style)" code={cursorServer} />
 	<div class="mt-6">
 		<CodeBlock title="client" code={clientCursor} />
 	</div>
 </Section>
 
-<Section title="Offset pagination (fine for bounded admin data)" description="Simple skip/take with a total count. Watch for skipped/duplicated rows on high-churn tables — sui dedupes client-side.">
+<Section
+	title="Offset pagination (fine for bounded admin data)"
+	description="Simple skip/take with a total count. Watch for skipped/duplicated rows on high-churn tables — sui dedupes client-side."
+>
 	<CodeBlock title="server" code={offsetServer} />
 	<div class="mt-6">
 		<CodeBlock title="client" code={clientOffset} />
@@ -122,9 +128,9 @@ const products = offsetSource(async ({ page, size, query, signal }) => {
 <Section title="Rules of thumb">
 	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 		{#each rules as rule (rule.title)}
-			<div class="bg-card rounded-lg border p-4">
+			<div class="rounded-lg border bg-card p-4">
 				<div class="mb-1.5 text-sm font-medium">{rule.title}</div>
-				<p class="text-muted-foreground text-xs leading-relaxed">{rule.body}</p>
+				<p class="text-xs leading-relaxed text-muted-foreground">{rule.body}</p>
 			</div>
 		{/each}
 	</div>

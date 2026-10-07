@@ -1,10 +1,10 @@
 <script lang="ts">
 	import {
-	SuiInput,
-	SuiTextarea,
-	SuiInputSkeleton,
-	SuiTextareaSkeleton
-} from '$lib/sui/input/index.js';
+		SuiInput,
+		SuiTextarea,
+		SuiInputSkeleton,
+		SuiTextareaSkeleton
+	} from '$lib/sui/input/index.js';
 	import Seo from '$lib/demo/seo.svelte';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
@@ -71,7 +71,10 @@
 
 <h1 class="mb-8 text-3xl font-bold tracking-tight">Input & Textarea</h1>
 
-<Section title="Label, icon & zod validation" description="Label, helper text and validation are all props — validated with zod v4 as you type, errors render under the field with ARIA wiring.">
+<Section
+	title="Label, icon & zod validation"
+	description="Label, helper text and validation are all props — validated with zod v4 as you type, errors render under the field with ARIA wiring."
+>
 	<div class="grid max-w-lg gap-6">
 		<SuiInput
 			label="Email"
@@ -92,7 +95,7 @@
 		>
 			{#snippet action({ size })}
 				{#if usernameAvailable === 'checking'}
-					<LoaderCircleIcon class="text-muted-foreground size-4 animate-spin" aria-hidden="true" />
+					<LoaderCircleIcon class="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
 				{:else if usernameAvailable === 'free'}
 					<CheckIcon class="size-4 text-green-500" aria-hidden="true" />
 				{/if}
@@ -104,7 +107,10 @@
 	</div>
 </Section>
 
-<Section title="Semantic variants" description="info (blue) is the normal state; success, warning and error style the border, ring and message. Validation errors always win.">
+<Section
+	title="Semantic variants"
+	description="info (blue) is the normal state; success, warning and error style the border, ring and message. Validation errors always win."
+>
 	<div class="grid max-w-lg gap-6">
 		<SuiInput label="Normal" placeholder="info / blue" />
 		<SuiInput label="Success" variant="success" subText="This value looks good." />
@@ -116,7 +122,10 @@
 	</div>
 </Section>
 
-<Section title="Actions & password toggle" description="The action snippet renders interactive content at the end of the field.">
+<Section
+	title="Actions & password toggle"
+	description="The action snippet renders interactive content at the end of the field."
+>
 	<div class="grid max-w-lg gap-6">
 		<SuiInput
 			label="Password"
@@ -128,7 +137,7 @@
 			{#snippet action({ size })}
 				<button
 					type="button"
-					class="text-muted-foreground hover:text-foreground flex items-center"
+					class="flex items-center text-muted-foreground hover:text-foreground"
 					onclick={() => (showPassword = !showPassword)}
 					aria-label={showPassword ? 'Hide password' : 'Show password'}
 				>
@@ -140,7 +149,12 @@
 				</button>
 			{/snippet}
 		</SuiInput>
-		<SuiTextarea label="Bio" placeholder="Tell us about yourself…" bind:value={bio} subText="Markdown supported." />
+		<SuiTextarea
+			label="Bio"
+			placeholder="Tell us about yourself…"
+			bind:value={bio}
+			subText="Markdown supported."
+		/>
 	</div>
 	<div class="mt-8">
 		<CodeBlock code={actionCode} />
@@ -155,7 +169,10 @@
 	</div>
 </Section>
 
-<Section title="Skeletons" description="Every form control has a skeleton with an optional label row (on by default here).">
+<Section
+	title="Skeletons"
+	description="Every form control has a skeleton with an optional label row (on by default here)."
+>
 	<div class="grid max-w-lg gap-6">
 		<SuiInputSkeleton size="sm" label={true} />
 		<SuiInputSkeleton size="md" label={true} />

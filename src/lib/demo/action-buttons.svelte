@@ -14,7 +14,7 @@
 <div class="flex items-center justify-end gap-1">
 	<button
 		type="button"
-		class="hover:bg-accent hover:text-accent-foreground inline-flex size-6 items-center justify-center rounded-md text-xs outline-none"
+		class="inline-flex size-6 items-center justify-center rounded-md text-xs outline-none hover:bg-accent hover:text-accent-foreground"
 		aria-label="Edit {name}"
 		title="Edit {name}"
 		onclick={(e) => {
@@ -26,7 +26,7 @@
 	</button>
 	<button
 		type="button"
-		class="hover:bg-accent hover:text-accent-foreground inline-flex size-6 items-center justify-center rounded-md text-xs outline-none"
+		class="inline-flex size-6 items-center justify-center rounded-md text-xs outline-none hover:bg-accent hover:text-accent-foreground"
 		aria-label="Delete {name}"
 		title="Delete {name}"
 		onclick={(e) => {
@@ -37,6 +37,6 @@
 		🗑
 	</button>
 	{#if fired}
-		<span class="text-muted-foreground sr-only" role="status">{fired}</span>
+		<span class="sr-only text-muted-foreground" role="status">{fired}</span>
 	{/if}
 </div>

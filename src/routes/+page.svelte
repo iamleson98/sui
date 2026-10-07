@@ -68,28 +68,32 @@
 </svelte:head>
 
 <div class="flex flex-col items-center py-8 text-center">
-	<span class="bg-primary/10 text-primary mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium">
+	<span
+		class="mb-4 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+	>
 		Svelte 5 · shadcn-svelte · Tailwind v4
 	</span>
 	<h1 class="max-w-3xl text-4xl font-bold tracking-tight text-balance sm:text-5xl">
 		Forms and tables that stay out of your way
 	</h1>
-	<p class="text-muted-foreground mt-4 max-w-2xl text-base text-pretty sm:text-lg">
-		sui wraps shadcn-svelte with the glue you write every day: labels, sizes, validation,
-		infinite scrolling and loading states — all with one consistent, minimal API.
+	<p class="mt-4 max-w-2xl text-base text-pretty text-muted-foreground sm:text-lg">
+		sui wraps shadcn-svelte with the glue you write every day: labels, sizes, validation, infinite
+		scrolling and loading states — all with one consistent, minimal API.
 	</p>
 	<div class="mt-6 flex flex-wrap items-center justify-center gap-3">
-		<a href="/selection"><SuiButton size="lg" endIcon={ArrowRightIcon}>Explore components</SuiButton></a>
+		<a href="/selection"
+			><SuiButton size="lg" endIcon={ArrowRightIcon}>Explore components</SuiButton></a
+		>
 		<a href="/validation"><SuiButton size="lg" variant="outline">Validation demo</SuiButton></a>
 	</div>
 </div>
 
 <div class="mb-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 	{#each features as feature (feature.title)}
-		<div class="bg-card rounded-lg border p-4">
-			<feature.icon class="text-primary mb-2 size-5" aria-hidden="true" />
+		<div class="rounded-lg border bg-card p-4">
+			<feature.icon class="mb-2 size-5 text-primary" aria-hidden="true" />
 			<div class="text-sm font-medium">{feature.title}</div>
-			<p class="text-muted-foreground mt-1 text-xs leading-relaxed">{feature.body}</p>
+			<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{feature.body}</p>
 		</div>
 	{/each}
 </div>

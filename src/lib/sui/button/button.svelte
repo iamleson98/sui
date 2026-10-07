@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { Button as UiButton, type ButtonSize as UiButtonSize } from '$lib/components/ui/button/index.js';
+	import {
+		Button as UiButton,
+		type ButtonSize as UiButtonSize
+	} from '$lib/components/ui/button/index.js';
 	import SuiIcon from '../sui-icon.svelte';
 	import { SUI_CONTROL, SUI_ICON } from '../styles.js';
 	import type { SuiIconComponent, SuiSize } from '../types.js';
@@ -72,11 +75,13 @@
 	data-sui-size={size}
 	data-loading={loading || undefined}
 	class="{SUI_CONTROL[size]} {fullWidth ? 'w-full' : ''} {className}"
-	{...(rest as Record<string, unknown>)}
+	{...rest as Record<string, unknown>}
 >
 	{#if loading}
 		<span
-			class="animate-spin rounded-full border-2 border-current border-t-transparent {SUI_ICON[size]}"
+			class="animate-spin rounded-full border-2 border-current border-t-transparent {SUI_ICON[
+				size
+			]}"
 			aria-hidden="true"
 		></span>
 	{:else}

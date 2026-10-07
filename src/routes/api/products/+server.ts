@@ -14,7 +14,18 @@ export const prerender = false;
 
 type Product = { value: string; label: string; description: string };
 
-const CATEGORIES = ['Keyboard', 'Monitor', 'Laptop', 'Mouse', 'Headset', 'Webcam', 'Dock', 'Cable', 'SSD', 'RAM'];
+const CATEGORIES = [
+	'Keyboard',
+	'Monitor',
+	'Laptop',
+	'Mouse',
+	'Headset',
+	'Webcam',
+	'Dock',
+	'Cable',
+	'SSD',
+	'RAM'
+];
 const TOTAL = 87;
 
 function makeProduct(index: number): Product {
@@ -22,7 +33,7 @@ function makeProduct(index: number): Product {
 	return {
 		value: `sku-${1000 + index}`,
 		label: `${category} ${String.fromCharCode(65 + (index % 26))}${Math.floor(index / 26) + 1}`,
-		description: `SKU-${1000 + index} · in stock: ${(index * 7) % 50 + 1}`
+		description: `SKU-${1000 + index} · in stock: ${((index * 7) % 50) + 1}`
 	};
 }
 
@@ -33,7 +44,9 @@ export const GET: RequestHandler = ({ url }) => {
 
 	const all = Array.from({ length: TOTAL }, (_, i) => makeProduct(i));
 	const filtered = q
-		? all.filter((p) => p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+		? all.filter(
+				(p) => p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+			)
 		: all;
 	const items = filtered.slice(page * size, (page + 1) * size);
 

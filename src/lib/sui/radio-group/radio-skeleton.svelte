@@ -34,9 +34,17 @@
 	<div class="flex flex-col gap-2" aria-hidden="true">
 		{#each Array.from({ length: count }) as _, i (i)}
 			<div class="flex items-start gap-2">
-				<SuiSkeleton data-sui-skeleton="radio" data-sui-size={size} class="{dots[i % dots.length]} rounded-full" />
+				<SuiSkeleton
+					data-sui-skeleton="radio"
+					data-sui-size={size}
+					class="{dots[i % dots.length]} rounded-full"
+				/>
 				{#if label}
-					<SuiSkeleton data-sui-skeleton="label" data-sui-size={size} class="{labelHeights[i % labelHeights.length]} {widths[i % widths.length]}" />
+					<SuiSkeleton
+						data-sui-skeleton="label"
+						data-sui-size={size}
+						class="{labelHeights[i % labelHeights.length]} {widths[i % widths.length]}"
+					/>
 				{/if}
 			</div>
 		{/each}

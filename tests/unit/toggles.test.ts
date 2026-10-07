@@ -27,13 +27,18 @@ describe('SuiCheckbox', () => {
 		expect(box).toBeChecked();
 		await userEvent.click(box); // uncheck → invalid
 		await waitFor(() =>
-			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('You must accept')
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+				'You must accept'
+			)
 		);
 	});
 
 	it('exposes size on the control', () => {
 		const { container } = render(SuiCheckbox, { label: 'x', size: 'lg' });
-		expect(container.querySelector('[data-sui-control="checkbox"]')).toHaveAttribute('data-sui-size', 'lg');
+		expect(container.querySelector('[data-sui-control="checkbox"]')).toHaveAttribute(
+			'data-sui-size',
+			'lg'
+		);
 	});
 });
 

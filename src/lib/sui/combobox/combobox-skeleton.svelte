@@ -11,5 +11,9 @@
 	{#if label}
 		<SuiSkeleton data-sui-skeleton="label" data-sui-size={size} class="mb-1.5 h-4 w-1/4" />
 	{/if}
-	<SuiSkeleton data-sui-skeleton="combobox" data-sui-size={size} class="{SUI_CONTROL[size]} w-full" />
+	<SuiSkeleton
+		data-sui-skeleton="combobox"
+		data-sui-size={size}
+		class="{SUI_CONTROL[size]} w-full"
+	/>
 </SuiSkeletonContainer>

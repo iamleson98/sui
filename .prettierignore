@@ -1,0 +1,20 @@
+# sui — house style: tab indentation, tab rendered 2 spaces wide
+# (kept in lockstep with .prettierrc / .editorconfig / .vscode/settings.json)
+
+# build output & tooling
+build/
+.svelte-kit/
+node_modules/
+test-results/
+playwright-report/
+
+# lockfiles are machine-managed
+package-lock.json
+bun.lock
+
+# binary fixtures & generated baselines
+tests/e2e/__screenshots__/
+static/fonts/
+
+# vendored
+src/lib/assets/

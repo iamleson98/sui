@@ -8,7 +8,7 @@
 <Popover.Root bind:open>
 	<Popover.Trigger
 		id="pt"
-		class="h-9 px-3 border"
+		class="h-9 border px-3"
 		aria-haspopup="listbox"
 		aria-invalid={undefined}
 		aria-describedby={undefined}

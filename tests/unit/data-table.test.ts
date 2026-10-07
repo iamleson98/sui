@@ -18,7 +18,10 @@ const columns = [
 	col.display({
 		id: 'status',
 		header: 'Status',
-		cell: ({ row }) => renderComponent(StatusBadge, { status: row.original.name === 'Ada' ? 'single' : 'complicated' })
+		cell: ({ row }) =>
+			renderComponent(StatusBadge, {
+				status: row.original.name === 'Ada' ? 'single' : 'complicated'
+			})
 	})
 ] as unknown as SuiDataTableColumn<Record<string, any>>[];
 
@@ -32,7 +35,10 @@ const data: Person[] = [
 const user = userEvent.setup({ pointerEventsCheck: 0 });
 
 function cell(row: number, column: number): string {
-	return document.querySelectorAll('[data-sui-data-table-body] tr')[row]?.children[column]?.textContent ?? '';
+	return (
+		document.querySelectorAll('[data-sui-data-table-body] tr')[row]?.children[column]
+			?.textContent ?? ''
+	);
 }
 
 describe('SuiDataTable', () => {
@@ -66,7 +72,6 @@ describe('SuiDataTable', () => {
 		await user.click(ageHeader);
 		expect(ageHeader).not.toHaveAttribute('aria-sort');
 	});
-
 
 	it('paginates and switches page size', async () => {
 		const more = [...data, ...data.map((p, i) => ({ ...p, id: `x${i}` }))];
@@ -198,7 +203,8 @@ describe('SuiDataTable', () => {
 		// without the $) renders as literal text → invalid CSS → 0px body
 		// → the table collapses to a header-only strip.
 		const { container } = render(SuiDataTable, { data, columns, virtual: true });
-		const style = container.querySelector('[data-sui-data-table-body]')?.getAttribute('style') ?? '';
+		const style =
+			container.querySelector('[data-sui-data-table-body]')?.getAttribute('style') ?? '';
 		expect(style).toMatch(/height:\s*\d+(\.\d+)?px/);
 		expect(style).not.toContain('{');
 	});

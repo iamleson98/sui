@@ -46,7 +46,18 @@
 	] as SuiDataTableColumn<Person>[];
 
 	function makeRows(count: number, offset = 0): Person[] {
-		const first = ['Minh', 'Lena', 'Jonas', 'Aiko', 'Priya', 'Marco', 'Sofia', 'Kai', 'Nora', 'Omar'];
+		const first = [
+			'Minh',
+			'Lena',
+			'Jonas',
+			'Aiko',
+			'Priya',
+			'Marco',
+			'Sofia',
+			'Kai',
+			'Nora',
+			'Omar'
+		];
 		const last = ['Nguyen', 'Schmidt', 'Tanaka', 'Patel', 'Rossi', 'Silva', 'Okafor', 'Novak'];
 		return Array.from({ length: count }, (_, i) => {
 			const n = offset + i;
@@ -74,19 +85,26 @@
 	let { basicCode }: { basicCode: string } = $props();
 </script>
 
-<Section title="Everything at once" description="Sorting (click headers), global search, column visibility menu, row selection, pagination and density — on 23 rows.">
+<Section
+	title="Everything at once"
+	description="Sorting (click headers), global search, column visibility menu, row selection, pagination and density — on 23 rows."
+>
 	<div class="mb-3 flex items-center gap-2">
-		<span class="text-muted-foreground text-sm">Density:</span>
+		<span class="text-sm text-muted-foreground">Density:</span>
 		{#each densityOptions as s (s)}
 			<button
-				class="rounded-md border px-2 py-1 text-xs {s === size ? 'bg-primary text-primary-foreground border-primary' : ''}"
+				class="rounded-md border px-2 py-1 text-xs {s === size
+					? 'border-primary bg-primary text-primary-foreground'
+					: ''}"
 				onclick={() => (size = s)}
 			>
 				{s}
 			</button>
 		{/each}
 		{#if clicked}
-			<span class="text-muted-foreground ml-3 text-xs">Last clicked: <strong>{clicked.firstName} {clicked.lastName}</strong></span>
+			<span class="ml-3 text-xs text-muted-foreground"
+				>Last clicked: <strong>{clicked.firstName} {clicked.lastName}</strong></span
+			>
 		{/if}
 	</div>
 	<SuiDataTable
@@ -100,18 +118,34 @@
 		onSelectionChange={(rows) => (selected = rows)}
 	/>
 	{#if selected.length}
-		<p class="text-muted-foreground mt-2 text-xs">{selected.length} selected: {selected.map((r) => r.firstName).join(', ')}</p>
+		<p class="mt-2 text-xs text-muted-foreground">
+			{selected.length} selected: {selected.map((r) => r.firstName).join(', ')}
+		</p>
 	{/if}
 	<div class="mt-8">
 		<CodeBlock code={basicCode} />
 	</div>
 </Section>
 
-<Section title="Virtual scrolling — 10,000 rows" description="TanStack Virtual only renders the visible window (plus overscan). Sorting and selection keep working across the whole set. Scroll to feel it.">
-	<SuiDataTable data={big} {columns} size="sm" rowId={(row) => row.id} enableSelection maxHeight={420} pageSize={50} />
+<Section
+	title="Virtual scrolling — 10,000 rows"
+	description="TanStack Virtual only renders the visible window (plus overscan). Sorting and selection keep working across the whole set. Scroll to feel it."
+>
+	<SuiDataTable
+		data={big}
+		{columns}
+		size="sm"
+		rowId={(row) => row.id}
+		enableSelection
+		maxHeight={420}
+		pageSize={50}
+	/>
 </Section>
 
-<Section title="Custom columns" description="Columns support meta options for alignment, width, extra classes and hiddenByDefault. Try hiding the email column from the Columns menu, then re-enable it.">
+<Section
+	title="Custom columns"
+	description="Columns support meta options for alignment, width, extra classes and hiddenByDefault. Try hiding the email column from the Columns menu, then re-enable it."
+>
 	<SuiDataTable
 		data={small}
 		columns={[
@@ -124,7 +158,10 @@
 	/>
 </Section>
 
-<Section title="Pinned columns + CSV export" description="meta.pinned freezes columns to an edge while the rest scroll horizontally (the selection column pins along with them). exportable adds a toolbar button that downloads the filtered rows as RFC 4180 CSV — try searching first.">
+<Section
+	title="Pinned columns + CSV export"
+	description="meta.pinned freezes columns to an edge while the rest scroll horizontally (the selection column pins along with them). exportable adds a toolbar button that downloads the filtered rows as RFC 4180 CSV — try searching first."
+>
 	<SuiDataTable
 		data={big}
 		columns={[
@@ -147,8 +184,7 @@
 				id: 'actions',
 				header: 'Actions',
 				meta: { pinned: 'right', width: 90 },
-				cell: ({ row }) =>
-					renderComponent(ActionButtons, { name: row.original.firstName })
+				cell: ({ row }) => renderComponent(ActionButtons, { name: row.original.firstName })
 			})
 		] as SuiDataTableColumn<Person>[]}
 		size="sm"

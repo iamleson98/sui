@@ -72,7 +72,7 @@ describe('SuiCombobox', () => {
 		expect(screen.getByRole('button', { name: /owner/i })).toHaveTextContent('Germany');
 	});
 
-	it('validates with zod', async () => {
+	it('validates with zod on a genuine blur — dismissing the popup is a peek', async () => {
 		const { container } = render(SuiCombobox, {
 			label: 'Owner',
 			items: countries,
@@ -80,9 +80,20 @@ describe('SuiCombobox', () => {
 		});
 		const trigger = screen.getByRole('button', { name: /owner/i });
 		await user.click(trigger);
+		// Escape (keyboard peek) returns focus to the trigger without
+		// revealing the pristine field's error
 		await user.keyboard('{Escape}');
 		await waitFor(() => {
-			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Pick an owner');
+			expect(trigger).toHaveFocus();
+		});
+		expect(container.querySelector('[data-sui-field-message]')).toBeNull();
+
+		// tabbing away is a genuine blur — now the schema runs
+		await user.tab();
+		await waitFor(() => {
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+				'Pick an owner'
+			);
 			expect(trigger).toHaveAttribute('aria-invalid', 'true');
 		});
 	});
@@ -91,7 +102,13 @@ describe('SuiCombobox', () => {
 describe('SuiCombobox — clear & semantics', () => {
 	it('clears via an overlay button outside the trigger', async () => {
 		const onSelect = vi.fn();
-		render(SuiCombobox, { label: 'Owner', items: countries, value: 'de', clearable: true, onSelect });
+		render(SuiCombobox, {
+			label: 'Owner',
+			items: countries,
+			value: 'de',
+			clearable: true,
+			onSelect
+		});
 		const trigger = screen.getByRole('button', { name: /owner/i });
 		const clear = screen.getByRole('button', { name: 'Clear selection' });
 		expect(clear.parentElement?.closest('button')).not.toBe(trigger);

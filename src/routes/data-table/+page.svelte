@@ -34,17 +34,17 @@ const columns = [
 	<!-- dependency-free placeholder while the table engine streams in -->
 	<div class="space-y-8" role="status" aria-label="Loading data table demos">
 		<div class="animate-pulse space-y-3">
-			<div class="bg-muted h-9 w-full rounded-md border"></div>
+			<div class="h-9 w-full rounded-md border bg-muted"></div>
 			{#each Array(8) as _, i (i)}
-				<div class="bg-muted h-8 w-full rounded-md"></div>
-		{/each}
-	</div>
-		<div class="animate-pulse space-y-3">
-			<div class="bg-muted h-9 w-full rounded-md border"></div>
-			{#each Array(6) as _, i (i)}
-				<div class="bg-muted h-8 w-full rounded-md"></div>
+				<div class="h-8 w-full rounded-md bg-muted"></div>
 			{/each}
-	</div>
+		</div>
+		<div class="animate-pulse space-y-3">
+			<div class="h-9 w-full rounded-md border bg-muted"></div>
+			{#each Array(6) as _, i (i)}
+				<div class="h-8 w-full rounded-md bg-muted"></div>
+			{/each}
+		</div>
 	</div>
 {:then TableDemos}
 	<TableDemos.default {basicCode} />

@@ -30,7 +30,17 @@
 	} = $props();
 </script>
 
-<SuiInput {label} {size} {variant} {schema} {validateOn} {validateDebounce} {errors} bind:value {subText}>
+<SuiInput
+	{label}
+	{size}
+	{variant}
+	{schema}
+	{validateOn}
+	{validateDebounce}
+	{errors}
+	bind:value
+	{subText}
+>
 	{#snippet action({ size })}
 		{#if withAction}
 			<button type="button" aria-label="Toggle visibility" class="p-1">

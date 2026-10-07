@@ -149,12 +149,16 @@ describe('SuiMultiSelect — smart chip overflow', () => {
 		await user.click(document.querySelector('[data-sui-badge-overflow]') as HTMLElement);
 		await waitFor(() => {
 			// all 5 chips visible while expanded
-			expect(document.querySelectorAll('[data-sui-badge]:not([data-sui-badge-overflow])').length).toBe(5);
+			expect(
+				document.querySelectorAll('[data-sui-badge]:not([data-sui-badge-overflow])').length
+			).toBe(5);
 			expect(document.querySelector('[data-sui-badge-collapse]')).toBeTruthy();
 		});
 		await user.click(document.querySelector('[data-sui-badge-collapse]') as HTMLElement);
 		await waitFor(() => {
-			expect(document.querySelectorAll('[data-sui-badge]:not([data-sui-badge-overflow])').length).toBe(3);
+			expect(
+				document.querySelectorAll('[data-sui-badge]:not([data-sui-badge-overflow])').length
+			).toBe(3);
 			expect(document.querySelector('[data-sui-badge-overflow]')?.textContent).toContain('+2');
 		});
 	});
@@ -188,7 +192,9 @@ describe('SuiMultiSelect — smart chip overflow', () => {
 describe('SuiMultiSelectSkeleton', () => {
 	it('renders trigger + badge skeletons', () => {
 		const { container } = render(SuiMultiSelectSkeleton, { size: 'md', label: true, badges: 2 });
-		expect(container.querySelector('[data-sui-skeleton="multi-select"]')?.className).toMatch(/\bh-9\b/);
+		expect(container.querySelector('[data-sui-skeleton="multi-select"]')?.className).toMatch(
+			/\bh-9\b/
+		);
 		expect(container.querySelectorAll('[data-sui-skeleton="badge"]').length).toBe(2);
 	});
 });

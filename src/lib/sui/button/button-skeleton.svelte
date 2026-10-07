@@ -3,10 +3,7 @@
 	import type { SuiSize } from '../types.js';
 	import SuiSkeleton from '../skeleton/skeleton.svelte';
 
-	let {
-		size = 'md',
-		fullWidth = false
-	}: { size?: SuiSize; fullWidth?: boolean } = $props();
+	let { size = 'md', fullWidth = false }: { size?: SuiSize; fullWidth?: boolean } = $props();
 </script>
 
 <SuiSkeleton

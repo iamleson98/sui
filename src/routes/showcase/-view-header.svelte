@@ -13,7 +13,7 @@
 	<div class="max-w-2xl">
 		<h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
 		{#if description}
-			<p class="text-muted-foreground mt-1.5 text-sm leading-relaxed text-pretty">{description}</p>
+			<p class="mt-1.5 text-sm leading-relaxed text-pretty text-muted-foreground">{description}</p>
 		{/if}
 	</div>
 	{#if children}

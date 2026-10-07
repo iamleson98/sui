@@ -50,7 +50,9 @@
 	});
 
 	const selectedKey = $derived(selected?.toString() ?? TODAY.toString());
-	const agenda = $derived((eventsOn.get(selectedKey) ?? []).sort((a, b) => a.start.localeCompare(b.start)));
+	const agenda = $derived(
+		(eventsOn.get(selectedKey) ?? []).sort((a, b) => a.start.localeCompare(b.start))
+	);
 	const weekCount = $derived(
 		showcase.events.filter((e) => e.dayOffset >= 0 && e.dayOffset <= 7).length
 	);
@@ -80,7 +82,10 @@
 		value: k,
 		label: EVENT_KINDS[k]!.label
 	}));
-	const lengthItems = [15, 30, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} minutes` }));
+	const lengthItems = [15, 30, 45, 60, 90].map((m) => ({
+		value: String(m),
+		label: `${m} minutes`
+	}));
 
 	function addEvent() {
 		if (!selected) return;
@@ -119,13 +124,19 @@
 	}
 
 	/* ------------------------------------------------------- on-call coverage -- */
-	let coverage = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({ start: undefined, end: undefined });
+	let coverage = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({
+		start: undefined,
+		end: undefined
+	});
 	const nights = $derived(
 		coverage.start && coverage.end ? Math.max(1, coverage.end.compare(coverage.start) + 1) : 0
 	);
 </script>
 
-<ViewHeader title="Schedule" description="Shared team calendar with an on-call coverage planner. Days with events carry colored dots; pick a day to read its agenda.">
+<ViewHeader
+	title="Schedule"
+	description="Shared team calendar with an on-call coverage planner. Days with events carry colored dots; pick a day to read its agenda."
+>
 	<SuiButton size="sm" startIcon={CalendarPlusIcon} onclick={() => (eventDialogOpen = true)}>
 		Schedule event
 	</SuiButton>
@@ -133,7 +144,7 @@
 
 <div class="grid gap-4 lg:grid-cols-[22rem_1fr]">
 	<!-- calendar + jump -->
-	<div class="grid gap-4 content-start">
+	<div class="grid content-start gap-4">
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Team calendar</Card.Title>
@@ -152,7 +163,9 @@
 							<span class="text-xs">{d.day}</span>
 							{#if !outsideMonth && eventsOn.get(d.toString())?.length}
 								<span class="flex gap-0.5">
-									{#each [...new Set(eventsOn.get(d.toString())!.map((e) => e.kind))].slice(0, 3) as k (k)}
+									{#each [...new Set(eventsOn
+												.get(d.toString())!
+												.map((e) => e.kind))].slice(0, 3) as k (k)}
 										<span class="size-1 rounded-full {EVENT_KINDS[k]!.dot}"></span>
 									{/each}
 								</span>
@@ -201,27 +214,46 @@
 					<Badge variant="secondary">{dayChip(selected)}</Badge>
 				{/if}
 			</Card.Title>
-			<Card.Description>{agenda.length} events · {agenda.reduce((s, e) => s + e.minutes, 0)} minutes booked</Card.Description>
+			<Card.Description
+				>{agenda.length} events · {agenda.reduce((s, e) => s + e.minutes, 0)} minutes booked</Card.Description
+			>
 			<Card.Action>
-				<SuiButton size="sm" variant="outline" startIcon={CalendarPlusIcon} onclick={() => (eventDialogOpen = true)}>
+				<SuiButton
+					size="sm"
+					variant="outline"
+					startIcon={CalendarPlusIcon}
+					onclick={() => (eventDialogOpen = true)}
+				>
 					Add
 				</SuiButton>
 			</Card.Action>
 		</Card.Header>
 		<Card.Content>
 			{#if agenda.length === 0}
-				<EmptyState icon={CalendarClockIcon} title="Nothing scheduled" description="A rare and beautiful sight. Use it for deep work — or schedule something.">
-					<SuiButton size="sm" variant="outline" onclick={() => (eventDialogOpen = true)}>Schedule event</SuiButton>
+				<EmptyState
+					icon={CalendarClockIcon}
+					title="Nothing scheduled"
+					description="A rare and beautiful sight. Use it for deep work — or schedule something."
+				>
+					<SuiButton size="sm" variant="outline" onclick={() => (eventDialogOpen = true)}
+						>Schedule event</SuiButton
+					>
 				</EmptyState>
 			{:else}
-				<ol class="relative space-y-3 before:absolute before:inset-y-1 before:left-[4.4rem] before:w-px before:bg-border">
+				<ol
+					class="relative space-y-3 before:absolute before:inset-y-1 before:left-[4.4rem] before:w-px before:bg-border"
+				>
 					{#each agenda as e (e.id)}
 						<li class="flex gap-4">
 							<div class="w-14 pt-0.5 text-right text-xs tabular-nums">
 								{e.start}<br />
 								<span class="text-muted-foreground">{endTime(e)}</span>
 							</div>
-							<span class="bg-background relative z-10 mt-1.5 flex size-2.5 shrink-0 rounded-full {EVENT_KINDS[e.kind]!.dot} ring-2"></span>
+							<span
+								class="relative z-10 mt-1.5 flex size-2.5 shrink-0 rounded-full bg-background {EVENT_KINDS[
+									e.kind
+								]!.dot} ring-2"
+							></span>
 							<div class="flex-1 rounded-lg border p-3">
 								<div class="flex flex-wrap items-center gap-2">
 									<span class="text-sm font-medium">{e.title}</span>
@@ -230,32 +262,58 @@
 										<DropdownMenu.Root>
 											<DropdownMenu.Trigger>
 												{#snippet child({ props })}
-													<SuiIconButton icon={MoreHorizontalIcon} label={`Options for ${e.title}`} size="xs" variant="ghost" {...props} />
+													<SuiIconButton
+														icon={MoreHorizontalIcon}
+														label={`Options for ${e.title}`}
+														size="xs"
+														variant="ghost"
+														{...props}
+													/>
 												{/snippet}
 											</DropdownMenu.Trigger>
 											<DropdownMenu.Content align="end" class="w-40">
-												<DropdownMenu.Item inset onclick={() => toast.info(`“${e.title}” details`, { description: `${e.start}–${endTime(e)} · ${e.minutes} min` })}>
+												<DropdownMenu.Item
+													inset
+													onclick={() =>
+														toast.info(`“${e.title}” details`, {
+															description: `${e.start}–${endTime(e)} · ${e.minutes} min`
+														})}
+												>
 													Details
 												</DropdownMenu.Item>
-												<DropdownMenu.Item variant="destructive" inset onclick={() => { deleteEventTarget = e; deleteEventOpen = true; }}>
+												<DropdownMenu.Item
+													variant="destructive"
+													inset
+													onclick={() => {
+														deleteEventTarget = e;
+														deleteEventOpen = true;
+													}}
+												>
 													<Trash2Icon aria-hidden="true" />Delete
 												</DropdownMenu.Item>
 											</DropdownMenu.Content>
 										</DropdownMenu.Root>
 									</div>
 								</div>
-								<div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-3 text-xs">
+								<div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
 									<PersonStack ids={e.people} max={4} />
 									{#if e.location}
-										<span class="inline-flex items-center gap-1"><MapPinIcon class="size-3" aria-hidden="true" />{e.location}</span>
+										<span class="inline-flex items-center gap-1"
+											><MapPinIcon class="size-3" aria-hidden="true" />{e.location}</span
+										>
 									{:else}
-										<span class="inline-flex items-center gap-1"><VideoIcon class="size-3" aria-hidden="true" />huddle.link/nimbus</span>
+										<span class="inline-flex items-center gap-1"
+											><VideoIcon class="size-3" aria-hidden="true" />huddle.link/nimbus</span
+										>
 									{/if}
 									<SuiButton
 										size="xs"
 										variant="link"
 										class="ms-auto px-0"
-										onclick={() => toast.success(`Joined “${e.title}”`, { description: 'Camera off, mic ready — do not disturb.' })}
+										onclick={() =>
+											toast.success(`Joined “${e.title}”`, {
+												description: 'Camera off, mic ready — do not disturb.'
+											})}
 									>
 										Join
 									</SuiButton>
@@ -277,10 +335,19 @@
 			On-call coverage pause
 		</Card.Title>
 		<Card.Description>
-			Planning a change freeze? Drag across a range to pick the pause window — responders see it the moment you confirm.
+			Planning a change freeze? Drag across a range to pick the pause window — responders see it the
+			moment you confirm.
 		</Card.Description>
 		<Card.Action>
-			<SuiButton size="sm" disabled={nights === 0} startIcon={CheckIcon} onclick={() => toast.success(`Coverage pause booked — ${nights} night${nights === 1 ? '' : 's'}`, { description: 'Runbooks will page the backup rotation.' })}>
+			<SuiButton
+				size="sm"
+				disabled={nights === 0}
+				startIcon={CheckIcon}
+				onclick={() =>
+					toast.success(`Coverage pause booked — ${nights} night${nights === 1 ? '' : 's'}`, {
+						description: 'Runbooks will page the backup rotation.'
+					})}
+			>
 				Confirm pause
 			</SuiButton>
 		</Card.Action>
@@ -294,17 +361,19 @@
 		/>
 		<div class="space-y-3 text-sm">
 			<div class="rounded-lg border p-3">
-				<div class="text-muted-foreground text-xs">Selected window</div>
+				<div class="text-xs text-muted-foreground">Selected window</div>
 				<div class="mt-1 font-medium">
 					{coverage.start ? fmtShort.format(coverage.start.toDate(tz)) : '—'}
 					→
 					{coverage.end ? fmtShort.format(coverage.end.toDate(tz)) : '—'}
 				</div>
 				{#if nights > 0}
-					<div class="text-muted-foreground mt-1 text-xs">{nights} night{nights === 1 ? '' : 's'} · pages route to the backup rotation</div>
+					<div class="mt-1 text-xs text-muted-foreground">
+						{nights} night{nights === 1 ? '' : 's'} · pages route to the backup rotation
+					</div>
 				{/if}
 			</div>
-			<ul class="text-muted-foreground list-outside list-disc space-y-1 pl-4 text-xs">
+			<ul class="list-outside list-disc space-y-1 pl-4 text-xs text-muted-foreground">
 				<li>Freeze windows suppress non-urgent pages</li>
 				<li>Incident severity 1 still breaks through</li>
 				<li>The calendar dots update for everyone instantly</li>
@@ -319,18 +388,33 @@
 		<Dialog.Header>
 			<Dialog.Title>Schedule an event</Dialog.Title>
 			<Dialog.Description>
-				Lands on {selected ? fmt.format(selected.toDate(tz)) : 'the selected day'} — watch the colored dot appear on the calendar.
+				Lands on {selected ? fmt.format(selected.toDate(tz)) : 'the selected day'} — watch the colored
+				dot appear on the calendar.
 			</Dialog.Description>
 		</Dialog.Header>
-		<form class="mt-2 grid gap-4" onsubmit={(e) => { e.preventDefault(); addEvent(); }}>
-			<SuiInput id="sc-ev-title" label="Title" placeholder="Canary metrics review" bind:value={evTitle} required />
+		<form
+			class="mt-2 grid gap-4"
+			onsubmit={(e) => {
+				e.preventDefault();
+				addEvent();
+			}}
+		>
+			<SuiInput
+				id="sc-ev-title"
+				label="Title"
+				placeholder="Canary metrics review"
+				bind:value={evTitle}
+				required
+			/>
 			<div class="grid grid-cols-2 gap-4">
 				<SuiSelect id="sc-ev-kind" label="Kind" items={kindItems} bind:value={evKind} />
 				<SuiSelect id="sc-ev-len" label="Length" items={lengthItems} bind:value={evLength} />
 			</div>
 			<SuiInput id="sc-ev-time" label="Start time" type="time" bind:value={evTime} required />
 			<Dialog.Footer>
-				<SuiButton variant="ghost" type="button" onclick={() => (eventDialogOpen = false)}>Cancel</SuiButton>
+				<SuiButton variant="ghost" type="button" onclick={() => (eventDialogOpen = false)}
+					>Cancel</SuiButton
+				>
 				<SuiButton type="submit" startIcon={CalendarPlusIcon}>Add to calendar</SuiButton>
 			</Dialog.Footer>
 		</form>
@@ -338,12 +422,16 @@
 </Dialog.Root>
 
 <!-- delete event confirm -->
-<AlertDialog.Root bind:open={deleteEventOpen} onOpenChange={(o) => !o && (deleteEventTarget = undefined)}>
+<AlertDialog.Root
+	bind:open={deleteEventOpen}
+	onOpenChange={(o) => !o && (deleteEventTarget = undefined)}
+>
 	<AlertDialog.Content>
 		<AlertDialog.Header>
 			<AlertDialog.Title>Delete “{deleteEventTarget?.title}”?</AlertDialog.Title>
 			<AlertDialog.Description>
-				Attendees will get a cancellation note. This cannot be undone from the demo (but you can schedule it again).
+				Attendees will get a cancellation note. This cannot be undone from the demo (but you can
+				schedule it again).
 			</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>

@@ -78,10 +78,18 @@ describe('SuiButtonSkeleton', () => {
 	});
 
 	it('matches the button height for every size', () => {
-		const expected = { xs: /\bh-6\b/, sm: /\bh-8\b/, md: /\bh-9\b/, lg: /\bh-10\b/, xl: /\bh-12\b/ };
+		const expected = {
+			xs: /\bh-6\b/,
+			sm: /\bh-8\b/,
+			md: /\bh-9\b/,
+			lg: /\bh-10\b/,
+			xl: /\bh-12\b/
+		};
 		for (const size of Object.keys(expected) as (keyof typeof expected)[]) {
 			const { container } = render(SuiButtonSkeleton, { size });
-			expect(container.querySelector('[data-sui-skeleton="button"]')?.className).toMatch(expected[size]);
+			expect(container.querySelector('[data-sui-skeleton="button"]')?.className).toMatch(
+				expected[size]
+			);
 		}
 	});
 });

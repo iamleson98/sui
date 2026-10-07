@@ -120,10 +120,7 @@ describe('SuiFieldState', () => {
 
 		// blur without editing keeps the server message
 		field.validate('', schema, 'blur', 'auto');
-		expect(field.displayed).toEqual([
-			'Name must be at least 2 characters',
-			'Min 3'
-		]);
+		expect(field.displayed).toEqual(['Name must be at least 2 characters', 'Min 3']);
 
 		// editing takes display rights from the external list
 		field.validate('abc', schema, 'change', 'auto');

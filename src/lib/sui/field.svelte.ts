@@ -24,6 +24,8 @@ export class SuiFieldState {
 	errors = $state<string[]>([]);
 	/** Messages supplied via the `errors` prop (server-side etc.). */
 	external = $state<string[]>([]);
+	/** Errors distributed by a form-level submitter (`createSuiSubmitter`). */
+	submitErrors = $state<string[]>([]);
 	/** The field has been blurred or force-validated at least once. */
 	touched = $state(false);
 	/** The user changed the value since the last external-errors update. */
@@ -94,7 +96,25 @@ export class SuiFieldState {
 	 */
 	get displayed(): string[] {
 		if (this.edited) return this.errors;
-		return [...new Set([...this.external, ...this.errors])];
+		return [...new Set([...this.external, ...this.submitErrors, ...this.errors])];
+	}
+
+	/**
+	 * Attach submit-distributed errors (a failed `createSuiSubmitter`
+	 * parse, or a `ZodError` thrown from `onvalid`). They display
+	 * immediately — a fresh distribution re-takes display rights from
+	 * a prior edit (server errors describe the CURRENT value, exactly
+	 * like `createSuiForm`'s external errors) — and hide again as
+	 * soon as the user edits the field.
+	 */
+	setSubmitErrors(errors: string[]): void {
+		this.submitErrors = errors;
+		this.edited = false;
+	}
+
+	/** Remove any submit-distributed errors (fresh submit run). */
+	clearSubmitErrors(): void {
+		this.submitErrors = [];
 	}
 
 	/** Replaces the local error list externally (rarely needed). */
@@ -112,6 +132,7 @@ export class SuiFieldState {
 		this.edited = false;
 		this.errors = [];
 		this.external = [];
+		this.submitErrors = [];
 		this.#externalRef = null;
 	}
 }

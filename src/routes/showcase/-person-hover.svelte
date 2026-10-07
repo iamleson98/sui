@@ -30,9 +30,9 @@
 			<PersonAvatar {id} class="size-11" dot />
 			<div class="min-w-0 flex-1 space-y-1">
 				<div class="text-sm font-semibold">{p.name}</div>
-				<div class="text-muted-foreground text-xs">{p.role} · {p.pronouns}</div>
-				<div class="text-muted-foreground truncate text-xs">{p.email}</div>
-				<div class="text-muted-foreground text-xs">{p.tz} · currently {p.status}</div>
+				<div class="text-xs text-muted-foreground">{p.role} · {p.pronouns}</div>
+				<div class="truncate text-xs text-muted-foreground">{p.email}</div>
+				<div class="text-xs text-muted-foreground">{p.tz} · currently {p.status}</div>
 			</div>
 		</div>
 	</HoverCard.Content>

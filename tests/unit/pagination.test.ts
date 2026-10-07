@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { cursorSource, offsetSource, type SuiPageRequest, type SuiSource } from '$lib/sui/pagination';
+import {
+	cursorSource,
+	offsetSource,
+	type SuiPageRequest,
+	type SuiSource
+} from '$lib/sui/pagination';
 import { SuiInfiniteList } from '$lib/sui/infinite-list.svelte';
 
 function pageRequest(overrides: Partial<SuiPageRequest> = {}): SuiPageRequest {
@@ -110,7 +115,11 @@ describe('SuiInfiniteList', () => {
 		const cursors: (string | null)[] = [];
 		const source: SuiSource<string> = async (req) => {
 			cursors.push(req.cursor);
-			return { items: [`${req.cursor ?? 'root'}`], nextCursor: `c${cursors.length}`, hasMore: cursors.length < 3 };
+			return {
+				items: [`${req.cursor ?? 'root'}`],
+				nextCursor: `c${cursors.length}`,
+				hasMore: cursors.length < 3
+			};
 		};
 		const list = new SuiInfiniteList(source, { pageSize: 5 });
 		await list.loadMore();

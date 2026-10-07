@@ -8,4 +8,6 @@ export {
 	type SuiFieldsFor,
 	type SuiFormFieldMode
 } from './create-form.svelte.js';
+export { createSuiSubmitter, SuiSubmitter, type SuiSubmitterOptions } from './submit.svelte.js';
+export { registerSuiField, collectSuiFields, type SuiFieldRegistration } from './field-registry.js';
 export { focusFirstInvalid } from './utils.js';

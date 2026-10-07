@@ -26,7 +26,12 @@
 	aria-hidden="true"
 	data-sui-skeleton
 	data-animated={animated || undefined}
-	class={cn('bg-accent animate-pulse', rounded ? 'rounded-full' : 'rounded-md', animated || 'animate-none', className)}
+	class={cn(
+		'animate-pulse bg-accent',
+		rounded ? 'rounded-full' : 'rounded-md',
+		animated || 'animate-none',
+		className
+	)}
 	{...rest}
 >
 	{@render children?.()}

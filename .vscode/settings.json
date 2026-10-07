@@ -1,0 +1,14 @@
+{
+	// sui house style — enforced by Prettier (.prettierrc) on save
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"editor.detectIndentation": false,
+	"editor.insertSpaces": false,
+	"editor.tabSize": 2,
+	"[svelte]": {
+		"editor.defaultFormatter": "svelte.svelte-vscode"
+	},
+	"svelte.plugin.css.format.enable": false,
+	"svelte.plugin.prettier.enable": true,
+	"files.eol": "\n"
+}

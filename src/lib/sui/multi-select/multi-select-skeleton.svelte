@@ -23,10 +23,18 @@
 	{#if label}
 		<SuiSkeleton data-sui-skeleton="label" data-sui-size={size} class="mb-1.5 h-4 w-1/4" />
 	{/if}
-	<SuiSkeleton data-sui-skeleton="multi-select" data-sui-size={size} class="{SUI_CONTROL[size]} w-full">
+	<SuiSkeleton
+		data-sui-skeleton="multi-select"
+		data-sui-size={size}
+		class="{SUI_CONTROL[size]} w-full"
+	>
 		<div class="flex items-center gap-1 px-0.5">
 			{#each Array.from({ length: badges }) as _, i (i)}
-				<SuiSkeleton data-sui-skeleton="badge" data-sui-size={size} class="{BADGE[size]} w-10 rounded-full" />
+				<SuiSkeleton
+					data-sui-skeleton="badge"
+					data-sui-size={size}
+					class="{BADGE[size]} w-10 rounded-full"
+				/>
 			{/each}
 		</div>
 	</SuiSkeleton>

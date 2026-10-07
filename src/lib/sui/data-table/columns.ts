@@ -30,10 +30,10 @@ export interface SuiColumnMeta {
 	/** Hide this column by default (users can re-enable it in the menu). */
 	hiddenByDefault?: boolean;
 	/**
-	* Freeze this column to the left/right edge while the table scrolls
-	* horizontally (sticky). Pinned columns should declare an explicit
-	* `width` (or a `size`) so the sticky offsets are deterministic.
-	*/
+	 * Freeze this column to the left/right edge while the table scrolls
+	 * horizontally (sticky). Pinned columns should declare an explicit
+	 * `width` (or a `size`) so the sticky offsets are deterministic.
+	 */
 	pinned?: 'left' | 'right';
 }
 

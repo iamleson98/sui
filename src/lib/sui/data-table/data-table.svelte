@@ -237,11 +237,7 @@
 		if (!group) return [];
 		if (!anyPinned) return group.headers;
 		const byId = new Map(group.headers.map((header) => [header.column.id, header]));
-		const ordered = [
-			...pinnedColumns.start,
-			...pinnedColumns.center,
-			...pinnedColumns.end
-		];
+		const ordered = [...pinnedColumns.start, ...pinnedColumns.center, ...pinnedColumns.end];
 		return ordered.map((column) => byId.get(column.id)).filter((h) => h !== undefined);
 	});
 
@@ -250,11 +246,7 @@
 		const cells = row.getVisibleCells();
 		if (!anyPinned) return cells;
 		const byId = new Map(cells.map((cell) => [cell.column.id, cell]));
-		return [
-			...pinnedColumns.start,
-			...pinnedColumns.center,
-			...pinnedColumns.end
-		]
+		return [...pinnedColumns.start, ...pinnedColumns.center, ...pinnedColumns.end]
 			.map((column) => byId.get(column.id))
 			.filter((c) => c !== undefined);
 	}
@@ -357,7 +349,9 @@
 	});
 
 	const rows = $derived(table.getRowModel().rows);
-	const visibleColumnCount = $derived(table.getVisibleLeafColumns().length + (enableSelection ? 1 : 0));
+	const visibleColumnCount = $derived(
+		table.getVisibleLeafColumns().length + (enableSelection ? 1 : 0)
+	);
 	const pageCount = $derived(table.getPageCount());
 	const pageIndex = $derived(paginationState.pageIndex);
 	const currentPageSize = $derived(paginationState.pageSize);
@@ -421,33 +415,33 @@
 </script>
 
 <div
-	class="bg-card text-card-foreground w-full overflow-hidden rounded-lg border {className}"
+	class="w-full overflow-hidden rounded-lg border bg-card text-card-foreground {className}"
 	data-sui-data-table
 	data-sui-size={size}
 >
 	<!-- toolbar (always rendered: the column visibility menu is a core
 	     affordance, search / header / toolbar slots are optional) -->
 	<div class="flex flex-wrap items-center gap-2 border-b px-3 py-2.5" data-sui-data-table-toolbar>
-			{#if header}
-				<div class="w-full" data-sui-data-table-header>{@render header()}</div>
-			{/if}
-			{#if searchable}
-				<div class="w-full max-w-56" data-sui-data-table-search>
-					<SuiInput
-						bind:value={globalFilter}
-						size="sm"
-						placeholder={searchPlaceholder}
-						startIcon={SearchIcon}
-						aria-label={searchPlaceholder}
-					/>
-				</div>
-			{/if}
-			{@render toolbar?.()}
+		{#if header}
+			<div class="w-full" data-sui-data-table-header>{@render header()}</div>
+		{/if}
+		{#if searchable}
+			<div class="w-full max-w-56" data-sui-data-table-search>
+				<SuiInput
+					bind:value={globalFilter}
+					size="sm"
+					placeholder={searchPlaceholder}
+					startIcon={SearchIcon}
+					aria-label={searchPlaceholder}
+				/>
+			</div>
+		{/if}
+		{@render toolbar?.()}
 		<div class="ml-auto flex items-center gap-2">
 			{#if exportable}
 				<button
 					type="button"
-					class="hover:bg-accent hover:text-accent-foreground inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium outline-none"
+					class="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium outline-none hover:bg-accent hover:text-accent-foreground"
 					data-sui-data-table-export
 					aria-label="Download the filtered rows as CSV"
 					onclick={exportCsv}
@@ -457,28 +451,30 @@
 				</button>
 			{/if}
 			<DropdownMenu.Root>
-					<DropdownMenu.Trigger
-						class="hover:bg-accent hover:text-accent-foreground inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium outline-none"
-						data-sui-data-table-columns-trigger
-						aria-label="Toggle columns"
+				<DropdownMenu.Trigger
+					class="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium outline-none hover:bg-accent hover:text-accent-foreground"
+					data-sui-data-table-columns-trigger
+					aria-label="Toggle columns"
+				>
+					<Columns3Icon class="size-3.5" aria-hidden="true" />
+					Columns
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end" class="z-50">
+					<DropdownMenu.Label class="text-xs text-muted-foreground"
+						>Visible columns</DropdownMenu.Label
 					>
-						<Columns3Icon class="size-3.5" aria-hidden="true" />
-						Columns
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end" class="z-50">
-						<DropdownMenu.Label class="text-muted-foreground text-xs">Visible columns</DropdownMenu.Label>
-						{#each table.getAllLeafColumns() as column (column.id)}
-							{#if column.getCanHide()}
-								<DropdownMenu.CheckboxItem
-									checked={column.getIsVisible()}
-									onCheckedChange={(value) => column.toggleVisibility(value)}
-									class="text-xs capitalize"
-								>
-									{column.id.replace(/([a-z])([A-Z])/g, '$1 $2')}
-								</DropdownMenu.CheckboxItem>
-							{/if}
-						{/each}
-					</DropdownMenu.Content>
+					{#each table.getAllLeafColumns() as column (column.id)}
+						{#if column.getCanHide()}
+							<DropdownMenu.CheckboxItem
+								checked={column.getIsVisible()}
+								onCheckedChange={(value) => column.toggleVisibility(value)}
+								class="text-xs capitalize"
+							>
+								{column.id.replace(/([a-z])([A-Z])/g, '$1 $2')}
+							</DropdownMenu.CheckboxItem>
+						{/if}
+					{/each}
+				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 		</div>
 	</div>
@@ -497,7 +493,7 @@
 						'sticky top-0',
 						// pinned headers must be opaque (content scrolls under
 						// them) — so the whole header goes solid when pinning
-						anyPinned ? 'bg-muted z-20' : 'bg-muted/50 z-10',
+						anyPinned ? 'z-20 bg-muted' : 'z-10 bg-muted/50',
 						gridMode && '[display:grid]'
 					)}
 					data-sui-data-table-head
@@ -509,7 +505,9 @@
 									class="w-10 border-b px-3 py-2"
 									style={`${gridMode ? 'display:flex; width:40px;' : ''}${anyPinned ? 'position: sticky; left: 0; z-index: 21;' : ''}`}
 									data-sui-data-table-select-all
-									data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0 ? 'left' : undefined}
+									data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0
+										? 'left'
+										: undefined}
 								>
 									<Checkbox
 										checked={table.getIsAllRowsSelected()}
@@ -521,17 +519,22 @@
 							{/if}
 							{#each displayHeaders as header (header.id)}
 								{@const column = header.column}
-								{@const meta = (column.columnDef.meta ?? {}) as { align?: 'left' | 'center' | 'right'; width?: number }}
+								{@const meta = (column.columnDef.meta ?? {}) as {
+									align?: 'left' | 'center' | 'right';
+									width?: number;
+								}}
 								<th
 									scope="col"
-									style={`${gridMode
-										? `display:flex; width:${header.getSize()}px;`
+									style={`${
+										gridMode
+											? `display:flex; width:${header.getSize()}px;`
 											: meta.width
-											? `width:${meta.width}px;`
-											: ''}${pinStyle(column.id, true)}`}
+												? `width:${meta.width}px;`
+												: ''
+									}${pinStyle(column.id, true)}`}
 									data-sui-pin-shadow={edgeSide(column.id)}
 									class={cn(
-										'text-muted-foreground font-medium tracking-wide',
+										'font-medium tracking-wide text-muted-foreground',
 										CELL_SIZE[size].header,
 										alignClass(meta.align),
 										column.getCanSort() ? 'cursor-pointer select-none hover:text-foreground' : '',
@@ -553,9 +556,12 @@
 								>
 									{#if !header.isPlaceholder}
 										<span class="inline-flex items-center gap-0.5">
-											<FlexRender header={header} />
+											<FlexRender {header} />
 											{#if column.getCanSort()}
-												<span class="text-muted-foreground/60 ml-0.5 inline-flex" aria-hidden="true">
+												<span
+													class="ml-0.5 inline-flex text-muted-foreground/60"
+													aria-hidden="true"
+												>
 													{#if column.getIsSorted() === 'asc'}
 														<ChevronUpIcon class="size-3.5" />
 													{:else if column.getIsSorted() === 'desc'}
@@ -581,7 +587,10 @@
 					{#if loading}
 						<tr>
 							<td colspan={visibleColumnCount} class="py-16 text-center">
-								<span class="text-muted-foreground inline-flex items-center gap-2 text-sm" role="status">
+								<span
+									class="inline-flex items-center gap-2 text-sm text-muted-foreground"
+									role="status"
+								>
 									<LoaderCircleIcon class="size-4 animate-spin" aria-hidden="true" />
 									Loading…
 								</span>
@@ -590,7 +599,7 @@
 					{:else if rows.length === 0}
 						<tr>
 							<td colspan={visibleColumnCount} class="py-16" data-sui-data-table-empty>
-								<div class="text-muted-foreground flex flex-col items-center gap-2">
+								<div class="flex flex-col items-center gap-2 text-muted-foreground">
 									<InboxIcon class="size-8 opacity-40" aria-hidden="true" />
 									<span class="text-sm">{emptyText}</span>
 								</div>
@@ -604,10 +613,10 @@
 								use:measureRow
 								data-selected={row.getIsSelected() || undefined}
 								class={cn(
-									'group/row hover:bg-muted/40 border-b transition-colors',
+									'group/row border-b transition-colors hover:bg-muted/40',
 									row.getIsSelected() && 'bg-muted/50',
 									onRowClick && 'cursor-pointer',
-									'[display:flex] absolute w-full'
+									'absolute [display:flex] w-full'
 								)}
 								style="transform: translateY({virtualRow.start}px);"
 								onclick={onRowClick ? () => onRowClick(row.original, virtualRow.index) : undefined}
@@ -616,7 +625,9 @@
 									<td
 										class="w-10 px-3"
 										style={`display:flex; align-items:center;${anyPinned ? 'position: sticky; left: 0; z-index: 12;' : ''}`}
-										data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0 ? 'left' : undefined}
+										data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0
+											? 'left'
+											: undefined}
 									>
 										<Checkbox
 											checked={row.getIsSelected()}
@@ -627,13 +638,22 @@
 									</td>
 								{/if}
 								{#each displayCells(row) as cell (cell.id)}
-									{@const meta = (cell.column.columnDef.meta ?? {}) as { align?: 'left' | 'center' | 'right'; class?: string }}
+									{@const meta = (cell.column.columnDef.meta ?? {}) as {
+										align?: 'left' | 'center' | 'right';
+										class?: string;
+									}}
 									<td
 										style={`display:flex; width:${cell.column.getSize()}px; align-items:center;${pinStyle(cell.column.id, false)}`}
 										data-sui-pin-shadow={edgeSide(cell.column.id)}
-										class={cn('truncate', CELL_SIZE[size].cell, alignClass(meta.align), meta.class, pinClasses(cell.column.id, false))}
+										class={cn(
+											'truncate',
+											CELL_SIZE[size].cell,
+											alignClass(meta.align),
+											meta.class,
+											pinClasses(cell.column.id, false)
+										)}
 									>
-										<FlexRender cell={cell} />
+										<FlexRender {cell} />
 									</td>
 								{/each}
 							</tr>
@@ -643,7 +663,7 @@
 							<tr
 								data-selected={row.getIsSelected() || undefined}
 								class={cn(
-									'group/row hover:bg-muted/40 border-b transition-colors',
+									'group/row border-b transition-colors hover:bg-muted/40',
 									row.getIsSelected() && 'bg-muted/50',
 									onRowClick && 'cursor-pointer'
 								)}
@@ -653,7 +673,9 @@
 									<td
 										class="w-10 px-3"
 										style={anyPinned ? 'position: sticky; left: 0; z-index: 12;' : ''}
-										data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0 ? 'left' : undefined}
+										data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0
+											? 'left'
+											: undefined}
 									>
 										<Checkbox
 											checked={row.getIsSelected()}
@@ -664,13 +686,22 @@
 									</td>
 								{/if}
 								{#each displayCells(row) as cell (cell.id)}
-									{@const meta = (cell.column.columnDef.meta ?? {}) as { align?: 'left' | 'center' | 'right'; class?: string }}
+									{@const meta = (cell.column.columnDef.meta ?? {}) as {
+										align?: 'left' | 'center' | 'right';
+										class?: string;
+									}}
 									<td
 										style={pinStyle(cell.column.id, false)}
 										data-sui-pin-shadow={edgeSide(cell.column.id)}
-										class={cn('truncate', CELL_SIZE[size].cell, alignClass(meta.align), meta.class, pinClasses(cell.column.id, false))}
+										class={cn(
+											'truncate',
+											CELL_SIZE[size].cell,
+											alignClass(meta.align),
+											meta.class,
+											pinClasses(cell.column.id, false)
+										)}
 									>
-										<FlexRender cell={cell} />
+										<FlexRender {cell} />
 									</td>
 								{/each}
 							</tr>
@@ -684,7 +715,10 @@
 	<!-- footer: always present with selection (the count matters even
 	     without pagination); the pager itself needs a pagination mode -->
 	{#if pagination !== 'none' || enableSelection}
-		<div class="flex flex-wrap items-center gap-3 border-t px-3 py-2 text-xs" data-sui-data-table-footer>
+		<div
+			class="flex flex-wrap items-center gap-3 border-t px-3 py-2 text-xs"
+			data-sui-data-table-footer
+		>
 			{#if enableSelection}
 				<span class="text-muted-foreground" data-sui-data-table-count>
 					{selectedCount > 0 ? `${selectedCount} of ${totalRows} selected` : `${totalRows} rows`}
@@ -694,10 +728,13 @@
 			{/if}
 			{#if pagination !== 'none'}
 				{#if pagination === 'client' && rows.length !== 0}
-					<label class="text-muted-foreground ml-auto flex items-center gap-1.5" data-sui-data-table-page-size>
+					<label
+						class="ml-auto flex items-center gap-1.5 text-muted-foreground"
+						data-sui-data-table-page-size
+					>
 						Rows
 						<select
-							class="bg-background hover:bg-accent focus-visible:ring-ring/50 border-input h-8 rounded-md border px-2 text-xs outline-none"
+							class="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none hover:bg-accent focus-visible:ring-ring/50"
 							value={currentPageSize}
 							onchange={(e) => table.setPageSize(Number(e.currentTarget.value))}
 							aria-label="Rows per page"
@@ -710,10 +747,10 @@
 				{:else}
 					<span class="ml-auto"></span>
 				{/if}
-				<span class="text-muted-foreground flex items-center gap-1">
+				<span class="flex items-center gap-1 text-muted-foreground">
 					<button
 						type="button"
-						class="hover:bg-accent disabled:opacity-40 inline-flex size-7 items-center justify-center rounded-md border outline-none disabled:pointer-events-none"
+						class="inline-flex size-7 items-center justify-center rounded-md border outline-none hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
 						onclick={() => table.previousPage()}
 						disabled={!canPrevious}
 						aria-label="Previous page"
@@ -725,7 +762,7 @@
 					</span>
 					<button
 						type="button"
-						class="hover:bg-accent disabled:opacity-40 inline-flex size-7 items-center justify-center rounded-md border outline-none disabled:pointer-events-none"
+						class="inline-flex size-7 items-center justify-center rounded-md border outline-none hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
 						onclick={() => table.nextPage()}
 						disabled={!canNext}
 						aria-label="Next page"

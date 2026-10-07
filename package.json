@@ -16,7 +16,9 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
-		"test:e2e:update": "playwright test --update-snapshots"
+		"test:e2e:update": "playwright test --update-snapshots",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.4",
@@ -37,6 +39,9 @@
 		"layerchart": "^2.5.1",
 		"mode-watcher": "^1.1.0",
 		"paneforge": "^1.0.2",
+		"prettier": "^3.9.9",
+		"prettier-plugin-svelte": "^4.1.1",
+		"prettier-plugin-tailwindcss": "^0.8.1",
 		"shadcn-svelte": "^1.7.0",
 		"svelte": "^5.57.1",
 		"svelte-check": "^4.7.6",

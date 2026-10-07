@@ -119,7 +119,9 @@
 			bind:value={country}
 		/>
 		{#if country}
-			<p class="text-muted-foreground mt-4 text-sm">Bound value: <code class="bg-muted rounded px-1 py-0.5">{country}</code></p>
+			<p class="mt-4 text-sm text-muted-foreground">
+				Bound value: <code class="rounded bg-muted px-1 py-0.5">{country}</code>
+			</p>
 		{/if}
 	</div>
 	<div class="mt-8">
@@ -161,7 +163,9 @@
 			bind:value={assignee}
 		/>
 		{#if assignee}
-			<p class="text-muted-foreground mt-4 text-sm">Bound value: <code class="bg-muted rounded px-1 py-0.5">{assignee}</code></p>
+			<p class="mt-4 text-sm text-muted-foreground">
+				Bound value: <code class="rounded bg-muted px-1 py-0.5">{assignee}</code>
+			</p>
 		{/if}
 	</div>
 	<div class="mt-8">
@@ -193,7 +197,9 @@
 			startIcon={TagIcon}
 			bind:value={tags}
 		/>
-		<p class="text-muted-foreground mt-4 text-sm">Selected: <code class="bg-muted rounded px-1 py-0.5">{products.join(', ') || '—'}</code></p>
+		<p class="mt-4 text-sm text-muted-foreground">
+			Selected: <code class="rounded bg-muted px-1 py-0.5">{products.join(', ') || '—'}</code>
+		</p>
 	</div>
 	<div class="mt-8">
 		<CodeBlock code={multiCode} />
@@ -205,10 +211,36 @@
 	description="info (blue), success, warning and error variants tint the whole field: label, border, focus ring and helper text. Validation errors always force the error variant."
 >
 	<div class="grid max-w-lg gap-6">
-		<SuiSelect label="Info field" items={countries} placeholder="info…" subText="Neutral blue (default)." />
-		<SuiSelect label="Success field" items={countries} placeholder="success…" variant="success" subText="Saved and verified." clearable />
-		<SuiSelect label="Warning field" items={countries} placeholder="warning…" variant="warning" subText="Double-check this choice." clearable />
-		<SuiSelect label="Error field" items={countries} placeholder="error…" variant="error" subText="This value conflicts with an existing record." clearable />
+		<SuiSelect
+			label="Info field"
+			items={countries}
+			placeholder="info…"
+			subText="Neutral blue (default)."
+		/>
+		<SuiSelect
+			label="Success field"
+			items={countries}
+			placeholder="success…"
+			variant="success"
+			subText="Saved and verified."
+			clearable
+		/>
+		<SuiSelect
+			label="Warning field"
+			items={countries}
+			placeholder="warning…"
+			variant="warning"
+			subText="Double-check this choice."
+			clearable
+		/>
+		<SuiSelect
+			label="Error field"
+			items={countries}
+			placeholder="error…"
+			variant="error"
+			subText="This value conflicts with an existing record."
+			clearable
+		/>
 	</div>
 </Section>
 

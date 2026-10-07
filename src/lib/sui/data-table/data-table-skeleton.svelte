@@ -23,14 +23,14 @@
 </script>
 
 <SuiSkeletonContainer>
-	<div class="bg-card w-full overflow-hidden rounded-lg border" aria-hidden="true">
+	<div class="w-full overflow-hidden rounded-lg border bg-card" aria-hidden="true">
 		{#if searchable}
 			<div class="flex items-center gap-2 border-b px-3 py-2.5">
 				<SuiSkeleton data-sui-skeleton="table-search" class="h-8 w-56" />
 			</div>
 		{/if}
 		<div class="overflow-hidden">
-			<div class="bg-muted/40 flex gap-3 border-b px-3 py-2.5">
+			<div class="flex gap-3 border-b bg-muted/40 px-3 py-2.5">
 				{#each Array.from({ length: columns }) as _, i (i)}
 					<SuiSkeleton data-sui-skeleton="table-head" class="{CELL[size].head} flex-1" />
 				{/each}

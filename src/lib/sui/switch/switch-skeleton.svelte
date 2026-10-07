@@ -29,6 +29,10 @@
 		{:else}
 			<span></span>
 		{/if}
-		<SuiSkeleton data-sui-skeleton="switch" data-sui-size={size} class="{TRACK[size]} rounded-full" />
+		<SuiSkeleton
+			data-sui-skeleton="switch"
+			data-sui-size={size}
+			class="{TRACK[size]} rounded-full"
+		/>
 	</div>
 </SuiSkeletonContainer>

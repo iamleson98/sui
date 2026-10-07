@@ -23,18 +23,26 @@ describe('SuiInput', () => {
 	it('applies shared size classes to the control wrapper', () => {
 		const { container } = render(SuiInput, { size: 'sm' });
 		expect(container.querySelector('[data-sui-control="input"]')?.className).toMatch(/\bh-8\b/);
-		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute('data-sui-size', 'sm');
+		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute(
+			'data-sui-size',
+			'sm'
+		);
 	});
 
 	it('applies variant classes (blue=info default)', () => {
 		const { container } = render(SuiInput, { variant: 'success' });
-		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute('data-sui-variant', 'success');
+		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute(
+			'data-sui-variant',
+			'success'
+		);
 		expect(container.querySelector('[data-sui-control="input"]')?.className).toContain('green');
 	});
 
 	it('renders start and end icons inside the control', () => {
 		const { container } = render(SuiInput, { startIcon: MailIcon, endIcon: LockIcon });
-		expect(container.querySelector('[data-sui-control="input"]')?.querySelectorAll('svg').length).toBe(2);
+		expect(
+			container.querySelector('[data-sui-control="input"]')?.querySelectorAll('svg').length
+		).toBe(2);
 	});
 
 	it('renders the action snippet at the end', () => {
@@ -58,7 +66,10 @@ describe('SuiInput', () => {
 		await waitFor(() => {
 			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Too short');
 		});
-		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute('data-invalid', 'true');
+		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute(
+			'data-invalid',
+			'true'
+		);
 	});
 
 	it('wires aria-invalid and aria-describedby to the message', async () => {
@@ -123,7 +134,9 @@ describe('SuiInput', () => {
 		// user fixes the field → local validation takes the display back
 		await userEvent.type(screen.getByLabelText('Email'), 'abc');
 		await waitFor(() => expect(container.querySelector('[data-sui-field-message]')).toBeNull());
-		expect(container.querySelector('[data-sui-control="input"]')).not.toHaveAttribute('data-invalid');
+		expect(container.querySelector('[data-sui-control="input"]')).not.toHaveAttribute(
+			'data-invalid'
+		);
 	});
 
 	it('fresh external errors re-take the display after an edit', async () => {
@@ -162,7 +175,10 @@ describe('SuiInput', () => {
 	it('supports external errors (server-side messages)', () => {
 		const { container } = render(SuiInput, { label: 'X', errors: ['Already taken'] });
 		expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Already taken');
-		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute('data-invalid', 'true');
+		expect(container.querySelector('[data-sui-control="input"]')).toHaveAttribute(
+			'data-invalid',
+			'true'
+		);
 	});
 
 	it('binds value two-way', async () => {
@@ -205,7 +221,9 @@ describe('SuiTextarea', () => {
 		await userEvent.type(textarea, 'way too long');
 		textarea.blur();
 		await waitFor(() =>
-			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent('Max 4 characters')
+			expect(container.querySelector('[data-sui-field-message]')).toHaveTextContent(
+				'Max 4 characters'
+			)
 		);
 	});
 });
@@ -216,13 +234,15 @@ describe('skeletons', () => {
 		expect(without.container.querySelectorAll('[data-sui-skeleton="label"]').length).toBe(0);
 		const withLabel = render(SuiInputSkeleton, { size: 'md', label: true });
 		expect(withLabel.container.querySelector('[data-sui-skeleton="label"]')).toBeInTheDocument();
-		expect(withLabel.container.querySelector('[data-sui-skeleton="input"]')?.className).toMatch(/\bh-9\b/);
+		expect(withLabel.container.querySelector('[data-sui-skeleton="input"]')?.className).toMatch(
+			/\bh-9\b/
+		);
 	});
 
 	it('textarea skeleton approximates row height', () => {
 		const { container } = render(SuiTextareaSkeleton, { rows: 4 });
-		expect(container.querySelector('[data-sui-skeleton="textarea"]')?.getAttribute('style')).toContain(
-			'height: 7rem'
-		);
+		expect(
+			container.querySelector('[data-sui-skeleton="textarea"]')?.getAttribute('style')
+		).toContain('height: 7rem');
 	});
 });

@@ -30,15 +30,17 @@
 
 <div class="group relative overflow-hidden rounded-lg border">
 	{#if title}
-		<div class="bg-muted/60 text-muted-foreground border-b px-3 py-1.5 font-mono text-xs">{title}</div>
+		<div class="border-b bg-muted/60 px-3 py-1.5 font-mono text-xs text-muted-foreground">
+			{title}
+		</div>
 	{/if}
 	<button
 		type="button"
 		onclick={copy}
-		class="bg-background/80 hover:bg-accent absolute end-2 top-2 z-10 rounded-md border px-2 py-1 text-xs opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+		class="absolute end-2 top-2 z-10 rounded-md border bg-background/80 px-2 py-1 text-xs opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent focus-visible:opacity-100"
 		aria-label="Copy code"
 	>
 		{copied ? 'Copied!' : 'Copy'}
 	</button>
-	<pre class="bg-muted/30 overflow-x-auto p-4 text-xs leading-relaxed"><code>{code}</code></pre>
+	<pre class="overflow-x-auto bg-muted/30 p-4 text-xs leading-relaxed"><code>{code}</code></pre>
 </div>

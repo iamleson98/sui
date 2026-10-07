@@ -24,7 +24,11 @@
 
 <SuiSkeletonContainer>
 	<div class="flex items-start gap-2" aria-hidden="true">
-		<SuiSkeleton data-sui-skeleton="checkbox" data-sui-size={size} class="{BOX[size]} rounded-[4px]" />
+		<SuiSkeleton
+			data-sui-skeleton="checkbox"
+			data-sui-size={size}
+			class="{BOX[size]} rounded-[4px]"
+		/>
 		{#if label}
 			<SuiSkeleton data-sui-skeleton="label" data-sui-size={size} class="{LABEL_H[size]} w-24" />
 		{/if}

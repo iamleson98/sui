@@ -35,18 +35,24 @@
 {#if bare}
 	{@render children()}
 {:else}
-	<div class="bg-background text-foreground flex min-h-screen flex-col">
-		<header class="bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
+	<div class="flex min-h-screen flex-col bg-background text-foreground">
+		<header class="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
 			<div class="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4">
 				<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
-					<span class="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md text-xs">s</span>
+					<span
+						class="flex size-6 items-center justify-center rounded-md bg-primary text-xs text-primary-foreground"
+						>s</span
+					>
 					sui
 				</a>
-				<nav class="hide-scrollbar flex flex-1 items-center gap-1 overflow-x-auto" aria-label="Main">
+				<nav
+					class="hide-scrollbar flex flex-1 items-center gap-1 overflow-x-auto"
+					aria-label="Main"
+				>
 					{#each links as link (link.href)}
 						<a
 							href={link.href}
-							class="text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors"
+							class="rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 						>
 							{link.label}
 						</a>
@@ -61,7 +67,7 @@
 				/>
 				<a
 					href="https://github.com/iamleson98/sui"
-					class="text-muted-foreground hover:text-foreground hidden sm:block"
+					class="hidden text-muted-foreground hover:text-foreground sm:block"
 					aria-label="GitHub repository"
 				>
 					<ExternalLinkIcon class="size-4.5" />
@@ -73,7 +79,7 @@
 			{@render children()}
 		</main>
 
-		<footer class="text-muted-foreground border-t py-6 text-center text-xs">
+		<footer class="border-t py-6 text-center text-xs text-muted-foreground">
 			sui · Svelte 5 + shadcn-svelte + Tailwind CSS v4 · MIT
 		</footer>
 	</div>

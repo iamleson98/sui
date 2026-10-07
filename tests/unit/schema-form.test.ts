@@ -191,7 +191,12 @@ describe('createSuiForm — submit flow', () => {
 		const form = makeForm({
 			onsubmit: () => {
 				throw new ZodError([
-					{ code: 'custom' as const, input: undefined, path: ['email'], message: 'That email is already registered.' }
+					{
+						code: 'custom' as const,
+						input: undefined,
+						path: ['email'],
+						message: 'That email is already registered.'
+					}
 				]);
 			}
 		});

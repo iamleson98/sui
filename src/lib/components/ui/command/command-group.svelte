@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Command as CommandPrimitive, useId } from "bits-ui";
-	import { cn } from "$lib/utils.js";
-	import { containedScrollIntoView } from "./contained-scroll-into-view.js";
+	import { Command as CommandPrimitive, useId } from 'bits-ui';
+	import { cn } from '$lib/utils.js';
+	import { containedScrollIntoView } from './contained-scroll-into-view.js';
 
 	let {
 		ref = $bindable(null),
@@ -27,12 +27,18 @@
 <CommandPrimitive.Group
 	bind:ref
 	data-slot="command-group"
-	class={cn("text-foreground **:[[cmdk-group-heading]]:text-muted-foreground overflow-hidden p-1 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium", className)}
+	class={cn(
+		'overflow-hidden p-1 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground',
+		className
+	)}
 	value={value ?? heading ?? `----${useId()}`}
 	{...restProps}
 >
 	{#if heading}
-		<CommandPrimitive.GroupHeading bind:ref={headingRef} class="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+		<CommandPrimitive.GroupHeading
+			bind:ref={headingRef}
+			class="px-2 py-1.5 text-xs font-medium text-muted-foreground"
+		>
 			{heading}
 		</CommandPrimitive.GroupHeading>
 	{/if}

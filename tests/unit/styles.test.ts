@@ -22,7 +22,9 @@ const VARIANTS: SuiFieldVariant[] = ['info', 'success', 'warning', 'error'];
 describe('SUI size maps', () => {
 	it('every size has a control class with a height utility', () => {
 		for (const size of SIZES) {
-			expect(SUI_CONTROL[size]).toMatch(new RegExp(`\\bh-${{ xs: 6, sm: 8, md: 9, lg: 10, xl: 12 }[size]}\\b`));
+			expect(SUI_CONTROL[size]).toMatch(
+				new RegExp(`\\bh-${{ xs: 6, sm: 8, md: 9, lg: 10, xl: 12 }[size]}\\b`)
+			);
 		}
 	});
 

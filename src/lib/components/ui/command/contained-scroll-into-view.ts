@@ -19,23 +19,23 @@
 
 /** Vertical delta needed to bring `item` into the visible edge(s) of `container`. */
 export function containedScrollDelta(
-        item: { top: number; bottom: number; height: number },
-        container: { top: number; bottom: number; height: number },
-        block: ScrollLogicalPosition
+	item: { top: number; bottom: number; height: number },
+	container: { top: number; bottom: number; height: number },
+	block: ScrollLogicalPosition
 ): number {
-        switch (block) {
-                case 'start':
-                        return item.top - container.top;
-                case 'end':
-                        return item.bottom - container.bottom;
-                case 'center':
-                        return item.top + item.height / 2 - (container.top + container.height / 2);
-                case 'nearest':
-                default:
-                        if (item.top < container.top) return item.top - container.top;
-                        if (item.bottom > container.bottom) return item.bottom - container.bottom;
-                        return 0;
-        }
+	switch (block) {
+		case 'start':
+			return item.top - container.top;
+		case 'end':
+			return item.bottom - container.bottom;
+		case 'center':
+			return item.top + item.height / 2 - (container.top + container.height / 2);
+		case 'nearest':
+		default:
+			if (item.top < container.top) return item.top - container.top;
+			if (item.bottom > container.bottom) return item.bottom - container.bottom;
+			return 0;
+	}
 }
 
 /**
@@ -43,15 +43,18 @@ export function containedScrollDelta(
  * page itself must never be scrolled by the contained implementation.
  */
 function nearestScrollable(node: HTMLElement): HTMLElement | null {
-        let current: HTMLElement | null = node.parentElement;
-        while (current && current !== document.body) {
-                const style = window.getComputedStyle(current);
-                if (/(auto|scroll|overlay|hidden)/.test(style.overflowY) && current.scrollHeight > current.clientHeight) {
-                        return current;
-                }
-                current = current.parentElement;
-        }
-        return null;
+	let current: HTMLElement | null = node.parentElement;
+	while (current && current !== document.body) {
+		const style = window.getComputedStyle(current);
+		if (
+			/(auto|scroll|overlay|hidden)/.test(style.overflowY) &&
+			current.scrollHeight > current.clientHeight
+		) {
+			return current;
+		}
+		current = current.parentElement;
+	}
+	return null;
 }
 
 /**
@@ -60,20 +63,28 @@ function nearestScrollable(node: HTMLElement): HTMLElement | null {
  * Restores the native method on destroy.
  */
 export function containedScrollIntoView(node: HTMLElement): { destroy(): void } {
-        node.scrollIntoView = function contained(arg?: boolean | ScrollIntoViewOptions) {
-                const block: ScrollLogicalPosition =
-                        typeof arg === 'object' && arg !== null ? (arg.block ?? 'start') : arg === false ? 'end' : 'start';
-                const container = nearestScrollable(node);
-                // no scrollable ancestor (list shorter than its max height, styles not
-                // applied yet, …): do nothing rather than letting the page move
-                if (!container) return;
-                const delta = containedScrollDelta(node.getBoundingClientRect(), container.getBoundingClientRect(), block);
-                if (delta !== 0) container.scrollTop += delta;
-        };
-        return {
-                destroy() {
-                        // drop the own-property override, restoring the prototype method
-                        Reflect.deleteProperty(node, 'scrollIntoView');
-                }
-        };
+	node.scrollIntoView = function contained(arg?: boolean | ScrollIntoViewOptions) {
+		const block: ScrollLogicalPosition =
+			typeof arg === 'object' && arg !== null
+				? (arg.block ?? 'start')
+				: arg === false
+					? 'end'
+					: 'start';
+		const container = nearestScrollable(node);
+		// no scrollable ancestor (list shorter than its max height, styles not
+		// applied yet, …): do nothing rather than letting the page move
+		if (!container) return;
+		const delta = containedScrollDelta(
+			node.getBoundingClientRect(),
+			container.getBoundingClientRect(),
+			block
+		);
+		if (delta !== 0) container.scrollTop += delta;
+	};
+	return {
+		destroy() {
+			// drop the own-property override, restoring the prototype method
+			Reflect.deleteProperty(node, 'scrollIntoView');
+		}
+	};
 }

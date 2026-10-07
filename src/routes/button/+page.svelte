@@ -1,10 +1,10 @@
 <script lang="ts">
 	import {
-	SuiButton,
-	SuiIconButton,
-	SuiButtonSkeleton,
-	SuiIconButtonSkeleton
-} from '$lib/sui/button/index.js';
+		SuiButton,
+		SuiIconButton,
+		SuiButtonSkeleton,
+		SuiIconButtonSkeleton
+	} from '$lib/sui/button/index.js';
 	import Seo from '$lib/demo/seo.svelte';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import Section from '$lib/demo/section.svelte';
@@ -14,7 +14,7 @@
 	import TrashIcon from '@lucide/svelte/icons/trash';
 
 	let loading = $state(false);
-	let sizes = (['xs', 'sm', 'md', 'lg', 'xl'] as const);
+	let sizes = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
 
 	const variantsCode = `<SuiButton>Save</SuiButton>
 <SuiButton variant="secondary">Cancel</SuiButton>
@@ -54,11 +54,20 @@
 	</div>
 </Section>
 
-<Section title="Icons & loading" description="startIcon / endIcon components, loading state, and square icon buttons with the same height scale.">
+<Section
+	title="Icons & loading"
+	description="startIcon / endIcon components, loading state, and square icon buttons with the same height scale."
+>
 	<div class="flex flex-wrap items-center gap-3">
 		<SuiButton startIcon={PlusIcon}>New project</SuiButton>
 		<SuiButton variant="outline" endIcon={DownloadIcon}>Export</SuiButton>
-		<SuiButton loading={loading} onclick={() => { loading = true; setTimeout(() => (loading = false), 1500); }}>
+		<SuiButton
+			{loading}
+			onclick={() => {
+				loading = true;
+				setTimeout(() => (loading = false), 1500);
+			}}
+		>
 			Save changes
 		</SuiButton>
 		<SuiIconButton icon={SearchIcon} label="Search" variant="outline" />
@@ -69,16 +78,19 @@
 	</div>
 </Section>
 
-<Section title="Sizes" description="One shared scale — an sm button is exactly as tall as an sm input or select trigger.">
+<Section
+	title="Sizes"
+	description="One shared scale — an sm button is exactly as tall as an sm input or select trigger."
+>
 	<div class="flex flex-wrap items-end gap-3">
 		{#each sizes as size (size)}
 			<div class="flex flex-col items-center gap-2">
 				<SuiButton {size}>{size}</SuiButton>
-				<span class="text-muted-foreground text-[10px] font-mono">{size}</span>
+				<span class="font-mono text-[10px] text-muted-foreground">{size}</span>
 			</div>
 		{/each}
 		<div class="flex items-end gap-3 border-l pl-3">
-			{#each (['sm', 'md', 'lg'] as const) as size (size)}
+			{#each ['sm', 'md', 'lg'] as const as size (size)}
 				<SuiIconButton icon={TrashIcon} label="Delete" {size} variant="outline" />
 			{/each}
 		</div>

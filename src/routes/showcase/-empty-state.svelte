@@ -8,15 +8,17 @@
 		title,
 		description,
 		children
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	}: { icon: Component<any>; title: string; description?: string; children?: Snippet } = $props();
 </script>
 
-<div class="text-muted-foreground flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center">
-	<div class="bg-muted flex size-10 items-center justify-center rounded-full">
-		<Icon class="text-muted-foreground size-5" aria-hidden="true" />
+<div
+	class="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center text-muted-foreground"
+>
+	<div class="flex size-10 items-center justify-center rounded-full bg-muted">
+		<Icon class="size-5 text-muted-foreground" aria-hidden="true" />
 	</div>
-	<div class="text-foreground text-sm font-medium">{title}</div>
+	<div class="text-sm font-medium text-foreground">{title}</div>
 	{#if description}
 		<p class="max-w-xs text-xs leading-relaxed">{description}</p>
 	{/if}
