@@ -13,6 +13,7 @@
 export type {
 	SuiSize,
 	SuiFieldVariant,
+	SuiButtonColor,
 	SuiItem,
 	SuiIconComponent,
 	SuiActionSnippet
@@ -33,8 +34,16 @@ export {
 	SUI_CLEAR_END,
 	SUI_CLEAR_SIZE,
 	SUI_CHEVRON_PIN,
+	SUI_INVALID_RING,
+	SUI_INVALID_TRIGGER,
+	SUI_BUTTON_COLOR,
+	SUI_BUTTON_TONE,
+	suiButtonColor,
 	suiEffectiveVariant
 } from './styles.js';
+
+// UI copy (i18n): override any built-in string per subtree
+export { SUI_STRINGS, setSuiStrings, getSuiStrings, type SuiStrings } from './strings.js';
 
 // zod validation helpers
 export { suiValidate, shouldValidate, type SuiValidateOn } from './zod.js';
@@ -70,5 +79,6 @@ export * from './switch/index.js';
 export * from './select/index.js';
 export * from './combobox/index.js';
 export * from './multi-select/index.js';
+export * from './date/index.js';
 export * from './data-table/index.js';
 export * from './error-summary/index.js';

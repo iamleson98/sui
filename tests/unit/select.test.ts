@@ -29,17 +29,17 @@ const countries: SuiItem[] = [
 describe('SuiSelect', () => {
 	it('renders a labelled trigger with placeholder', () => {
 		render(SuiSelect, { label: 'Country', placeholder: 'Choose…', items: countries });
-		expect(screen.getByRole('button', { name: 'Country' })).toHaveTextContent('Choose…');
+		expect(screen.getByRole('combobox', { name: 'Country' })).toHaveTextContent('Choose…');
 	});
 
 	it('shows the selected item label in the trigger', async () => {
 		render(SuiSelect, { label: 'Country', items: countries, value: 'vn' });
-		expect(screen.getByRole('button', { name: 'Country' })).toHaveTextContent('Vietnam');
+		expect(screen.getByRole('combobox', { name: 'Country' })).toHaveTextContent('Vietnam');
 	});
 
 	it('opens the menu and lists items with descriptions', async () => {
 		const { container } = render(SuiSelect, { label: 'Country', items: countries });
-		await user.click(screen.getByRole('button', { name: 'Country' }));
+		await user.click(screen.getByRole('combobox', { name: 'Country' }));
 		const nl = await findOption(/netherlands/i);
 		expect(nl.textContent).toContain('Europe');
 		expect(await findOption(/vietnam/i)).toBeInTheDocument();
@@ -58,13 +58,13 @@ describe('SuiSelect', () => {
 	it('selects an option and fires onSelect', async () => {
 		const onSelect = vi.fn();
 		render(SuiSelect, { label: 'Country', items: countries, onSelect });
-		await user.click(screen.getByRole('button', { name: 'Country' }));
+		await user.click(screen.getByRole('combobox', { name: 'Country' }));
 		await user.click(await findOption(/germany/i));
 		expect(onSelect).toHaveBeenCalledWith(
 			'de',
 			expect.objectContaining({ value: 'de', label: 'Germany' })
 		);
-		expect(screen.getByRole('button', { name: 'Country' })).toHaveTextContent('Germany');
+		expect(screen.getByRole('combobox', { name: 'Country' })).toHaveTextContent('Germany');
 	});
 
 	it('validates selection with zod and shows the error under the trigger', async () => {
@@ -73,7 +73,7 @@ describe('SuiSelect', () => {
 			items: countries,
 			schema: z.string().min(1, 'Pick a country')
 		});
-		const trigger = screen.getByRole('button', { name: 'Country' });
+		const trigger = screen.getByRole('combobox', { name: 'Country' });
 		expect(trigger).not.toHaveAttribute('aria-invalid', 'true');
 
 		// open and close without choosing → blur triggers validation
@@ -132,7 +132,7 @@ describe('SuiSelect — infinite scroll', () => {
 		// the first page is prefetched on mount so the menu opens instantly
 		await waitFor(() => expect(state.calls).toBe(1));
 
-		await user.click(screen.getByRole('button', { name: 'Owner' }));
+		await user.click(screen.getByRole('combobox', { name: 'Owner' }));
 		expect(await findOption(/user 1/i)).toBeInTheDocument();
 	});
 
@@ -142,7 +142,7 @@ describe('SuiSelect — infinite scroll', () => {
 			hasMore: true
 		});
 		render(SuiSelect, { label: 'Owner', source, pageSize: 5 });
-		await user.click(screen.getByRole('button', { name: 'Owner' }));
+		await user.click(screen.getByRole('combobox', { name: 'Owner' }));
 		await waitFor(() => {
 			// content renders in a portal on document.body
 			expect(document.querySelector('[data-sui-load-more-sentinel]')).toBeInTheDocument();
@@ -155,7 +155,7 @@ describe('SuiSelect — infinite scroll', () => {
 			throw new Error('network down');
 		};
 		render(SuiSelect, { label: 'Owner', source });
-		await user.click(screen.getByRole('button', { name: 'Owner' }));
+		await user.click(screen.getByRole('combobox', { name: 'Owner' }));
 		await waitFor(() => {
 			expect(document.querySelector('[data-sui-select-error]')).toHaveTextContent(
 				'Failed to load options'
@@ -174,7 +174,7 @@ describe('SuiSelect — clear button (overlay outside the trigger)', () => {
 			clearable: true,
 			onSelect
 		});
-		const trigger = screen.getByRole('button', { name: 'Country' });
+		const trigger = screen.getByRole('combobox', { name: 'Country' });
 		const clear = screen.getByRole('button', { name: 'Clear selection' });
 		// the clear button must not be nested inside the trigger button
 		expect(clear.parentElement?.closest('button')).not.toBe(trigger);
@@ -266,7 +266,7 @@ describe('SuiSelect — field anatomy & variants', () => {
 			items: countries,
 			schema: z.string().min(1, 'Pick a country')
 		});
-		const trigger = screen.getByRole('button', { name: 'Country' });
+		const trigger = screen.getByRole('combobox', { name: 'Country' });
 		await user.click(trigger);
 		await user.keyboard('{Escape}');
 		await user.tab();
@@ -284,5 +284,17 @@ describe('SuiSelectSkeleton', () => {
 		const { container } = render(SuiSelectSkeleton, { size: 'lg', label: true });
 		expect(container.querySelector('[data-sui-skeleton="select"]')?.className).toMatch(/\bh-10\b/);
 		expect(container.querySelector('[data-sui-skeleton="label"]')).toBeInTheDocument();
+	});
+});
+
+describe('SuiSelect — invalid styling', () => {
+	it('overrides the primitive aria-invalid ring so only real focus draws one', () => {
+		render(SuiSelect, { label: 'Pick', items: [{ value: 'a', label: 'A' }], errors: ['Required'] });
+		const trigger = screen.getByRole('combobox', { name: 'Pick' });
+		expect(trigger).toHaveAttribute('aria-invalid', 'true');
+		// shadcn's `aria-invalid:ring-3` would look like a stuck focus ring
+		expect(trigger.className).toContain('aria-invalid:ring-0');
+		expect(trigger.className).not.toMatch(/(^|\s)aria-invalid:ring-3(\s|$)/);
+		expect(trigger.className).toContain('aria-invalid:focus-visible:ring-3');
 	});
 });

@@ -19,14 +19,21 @@
 		field?: SuiFieldHandle<boolean | undefined>;
 		required?: boolean;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * Native form `name` (a hidden input carries the value for
+		 * `FormData` / progressive enhancement) — and the schema path a
+		 * form-level submitter (`createSuiSubmitter`) maps it to. Defaults
+		 * to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		checked?: boolean;
+		/**
+		 * Fires when the user toggles the switch. (The control is a
+		 * `<button role="switch">`, so a native `onchange` never fires.)
+		 */
+		onCheckedChange?: (checked: boolean) => void;
 	};
 </script>
 
@@ -34,8 +41,16 @@
 	import Switch from '$lib/components/ui/switch/switch.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
-	import { suiEffectiveVariant, SUI_FIELD_TEXT, SUI_LABEL, SUI_SUBTEXT } from '../styles.js';
+	import {
+		suiEffectiveVariant,
+		SUI_FIELD_TEXT,
+		SUI_INVALID_RING,
+		SUI_LABEL,
+		SUI_SUBTEXT
+	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
+
+	const uid = $props.id();
 
 	let {
 		label,
@@ -49,9 +64,10 @@
 		field: f,
 		required = false,
 		class: className = '',
-		id = `sui-switch-${crypto.randomUUID()}`,
+		id = `sui-switch-${uid}`,
 		checked = $bindable(false),
 		disabled,
+		onCheckedChange,
 		onblur,
 		...rest
 	}: SuiSwitchProps = $props();
@@ -77,10 +93,8 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
 	// keep the bound shadow in sync with programmatic form changes (reset, setValues)
 	$effect(() => {
@@ -102,11 +116,16 @@
 	);
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
-	// hint + error coexist in the description (GOV.UK pattern; the old
-	// derivation pointed at a non-existent id whenever only a hint showed)
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	export function validate(): string[] {
@@ -138,8 +157,8 @@
 			>
 				{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 				{#if required}
+					<!-- visual marker only: the switch's aria-required already announces it -->
 					<span class="text-destructive" aria-hidden="true">*</span>
-					<span class="sr-only">(required)</span>
 				{/if}
 			</label>
 		{/if}
@@ -170,18 +189,18 @@
 	<Switch
 		{id}
 		bind:checked
+		name={name ?? f?.name}
 		disabled={disabled || undefined}
 		required={required || undefined}
 		data-sui-switch
-		class="{TRACK_SIZE[size]} {invalid ? 'data-checked:bg-red-600' : ''}"
+		class="{TRACK_SIZE[size]} {invalid ? 'data-checked:bg-red-600' : ''} {SUI_INVALID_RING}"
 		aria-invalid={invalid || undefined}
+		{...rest as Record<string, unknown>}
 		aria-describedby={describedBy}
 		onCheckedChange={(value: boolean) => {
-			if (f) {
-				f.change(value, 'discrete');
-				return;
-			}
-			fieldState.validate(value, schema, 'change', validateOn);
+			if (f) f.change(value, 'discrete');
+			else fieldState.validate(value, schema, 'change', validateOn);
+			onCheckedChange?.(value);
 		}}
 		onblur={(event) => {
 			onblur?.(event as never);
@@ -191,6 +210,5 @@
 			}
 			fieldState.validate(checked, schema, 'blur', validateOn);
 		}}
-		{...rest as Record<string, unknown>}
 	/>
 </div>

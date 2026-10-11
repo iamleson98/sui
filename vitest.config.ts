@@ -17,7 +17,7 @@ export default defineConfig({
 		// mount() resolve to the SSR runtime and tests explode
 		conditions: ['browser'],
 		alias: {
-			$lib: path.resolve(__dirname, 'src/lib')
+			$lib: path.resolve(import.meta.dirname, 'src/lib')
 		}
 	},
 	test: {

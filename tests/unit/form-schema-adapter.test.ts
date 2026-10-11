@@ -107,7 +107,9 @@ describe('suiParse — type-level interop', () => {
 
 	it('drives createSuiForm field handles with precise zod typing', () => {
 		const form = createSuiForm(testSchema);
-		expectTypeOf(form.values).toEqualTypeOf<z.output<TestSchema>>();
+		// values are the edit buffer — the schema's INPUT side, in lockstep
+		// with the field handles (onsubmit receives the parsed output)
+		expectTypeOf(form.values).toEqualTypeOf<z.input<TestSchema>>();
 		expectTypeOf(form.fields.name.value).toEqualTypeOf<string>();
 		expectTypeOf(form.fields.accept.value).toEqualTypeOf<true>();
 	});

@@ -36,7 +36,11 @@ export class SuiInfiniteList<T> {
 	loading = $state(false);
 	/** True while an additional page is loading. */
 	loadingMore = $state(false);
-	/** False once the last page arrived (or an error occurred). */
+	/**
+	 * False once the last page arrived. Stays `true` after a failed request
+	 * so `loadMore()` can retry — UIs should stop auto-loading while
+	 * `error` is set and offer an explicit retry instead.
+	 */
 	hasMore = $state(true);
 	/** Total count when the source provides one (offset mode). */
 	total = $state<number | undefined>(undefined);
@@ -51,6 +55,8 @@ export class SuiInfiniteList<T> {
 	#dedupe: boolean;
 	#seen = new Set<string | number>();
 	#page = 0;
+	/** Pages loaded since the last reset — page 0 shows `loading`, later ones `loadingMore`. */
+	#loaded = 0;
 	#cursor: string | null = null;
 	#mode: 'unknown' | 'cursor' | 'offset' = 'unknown';
 	#requestId = 0;
@@ -99,7 +105,7 @@ export class SuiInfiniteList<T> {
 	async loadMore(): Promise<void> {
 		if (!this.hasMore || this.loading || this.loadingMore) return;
 		const requestId = ++this.#requestId;
-		const isFirst = this.#page === 0 && this.#cursor === null;
+		const isFirst = this.#loaded === 0;
 		if (isFirst) this.loading = true;
 		else this.loadingMore = true;
 		this.error = null;
@@ -120,11 +126,14 @@ export class SuiInfiniteList<T> {
 			const result = await this.source(request);
 			if (requestId !== this.#requestId) return; // superseded
 			this.#append(result.items);
+			this.#loaded += 1;
 			this.total = result.total;
 			if (result.nextCursor !== undefined) {
 				this.#mode = 'cursor';
 				this.#cursor = result.nextCursor;
-				this.hasMore = result.hasMore;
+				// a cursor list can only continue WITH a cursor — a null one
+				// would re-request the first page
+				this.hasMore = result.hasMore && result.nextCursor !== null;
 			} else {
 				this.#mode = 'offset';
 				this.#page += 1;
@@ -161,6 +170,7 @@ export class SuiInfiniteList<T> {
 		this.items = [];
 		this.#seen.clear();
 		this.#page = 0;
+		this.#loaded = 0;
 		this.#cursor = null;
 		this.#mode = 'unknown';
 		this.loading = false;

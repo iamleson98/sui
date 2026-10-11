@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Visual regression baselines — one full-page screenshot per demo route.
@@ -16,6 +16,7 @@ const routes: Array<{ name: string; path: string }> = [
 	{ name: 'selection', path: '/selection' },
 	{ name: 'data-table', path: '/data-table' },
 	{ name: 'toggles', path: '/toggles' },
+	{ name: 'date-time', path: '/date-time' },
 	{ name: 'validation', path: '/validation' },
 	{ name: 'pagination', path: '/pagination' },
 	{ name: 'skeletons', path: '/skeletons' }
@@ -33,7 +34,7 @@ for (const route of routes) {
 
 test('visual baseline: open select menu', async ({ page }) => {
 	await page.goto('/selection');
-	await page.getByRole('button', { name: 'Country' }).click();
+	await page.getByRole('combobox', { name: 'Country' }).click();
 	await expect(page.getByRole('option', { name: /vietnam/i })).toBeVisible();
 	await expect(page).toHaveScreenshot('select-open.png');
 });

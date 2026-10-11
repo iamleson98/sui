@@ -15,10 +15,12 @@
 		/**
 		 * Render `form.formErrors` (root refine + server-level messages) as a
 		 * banner above the content — the box receives focus after a failed
-		 * submit when no error summary is rendered.
+		 * submit when no error summary is rendered. Errors that no rendered
+		 * control can display (`form.unmappedErrors`) always render here,
+		 * even without this flag: a failed submit is never silent.
 		 */
 		showFormErrors?: boolean;
-		/** Banner title. Default `'There is a problem:'`. */
+		/** Banner title. Default `'There is a problem:'` (see `setSuiStrings`). */
 		formErrorTitle?: string;
 		class?: string;
 	};
@@ -28,19 +30,26 @@
 	import { tick } from 'svelte';
 	import { focusFirstInvalid } from './utils.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
 
 	let {
 		form,
 		showFormErrors = false,
-		formErrorTitle = 'There is a problem:',
+		formErrorTitle,
 		class: className = '',
 		children,
 		...rest
 	}: SuiFormProps<Schema> = $props();
 
 	const isMobile = suiMobileQuery();
+	const strings = getSuiStrings();
+
+	// form-level messages + errors no rendered control displays (a schema
+	// key without a field, an unmounted step…) — deduplicated
+	const bannerMessages = $derived([...new Set([...form.formErrors, ...form.unmappedErrors])]);
+	const showBanner = $derived(showFormErrors || form.unmappedErrors.length > 0);
 
 	// focus/scroll target for a failed submit, GOV.UK error-summary pattern:
 	// 1. the error summary box (when rendered) — announcing the whole list;
@@ -49,9 +58,11 @@
 	function focusTarget(formEl: HTMLFormElement): HTMLElement | null {
 		const summary = formEl.querySelector<HTMLElement>('[data-sui-error-summary]');
 		if (summary) return summary;
+		// the banner when no field shows a problem (form-level or unmapped
+		// errors only) — otherwise the first invalid field is the better landing
 		if (form.errorSummary.length === 0) {
 			const banner = formEl.querySelector<HTMLElement>('[data-sui-form-errors]');
-			if (banner && (banner.textContent ?? '').length > 0) return banner;
+			if (banner && (banner.textContent ?? '').trim().length > 0) return banner;
 		}
 		return null;
 	}
@@ -88,27 +99,27 @@
 
 <!-- novalidate: the schema owns validation, not the Constraint Validation API -->
 <form novalidate class={className} onsubmit={submit} data-sui-form {...rest}>
-	{#if showFormErrors}
+	{#if showBanner}
 		<!-- Focusable alert banner: receives focus on failed submits that
-                     produced form-level errors (when no error summary is rendered).
-                     Fully collapses while empty — the region stays mounted so
-                     screen readers observe it, but paints nothing. -->
+		     produced form-level errors (when no error summary is rendered).
+		     Fully collapses while empty — the region stays mounted so
+		     screen readers observe it, but paints nothing. -->
 		<div
 			data-sui-form-errors
 			role="alert"
 			tabindex="-1"
 			class={cn(
-				form.formErrors.length > 0 &&
+				bannerMessages.length > 0 &&
 					'mb-4 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive'
 			)}
 		>
-			{#if form.formErrors.length > 0}
+			{#if bannerMessages.length > 0}
 				<p class="flex items-center gap-2 font-medium">
 					<AlertCircleIcon class="size-4 shrink-0" aria-hidden="true" />
-					{formErrorTitle}
+					{formErrorTitle ?? strings.formErrorTitle}
 				</p>
 				<ul class="mt-2 list-inside list-disc space-y-1 pl-1.5">
-					{#each form.formErrors as message (message)}
+					{#each bannerMessages as message (message)}
 						<li>{message}</li>
 					{/each}
 				</ul>

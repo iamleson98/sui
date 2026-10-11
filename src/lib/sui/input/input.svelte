@@ -31,19 +31,21 @@
 		 * Schema-driven form handle (`form.fields.email` from `createSuiForm`):
 		 * the value, validation timing and error display are wired
 		 * automatically — no `bind:value`, `schema` or `errors` needed.
+		 * With `type="number"` the field holds a `number` (`undefined` while
+		 * empty), so `z.number()` schemas work as-is.
 		 */
-		field?: SuiFieldHandle<string | undefined>;
+		field?: SuiFieldHandle<string | number | null | undefined>;
 		/** Mark the label with a required indicator. */
 		required?: boolean;
 		/** Debounce (ms) applied to change validation. Default `0`. */
 		validateDebounce?: number;
-		/** Accessible id — one is generated automatically when omitted. */
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * The input's `name` (native form data, browser autofill) — and the
+		 * schema path a form-level submitter (`createSuiSubmitter`) maps it
+		 * to. Defaults to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		/** Extra classes for the control wrapper. */
 		class?: string;
@@ -66,8 +68,12 @@
 		SUI_LABEL,
 		SUI_SUBTEXT
 	} from '../styles.js';
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+
+	const uid = $props.id();
+	const strings = getSuiStrings();
 
 	let {
 		label,
@@ -85,7 +91,7 @@
 		required = false,
 		validateDebounce = 0,
 		class: className = '',
-		id = `sui-input-${crypto.randomUUID()}`,
+		id = `sui-input-${uid}`,
 		value = $bindable(''),
 		ref = $bindable<HTMLInputElement | null>(null),
 		disabled,
@@ -130,6 +136,19 @@
 	// from createSuiForm takes over values, timing and error display
 	const fieldState = new SuiFieldState();
 
+	// `type="number"`: schemas validate (and submitters collect) a number —
+	// `undefined` while empty — never the raw string ('' would coerce to 0)
+	const isNumber = $derived(type === 'number');
+	function parseNumber(raw: string): number | undefined {
+		if (raw.trim() === '') return undefined;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : undefined;
+	}
+	/** The value schemas and submitters see for a raw input string. */
+	function schemaValue(raw: string): unknown {
+		return isNumber ? parseNumber(raw) : raw;
+	}
+
 	// form-level submitter wiring: register the live value + error channel
 	// on the field root so `createSuiSubmitter` can orchestrate this control
 	let fieldRoot = $state<HTMLElement | null>(null);
@@ -137,11 +156,14 @@
 		if (f || !name || !fieldRoot) return;
 		return registerSuiField(fieldRoot, {
 			name,
-			get: () => value,
+			get: () => schemaValue(value),
 			setSubmitErrors: (errors) => fieldState.setSubmitErrors(errors),
 			clearSubmitErrors: () => fieldState.clearSubmitErrors()
 		});
 	});
+
+	// stop a pending debounced validation once the field is gone
+	$effect(() => () => clearTimeout(validateTimer));
 
 	// fresh external errors (new `errors` prop reference) re-take the
 	// display; re-passing an unchanged list never resurrects cleared ones
@@ -154,21 +176,50 @@
 		pendingValue = current;
 		clearTimeout(validateTimer);
 		if (validateDebounce <= 0) {
-			fieldState.validate(current, schema, 'change', validateOn);
+			fieldState.validate(schemaValue(current), schema, 'change', validateOn);
 			return;
 		}
 		validateTimer = setTimeout(() => {
-			fieldState.validate(pendingValue, schema, 'change', validateOn);
+			fieldState.validate(schemaValue(pendingValue), schema, 'change', validateOn);
 		}, validateDebounce);
 	}
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
-	// controlled value: the form handle owns it when present
-	const current = $derived(f ? f.value : value);
+	// The DOM value goes through Svelte's own `bind:value` machinery (with
+	// function bindings) rather than a one-way `value=` + `oninput`: it
+	// keeps text typed BEFORE hydration on prerendered pages, never
+	// rewrites a focused input mid-edit, converts `type="number"` to
+	// `number | null` and leaves half-typed numbers ("1.", "-") alone.
+	function readValue(): string | number | null {
+		if (isNumber) {
+			const stored = f ? f.value : parseNumber(value);
+			return typeof stored === 'number' ? stored : null;
+		}
+		return (f ? f.value : value) ?? '';
+	}
+
+	function writeValue(next: unknown) {
+		if (isNumber) {
+			const n = typeof next === 'number' && Number.isFinite(next) ? next : undefined;
+			if (f) f.change(n, 'text');
+			else {
+				value = n === undefined ? '' : String(n);
+				scheduleValidate(value);
+			}
+			return;
+		}
+		const text = typeof next === 'string' ? next : '';
+		if (f) f.change(text, 'text');
+		else {
+			value = text;
+			scheduleValidate(text);
+		}
+	}
+
+	// the form wins the `name` by default (autofill + native form data)
+	const inputName = $derived(name ?? f?.name);
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
@@ -179,19 +230,25 @@
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
 	const checking = $derived(!!f?.isValidating && !invalid);
-	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
+	const checkingText = $derived(f?.checkingMessage ?? strings.checking);
 	// hint + error coexist in the description (GOV.UK: the hint must stay
-	// associated when errors appear — errors never replace instructions)
+	// associated when errors appear — errors never replace instructions);
+	// a consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	/** Programmatically validate (e.g. on submit). */
 	export function validate(): string[] {
 		if (f) return f.validate();
 		clearTimeout(validateTimer);
-		return fieldState.forceValidate(value, schema);
+		return fieldState.forceValidate(schemaValue(value), schema);
 	}
 
 	/** Reset validation fieldState. */
@@ -222,8 +279,8 @@
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
+				<!-- visual marker only: the input's `required` already announces it -->
 				<span class="text-destructive" aria-hidden="true">*</span>
-				<span class="sr-only">(required)</span>
 			{/if}
 		</label>
 	{/if}
@@ -249,8 +306,8 @@
 		<input
 			bind:this={ref}
 			{id}
-			{name}
-			value={current}
+			name={inputName}
+			bind:value={readValue, writeValue}
 			{type}
 			{...autoAttrs}
 			{disabled}
@@ -259,22 +316,15 @@
 			data-sui-input
 			class="w-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
 			aria-invalid={invalid || undefined}
+			{...rest}
 			aria-describedby={describedBy}
-			oninput={(event) => {
-				oninput?.(event);
-				const next = event.currentTarget.value;
-				if (f) f.change(next, 'text');
-				else {
-					value = next;
-					scheduleValidate(next);
-				}
-			}}
+			oninput={(event) => oninput?.(event)}
 			onchange={(event) => {
 				onchange?.(event);
 				const next = event.currentTarget.value;
 				if (f) return;
 				clearTimeout(validateTimer);
-				fieldState.validate(next, schema, 'change', validateOn);
+				fieldState.validate(schemaValue(next), schema, 'change', validateOn);
 			}}
 			onblur={(event) => {
 				onblur?.(event);
@@ -283,9 +333,8 @@
 					return;
 				}
 				clearTimeout(validateTimer);
-				fieldState.validate(event.currentTarget.value, schema, 'blur', validateOn);
+				fieldState.validate(schemaValue(event.currentTarget.value), schema, 'blur', validateOn);
 			}}
-			{...rest}
 		/>
 
 		{#if endIcon}

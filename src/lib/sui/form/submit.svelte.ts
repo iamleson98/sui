@@ -87,9 +87,17 @@ export class SuiSubmitter<Schema extends SuiSchemaLike> {
 	formErrors = $state<string[]>([]);
 	/** Issues by dotted field path from the last failed parse. */
 	fieldErrors = $state<Record<string, string[]>>({});
+	/**
+	 * Messages of issues no registered control can display — a schema key
+	 * without a named control (or a typo'd `name`). Render them next to
+	 * `formErrors` so a failed submit is never silent.
+	 */
+	unmappedErrors = $state<string[]>([]);
 	#schema: Schema;
 	#options: SuiSubmitterOptions<Schema>;
 	#isMobile = suiMobileQuery();
+	/** The submit attempt in progress — repeated submits join it. */
+	#inflight: Promise<boolean> | null = null;
 
 	constructor(schema: Schema, options: SuiSubmitterOptions<Schema>) {
 		this.#schema = schema;
@@ -105,14 +113,35 @@ export class SuiSubmitter<Schema extends SuiSchemaLike> {
 		return groupSuiIssues(resolveSuiMessages(issues, this.#options.messages));
 	}
 
-	/** Distribute issues to the registered fields of a form element. */
+	/**
+	 * Distribute issues to the registered fields of a form element. Each
+	 * issue goes to the control registered for its path or, failing that,
+	 * its nearest registered ancestor (`tags.1` → the multi-select named
+	 * `tags`); what no control can show lands in `unmappedErrors`.
+	 */
 	#distribute(formEl: HTMLFormElement | null, byPath: Record<string, string[]>): void {
 		const fields = formEl ? collectSuiFields(formEl) : [];
 		for (const { reg } of fields) reg.clearSubmitErrors();
-		for (const { reg } of fields) {
-			const errors = byPath[reg.name];
-			if (errors && errors.length > 0) reg.setSubmitErrors(errors);
+		const byName = new Map(fields.map(({ reg }) => [reg.name, reg]));
+		const routed = new Map<string, string[]>();
+		const unmapped: string[] = [];
+		for (const [path, messages] of Object.entries(byPath)) {
+			if (path === '') continue;
+			let owner: string | undefined = path;
+			while (owner !== undefined && !byName.has(owner)) {
+				const dot: number = owner.lastIndexOf('.');
+				owner = dot > 0 ? owner.slice(0, dot) : undefined;
+			}
+			if (owner === undefined) {
+				for (const message of messages) if (!unmapped.includes(message)) unmapped.push(message);
+				continue;
+			}
+			const list = routed.get(owner) ?? [];
+			for (const message of messages) if (!list.includes(message)) list.push(message);
+			routed.set(owner, list);
 		}
+		for (const [name, errors] of routed) byName.get(name)!.setSubmitErrors(errors);
+		this.unmappedErrors = unmapped;
 	}
 
 	async #afterInvalid(formEl: HTMLFormElement | null): Promise<void> {
@@ -152,14 +181,25 @@ export class SuiSubmitter<Schema extends SuiSchemaLike> {
 
 	/**
 	 * The `onsubmit` handler: `<form onsubmit={submit.handleSubmit}>`.
-	 * Returns whether the submit passed validation.
+	 * Returns whether the submit passed validation. A submit fired while
+	 * `onvalid` is still running (double click, Enter mashing) joins the
+	 * in-flight attempt instead of calling `onvalid` again.
 	 */
-	handleSubmit = async (
+	handleSubmit = (
 		event: SubmitEvent & { currentTarget?: EventTarget & HTMLFormElement }
 	): Promise<boolean> => {
 		event.preventDefault();
+		if (this.#inflight) return this.#inflight;
 		// currentTarget is only populated during dispatch — capture before awaiting
 		const formEl = event.currentTarget ?? null;
+		const attempt = this.#submit(formEl).finally(() => {
+			this.#inflight = null;
+		});
+		this.#inflight = attempt;
+		return attempt;
+	};
+
+	async #submit(formEl: HTMLFormElement | null): Promise<boolean> {
 		this.submitCount += 1;
 
 		// 1. collect live values from the registered controls
@@ -181,6 +221,7 @@ export class SuiSubmitter<Schema extends SuiSchemaLike> {
 
 		this.fieldErrors = {};
 		this.formErrors = [];
+		this.unmappedErrors = [];
 		const { onvalid } = this.#options;
 		this.isSubmitting = true;
 		try {
@@ -204,7 +245,7 @@ export class SuiSubmitter<Schema extends SuiSchemaLike> {
 		} finally {
 			this.isSubmitting = false;
 		}
-	};
+	}
 }
 
 /**

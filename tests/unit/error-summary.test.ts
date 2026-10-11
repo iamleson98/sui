@@ -19,7 +19,8 @@ describe('SuiErrorSummary', () => {
 			]
 		});
 		const box = screen.getByRole('alert');
-		expect(box).toHaveAttribute('id', 'sui-error-summary');
+		// unique per instance — two summaries on one page never share an id
+		expect(box.id).toMatch(/^sui-error-summary-/);
 		const links = screen.getAllByRole('link');
 		expect(links).toHaveLength(2);
 		expect(links[0]).toHaveTextContent('Name is required');

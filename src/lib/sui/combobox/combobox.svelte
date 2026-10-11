@@ -50,14 +50,23 @@
 		emptyText?: string;
 		errorText?: string;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * Native form `name` (a hidden input carries the value for
+		 * `FormData` / progressive enhancement) — and the schema path a
+		 * form-level submitter (`createSuiSubmitter`) maps it to. Defaults
+		 * to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		value?: V;
+		/**
+		 * The item behind an initial `value` that is not in the first loaded
+		 * page (edit forms over server-paginated options) — labels the
+		 * trigger instead of the raw value. Items the user picks are
+		 * remembered automatically, across searches.
+		 */
+		selectedItem?: SuiItem<V>;
 		onSelect?: (value: V | undefined, item: SuiItem<V> | undefined) => void;
 	};
 </script>
@@ -73,6 +82,8 @@
 	import { SuiInfiniteList } from '../infinite-list.svelte.js';
 	import { observeSentinel } from '../intersection.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
+	import { getSuiStrings } from '../strings.js';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		suiEffectiveVariant,
 		SUI_CHEVRON_PIN,
@@ -92,6 +103,9 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
+	const uid = $props.id();
+	const strings = getSuiStrings();
+
 	let {
 		items: staticItems,
 		source,
@@ -104,8 +118,8 @@
 		startIcon,
 		endIcon,
 		action,
-		searchPlaceholder = 'Search…',
-		placeholder = 'Select…',
+		searchPlaceholder,
+		placeholder,
 		searchable = true,
 		searchDebounce = 250,
 		schema,
@@ -115,11 +129,12 @@
 		field: f,
 		required = false,
 		clearable = false,
-		emptyText = 'No results',
-		errorText = 'Failed to load options',
+		emptyText,
+		errorText,
 		class: className = '',
-		id = `sui-combobox-${crypto.randomUUID()}`,
+		id = `sui-combobox-${uid}`,
 		value = $bindable<V | undefined>(undefined),
+		selectedItem,
 		onSelect,
 		onblur,
 		...rest
@@ -148,10 +163,8 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
 	// keep the bound shadow in sync with programmatic form changes
 	// (reset, setValues)
@@ -169,8 +182,26 @@
 
 	const resolvedItems = $derived(staticItems ?? list.items);
 	const current = $derived((f ? f.value : value) as V | undefined);
-	const selected = $derived(resolvedItems.find((item) => item.value === current));
+	// Items seen as the selection, so a value keeps its label once the
+	// loaded pages no longer contain it — reopening resets a server search
+	// to page one, which may not include an item picked from page three.
+	const remembered = new SvelteMap<V, SuiItem<V>>();
+	$effect(() => {
+		if (current === undefined) return;
+		const item = resolvedItems.find((candidate) => candidate.value === current);
+		if (item && remembered.get(current) !== item) remembered.set(current, item);
+	});
+	const selected = $derived(
+		current === undefined
+			? undefined
+			: (resolvedItems.find((item) => item.value === current) ??
+					remembered.get(current) ??
+					(selectedItem?.value === current ? selectedItem : undefined))
+	);
 	const hasValue = $derived(current !== undefined && current !== '');
+	// the form wins the `name` by default (native form data)
+	const formName = $derived(name ?? f?.name);
+	const placeholderText = $derived(placeholder ?? strings.selectPlaceholder);
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
@@ -180,11 +211,17 @@
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
 	const checking = $derived(!!f?.isValidating && !invalid);
-	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
-	// hint + error coexist in the description (GOV.UK pattern)
+	const checkingText = $derived(f?.checkingMessage ?? strings.checking);
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	let open = $state(false);
@@ -229,6 +266,8 @@
 		list.reset();
 		void list.loadMore();
 	});
+	// abort an in-flight page request when the field unmounts
+	$effect(() => () => list.reset());
 
 	// server-side search: debounced reset + first page
 	$effect(() => {
@@ -241,10 +280,13 @@
 		return () => clearTimeout(searchTimer);
 	});
 
-	// sentinel wiring for infinite scroll
+	// sentinel wiring for infinite scroll — after a failed request, stop
+	// auto-loading on scroll; the error row offers an explicit retry
 	$effect(() => {
 		if (!infinite || !sentinel || !open) return;
-		return observeSentinel(sentinel, () => void list.loadMore());
+		return observeSentinel(sentinel, () => {
+			if (!list.error) void list.loadMore();
+		});
 	});
 
 	/** Undefined (nothing selected) is validated as '' so `z.string().min(1, 'msg')` works. */
@@ -254,6 +296,8 @@
 	}
 
 	function select(next: V) {
+		const item = resolvedItems.find((candidate) => candidate.value === next);
+		if (item) remembered.set(next, item);
 		if (f) {
 			f.change(next, 'discrete');
 		} else {
@@ -262,10 +306,7 @@
 		open = false;
 		query = '';
 		validateSelection(next);
-		onSelect?.(
-			next,
-			resolvedItems.find((item) => item.value === next)
-		);
+		onSelect?.(next, item);
 	}
 
 	/** Shared by the popover and the mobile bottom sheet. */
@@ -273,6 +314,10 @@
 		open = next;
 		if (next) {
 			dismiss.open();
+			// a failed first page: opening again is the user asking to retry
+			if (infinite && list.error && list.items.length === 0 && !list.loading) {
+				void list.loadMore();
+			}
 		} else {
 			query = '';
 			// pointer (outside click / drag) and Escape dismissals are
@@ -323,8 +368,8 @@
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
+				<!-- visual marker only: the trigger's aria-required announces it -->
 				<span class="text-destructive" aria-hidden="true">*</span>
-				<span class="sr-only">(required)</span>
 			{/if}
 		</label>
 	{/if}
@@ -336,22 +381,22 @@
                 phones. Element delegation passes each host's props onto our
                 button (click toggling, aria-expanded, data-state…). -->
 		{#snippet triggerButton(props: Record<string, unknown>)}
-			<!-- aria-invalid on a trigger button mirrors the shadcn-svelte
-                                             select-trigger pattern; the checker is stricter than ARIA-in-HTML
-                                             consumers expect here. -->
-			<!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
+			<!-- role="combobox" (the shadcn combobox pattern) gives the trigger
+			     combobox semantics — value, expanded state, aria-invalid and
+			     aria-required are all valid on it -->
 			<button
 				{...props}
 				bind:this={triggerRef}
 				{id}
 				type="button"
+				role="combobox"
 				data-sui-combobox
 				data-sui-trigger
 				data-sui-size={size}
 				data-sui-variant={effVariant}
 				data-invalid={invalid || undefined}
 				aria-invalid={invalid || undefined}
-				aria-describedby={describedBy}
+				aria-required={required || undefined}
 				aria-haspopup="listbox"
 				aria-controls={listboxId}
 				class={cn(
@@ -364,6 +409,7 @@
 					className
 				)}
 				{...rest as Record<string, unknown>}
+				aria-describedby={describedBy}
 				onblur={(event: FocusEvent) => {
 					onblur?.(event as never);
 					// internal focus move (search input / sheet taking
@@ -382,9 +428,9 @@
 					</span>
 				{/if}
 				{#if hasValue}
-					<span class="flex-1 truncate text-left">{selected?.label ?? value}</span>
+					<span class="flex-1 truncate text-left">{selected?.label ?? current}</span>
 				{:else}
-					<span class="flex-1 truncate text-left text-muted-foreground">{placeholder}</span>
+					<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
 				{/if}
 				{#if endIcon}
 					<span class="pointer-events-none shrink-0 text-muted-foreground">
@@ -424,7 +470,7 @@
 					<div class="mb-1 border-b border-border px-0.5 pb-2.5">
 						<Command.Input
 							bind:value={query}
-							placeholder={searchPlaceholder}
+							placeholder={searchPlaceholder ?? strings.searchPlaceholder}
 							data-sui-combobox-input
 						/>
 					</div>
@@ -436,11 +482,21 @@
 							data-sui-combobox-error
 							role="alert"
 						>
-							{errorText}
+							{errorText ?? strings.loadError}
+							<button
+								type="button"
+								class="cursor-pointer rounded-md px-1.5 py-0.5 font-medium underline underline-offset-2 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+								data-sui-retry
+								onclick={() => void list.loadMore()}
+							>
+								{strings.retry}
+							</button>
 						</div>
 					{/if}
-					{#if !(infinite && (list.loading || list.loadingMore))}
-						<Command.Empty data-sui-combobox-empty class="py-8">{emptyText}</Command.Empty>
+					{#if !(infinite && (list.loading || list.loadingMore || list.error))}
+						<Command.Empty data-sui-combobox-empty class="py-8"
+							>{emptyText ?? strings.noResults}</Command.Empty
+						>
 					{/if}
 					{#each resolvedItems as item (item.value)}
 						<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui never
@@ -455,7 +511,7 @@
 							class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
 						>
 							<CheckIcon
-								class="{SUI_ICON[size]} shrink-0 transition-opacity {item.value === value
+								class="{SUI_ICON[size]} shrink-0 transition-opacity {item.value === current
 									? 'opacity-100'
 									: 'opacity-0'}"
 							/>
@@ -479,7 +535,7 @@
 								class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 								aria-hidden="true"
 							></span>
-							{list.loading ? 'Loading…' : 'Loading more…'}
+							{list.loading ? strings.loading : strings.loadingMore}
 						</div>
 					{/if}
 					{#if infinite && list.hasMore}
@@ -514,9 +570,9 @@
 					}}
 				>
 					<Drawer.Title class="sr-only"
-						>{typeof label === 'string' ? label : placeholder}</Drawer.Title
+						>{typeof label === 'string' ? label : placeholderText}</Drawer.Title
 					>
-					<Drawer.Description class="sr-only">Choose an option</Drawer.Description>
+					<Drawer.Description class="sr-only">{strings.chooseOption}</Drawer.Description>
 					{@render listbox('max-h-[60dvh]')}
 				</Drawer.Content>
 			</Drawer.Root>
@@ -555,7 +611,7 @@
 				class="{SUI_CLEAR_END[size]} {SUI_CLEAR_SIZE[
 					size
 				]} absolute top-1/2 z-10 flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-				aria-label="Clear selection"
+				aria-label={strings.clearSelection}
 				onclick={(event) => {
 					event.preventDefault();
 					event.stopPropagation();
@@ -564,6 +620,10 @@
 			>
 				<SuiIcon icon={XIcon} size="xs" />
 			</button>
+		{/if}
+		{#if formName}
+			<!-- native form data (FormData, progressive enhancement) -->
+			<input type="hidden" name={formName} value={current ?? ''} data-sui-hidden-input />
 		{/if}
 	</div>
 

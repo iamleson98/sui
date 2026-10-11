@@ -2,17 +2,21 @@
 	export type SuiErrorSummaryProps = {
 		/** One entry per invalid field: the message + the focusable field id. */
 		errors: { fieldId: string; message: string }[];
-		/** Box title. Default `Please fix the following:`. */
+		/** Box title. Default `Please fix the following:` (see `setSuiStrings`). */
 		title?: string;
-		/** Accessible id — focus it (or call `focusFirstInvalid`) after a failed submit. */
+		/** Element id — a unique one is generated when omitted. */
 		id?: string;
 		class?: string;
 	};
 </script>
 
 <script lang="ts">
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
+
+	const uid = $props.id();
+	const strings = getSuiStrings();
 
 	/**
 	 * WCAG 3.3.1 error summary: after a failed submit, screen readers and
@@ -22,14 +26,21 @@
 	 */
 	let {
 		errors,
-		title = 'Please fix the following:',
-		id = 'sui-error-summary',
+		title,
+		id = `sui-error-summary-${uid}`,
 		class: className = ''
 	}: SuiErrorSummaryProps = $props();
 
+	const FOCUSABLE =
+		'input:not([type="hidden"]), textarea, select, button, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
 	function focusField(event: MouseEvent, fieldId: string) {
 		event.preventDefault();
-		document.getElementById(fieldId)?.focus();
+		const el = document.getElementById(fieldId);
+		// a segmented date/time field registers its group: land on its first
+		// segment instead of the (non-focusable) group
+		const target = el?.matches(FOCUSABLE) ? el : el?.querySelector<HTMLElement>(FOCUSABLE);
+		target?.focus();
 	}
 </script>
 
@@ -47,7 +58,7 @@
 	>
 		<p class="flex items-center gap-2 font-medium text-destructive">
 			<AlertCircleIcon class="size-4 shrink-0" aria-hidden="true" />
-			{title}
+			{title ?? strings.errorSummaryTitle}
 		</p>
 		<ul class="mt-2 list-inside list-disc space-y-1 pl-1.5">
 			{#each errors as error (error.fieldId)}

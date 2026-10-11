@@ -167,36 +167,58 @@ type SafeParseSchema = {
 };
 
 /**
+ * zod's "you parsed an async schema synchronously" errors (v4
+ * `$ZodAsyncError`, v3's async refinement/transform message). Matched by
+ * message so duplicated zod copies in a bundle still match.
+ */
+const ASYNC_PARSE_ERROR =
+	/Encountered Promise during synchronous parse|Asynchronous (refinement|transform) encountered during synchronous parse/i;
+
+function asyncSchemaError(component: string, cause?: unknown): SuiAsyncSchemaError {
+	const error = new SuiAsyncSchemaError(component);
+	if (cause !== undefined) (error as { cause?: unknown }).cause = cause;
+	return error;
+}
+
+/**
  * Parses `values` against any supported schema and normalises the result.
- * Prefers the Standard Schema `~standard.validate` channel (zod v4, Valibot,
- * ArkType, Effect); falls back to a duck-typed `safeParse` (zod v3 style).
+ *
+ * zod schemas go through their own `safeParse`: zod's Standard Schema
+ * `validate` swallows ANY synchronous throw and retries asynchronously, so
+ * a plain bug inside a `refine`/`transform` (a `TypeError`, say) would
+ * surface as a misleading "the schema is asynchronous" error. `safeParse`
+ * lets genuine errors propagate untouched and throws a recognisable error
+ * only for real async schemas. Every other vendor (Valibot, ArkType,
+ * Effect, zod/mini) uses the Standard Schema `~standard.validate` channel.
  */
 export function suiParse(schema: unknown, values: unknown, component = 'sui'): SuiParseResult {
-	if (schema !== null && typeof schema === 'object' && '~standard' in schema) {
-		let result: StandardSchemaV1Result<unknown> | Promise<StandardSchemaV1Result<unknown>>;
-		try {
-			result = (schema as StandardSchemaV1)['~standard'].validate(values);
-		} catch (cause) {
-			// zod v4 throws $ZodAsyncError when sync-parsing an async schema
-			const error = new SuiAsyncSchemaError(component);
-			(error as { cause?: unknown }).cause = cause;
-			throw error;
-		}
-		if (isPromiseLike(result)) throw new SuiAsyncSchemaError(component);
-		if ('issues' in result && result.issues) {
-			return { ok: false, issues: suiIssues(result.issues) };
-		}
-		return { ok: true, data: result.value };
-	}
 	if (
 		schema !== null &&
 		typeof schema === 'object' &&
 		typeof (schema as { safeParse?: unknown }).safeParse === 'function'
 	) {
-		const result = (schema as SafeParseSchema).safeParse(values);
-		if (isPromiseLike(result)) throw new SuiAsyncSchemaError(component);
+		let result: ReturnType<SafeParseSchema['safeParse']>;
+		try {
+			result = (schema as SafeParseSchema).safeParse(values);
+		} catch (cause) {
+			if (cause instanceof Error && ASYNC_PARSE_ERROR.test(cause.message)) {
+				throw asyncSchemaError(component, cause);
+			}
+			// a bug inside the schema (refine / transform callback) — keep
+			// the real error and stack trace
+			throw cause;
+		}
+		if (isPromiseLike(result)) throw asyncSchemaError(component);
 		if (result.success) return { ok: true, data: result.data };
 		return { ok: false, issues: suiIssues(result.error?.issues ?? []) };
+	}
+	if (schema !== null && typeof schema === 'object' && '~standard' in schema) {
+		const result = (schema as StandardSchemaV1)['~standard'].validate(values);
+		if (isPromiseLike(result)) throw asyncSchemaError(component);
+		if ('issues' in result && result.issues) {
+			return { ok: false, issues: suiIssues(result.issues) };
+		}
+		return { ok: true, data: result.value };
 	}
 	throw new Error(
 		`${component}: the schema must be a zod schema or any Standard Schema v1 compatible schema.`
@@ -264,10 +286,120 @@ export function resolveSuiMessages(
 
 // ------------------------------------------------------ server error maps
 
-function asMessageList(value: unknown): string[] {
-	if (typeof value === 'string') return value ? [value] : [];
-	if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
-	return [];
+/** Keys whose messages are form-level (not tied to one field). */
+const FORM_LEVEL_KEYS = new Set([
+	'',
+	'_form',
+	'form',
+	'message',
+	'error',
+	'detail',
+	'non_field_errors', // Django REST Framework
+	'__all__' // Django forms
+]);
+
+/**
+ * Envelope metadata that is never a field error: HTTP status / error codes,
+ * RFC 7807 `type`/`instance`/`title`, Spring's request `path`, tracing ids…
+ * (only consulted for top-level direct field maps).
+ */
+const METADATA_KEYS = new Set([
+	'status',
+	'statusCode',
+	'code',
+	'errorCode',
+	'type',
+	'title',
+	'instance',
+	'timestamp',
+	'path',
+	'method',
+	'stack',
+	'trace',
+	'traceId',
+	'requestId',
+	'success',
+	'ok'
+]);
+
+type ErrorMap = Record<string, string[]>;
+
+function pushMessages(out: ErrorMap, path: string, messages: string[]): void {
+	if (messages.length === 0) return;
+	const key = FORM_LEVEL_KEYS.has(path) ? '' : path;
+	const list = out[key] ?? (out[key] = []);
+	for (const message of messages) if (message && !list.includes(message)) list.push(message);
+}
+
+/** JSON:API `source.pointer` (`/data/attributes/email`) → dotted path (`email`). */
+function pointerToPath(pointer: string): string {
+	return pointer
+		.replace(/^\/data\/(attributes|relationships)\/?/, '')
+		.replace(/^\//, '')
+		.split('/')
+		.filter(Boolean)
+		.join('.');
+}
+
+/**
+ * One error-ish entry of an errors ARRAY: a plain string (form-level), or
+ * an object carrying a message (`message` / `detail` / `title`) and a
+ * location (`path` array or dotted string, `field`, `name`, `param`,
+ * `property`, or JSON:API `source.pointer`).
+ */
+function collectErrorEntry(out: ErrorMap, entry: unknown): void {
+	if (typeof entry === 'string') {
+		pushMessages(out, '', [entry]);
+		return;
+	}
+	if (entry === null || typeof entry !== 'object') return;
+	const record = entry as Record<string, unknown>;
+	const message = [record.message, record.detail, record.msg, record.title].find(
+		(m): m is string => typeof m === 'string' && m.length > 0
+	);
+	if (!message) return;
+	const source = record.source as { pointer?: unknown; parameter?: unknown } | undefined;
+	const location =
+		record.path ??
+		record.field ??
+		record.name ??
+		record.param ??
+		record.property ??
+		record.loc ??
+		(typeof source?.pointer === 'string' ? pointerToPath(source.pointer) : source?.parameter);
+	const path = Array.isArray(location)
+		? suiIssuePath(location)
+		: typeof location === 'string'
+			? location
+			: '';
+	pushMessages(out, path, [message]);
+}
+
+/**
+ * Flattens a (possibly nested) field → messages map onto dotted paths:
+ * `{ address: { city: ['Required'] } }` → `address.city`, and arrays of
+ * objects index in (`{ tags: [{}, { name: 'Bad' }] }` → `tags.1.name`).
+ */
+function collectFieldMap(out: ErrorMap, value: unknown, prefix: string): void {
+	if (typeof value === 'string') {
+		pushMessages(out, prefix, [value]);
+		return;
+	}
+	if (Array.isArray(value)) {
+		const strings = value.filter((item): item is string => typeof item === 'string');
+		pushMessages(out, prefix, strings);
+		value.forEach((item, index) => {
+			if (item !== null && typeof item === 'object') {
+				collectFieldMap(out, item, prefix ? `${prefix}.${index}` : String(index));
+			}
+		});
+		return;
+	}
+	if (value === null || typeof value !== 'object') return;
+	for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+		const path = FORM_LEVEL_KEYS.has(key) ? '' : prefix ? `${prefix}.${key}` : key;
+		collectFieldMap(out, nested, path);
+	}
 }
 
 /**
@@ -289,39 +421,90 @@ export const suiErrors = {
 		return groupSuiIssues(suiIssuesFromZodError(error));
 	},
 	/**
-	 * Tolerant mapper for JSON error bodies:
+	 * Tolerant mapper for the JSON error bodies real backends return —
+	 * every shape lands on `Record<dotted path, messages>` (`''` =
+	 * form-level):
+	 *
 	 * - `{ issues: [{ message, path }] }` — zod / Standard Schema JSON
-	 * - `{ errors: { email: 'Taken' | ['Taken'] } }` — nested field map
-	 * - `{ email: 'Taken', message: '…' }` — direct field map; the reserved
-	 *   keys `message`, `error`, `detail` and `form` map to form-level (`''`)
-	 * - `'_form'` keys always map to form-level
+	 * - `{ errors: { email: 'Taken' | ['Taken'] } }` — field map (Laravel,
+	 *   Rails, ASP.NET `ValidationProblemDetails`); nested objects flatten
+	 *   to dotted paths (`address.city`, DRF nested serializers)
+	 * - `{ errors: [{ message|detail, path|field|source.pointer }] }` —
+	 *   error arrays (JSON:API, express-validator, GraphQL-ish); plain
+	 *   strings in the array are form-level (Rails `full_messages`)
+	 * - `{ email: ['Taken'], non_field_errors: ['…'] }` — direct field
+	 *   maps (Django REST Framework); envelope metadata (`status`, `code`,
+	 *   `type`, `path`, `timestamp`, …) is ignored
+	 * - `message` / `error` / `detail` / `form` / `_form` /
+	 *   `non_field_errors` / `__all__` → form-level, when no field
+	 *   errors explain the failure better
+	 * - a bare array body → an error array; anything else that is not an
+	 *   object (a string, `null`) maps to nothing
 	 */
 	fromResponse(body: unknown): Record<string, string[]> {
-		const out: Record<string, string[]> = {};
+		const out: ErrorMap = {};
+		if (Array.isArray(body)) {
+			for (const entry of body) collectErrorEntry(out, entry);
+			return out;
+		}
 		if (body === null || typeof body !== 'object') return out;
 		const record = body as Record<string, unknown>;
 		if (Array.isArray(record.issues)) {
-			Object.assign(out, suiErrors.fromIssues(record.issues));
-		}
-		const source =
-			record.errors !== null && typeof record.errors === 'object'
-				? (record.errors as Record<string, unknown>)
-				: record;
-		for (const [key, value] of Object.entries(source)) {
-			if (key === 'issues') continue; // handled above
-			const list = asMessageList(value);
-			if (list.length === 0) continue;
-			if (
-				key === 'message' ||
-				key === 'error' ||
-				key === 'detail' ||
-				key === 'form' ||
-				key === '_form'
-			) {
-				out[''] = [...(out[''] ?? []), ...list];
-				continue;
+			for (const [path, messages] of Object.entries(suiErrors.fromIssues(record.issues))) {
+				pushMessages(out, path, messages);
 			}
-			out[key] = [...(out[key] ?? []), ...list];
+		}
+		if (Array.isArray(record.errors)) {
+			for (const entry of record.errors) collectErrorEntry(out, entry);
+		} else if (record.errors !== null && typeof record.errors === 'object') {
+			collectFieldMap(out, record.errors, '');
+		} else if (!Array.isArray(record.issues)) {
+			// direct field map — skip envelope metadata and summary keys
+			for (const [key, value] of Object.entries(record)) {
+				if (METADATA_KEYS.has(key) || key === 'errors' || FORM_LEVEL_KEYS.has(key)) continue;
+				collectFieldMap(out, value, key);
+			}
+		}
+		// summary messages (`message`, `error`, `detail`, …) are form-level —
+		// but only as a fallback: Laravel/ASP.NET put a generic "The given
+		// data was invalid." next to the field errors that explain it
+		const hasFieldErrors = Object.keys(out).some((key) => key !== '');
+		if (!hasFieldErrors) {
+			for (const key of [
+				'_form',
+				'form',
+				'non_field_errors',
+				'__all__',
+				'detail',
+				'message',
+				'error'
+			]) {
+				const value = record[key];
+				if (typeof value === 'string') pushMessages(out, '', [value]);
+				else if (Array.isArray(value)) {
+					pushMessages(
+						out,
+						'',
+						value.filter((item): item is string => typeof item === 'string')
+					);
+				}
+			}
+			if (Object.keys(out).length === 0 && typeof record.title === 'string') {
+				pushMessages(out, '', [record.title]); // RFC 7807 problem details
+			}
+		} else {
+			// explicit form-level keys still apply alongside field errors
+			for (const key of ['_form', 'form', 'non_field_errors', '__all__']) {
+				const value = record[key];
+				if (typeof value === 'string') pushMessages(out, '', [value]);
+				else if (Array.isArray(value)) {
+					pushMessages(
+						out,
+						'',
+						value.filter((item): item is string => typeof item === 'string')
+					);
+				}
+			}
 		}
 		return out;
 	}

@@ -1,4 +1,4 @@
-import type { SuiFieldVariant, SuiSize } from './types.js';
+import type { SuiButtonColor, SuiFieldVariant, SuiSize } from './types.js';
 
 /**
  * The single source of truth for control sizes.
@@ -123,6 +123,23 @@ export const SUI_FIELD_TRIGGER: Record<SuiFieldVariant, string> = {
 		'border-red-300 bg-red-50/40 dark:border-red-500/40 dark:bg-red-950/20 focus-visible:border-red-500 dark:focus-visible:border-red-400 focus-visible:ring-red-500/25'
 };
 
+/**
+ * shadcn-svelte primitives (the select trigger, checkbox and switch) paint any
+ * `aria-invalid` control with a permanent 3px ring — indistinguishable from
+ * a focus ring, and it never goes away on blur or an outside click, so an
+ * invalid field looks stuck in focus. sui signals errors through its variant
+ * colours instead; these overrides (merged last by `cn`) keep the ring for
+ * real keyboard focus only.
+ */
+export const SUI_INVALID_RING = 'aria-invalid:ring-0 aria-invalid:focus-visible:ring-3';
+
+/**
+ * {@link SUI_INVALID_RING} plus the border: an invalid select trigger matches
+ * an invalid `SuiInput` (red-300 at rest, red-500 focused) instead of the
+ * primitive's always-dark destructive border.
+ */
+export const SUI_INVALID_TRIGGER = `${SUI_INVALID_RING} aria-invalid:border-red-300 dark:aria-invalid:border-red-500/40 aria-invalid:focus-visible:border-red-500 dark:aria-invalid:focus-visible:border-red-400`;
+
 /** Field variant classes applied to messages rendered below a control. */
 export const SUI_FIELD_TEXT: Record<SuiFieldVariant, string> = {
 	info: 'text-blue-600 dark:text-blue-400',
@@ -200,4 +217,70 @@ export function suiEffectiveVariant(
 ): SuiFieldVariant {
 	if (errors !== undefined && errors.length > 0) return 'error';
 	return variant;
+}
+
+// ---------------------------------------------------------------- buttons
+
+/** The button variants a `color` tints (`destructive` is red by definition). */
+export type SuiButtonTone = 'primary' | 'secondary' | 'outline' | 'ghost' | 'link';
+
+/**
+ * Semantic button colours as CSS tokens: `--sui-btn` (the colour itself)
+ * and `--sui-btn-fg` (text on a solid fill). Every fill keeps WCAG AA
+ * contrast (≥ 4.5:1) with its text in both themes — hence green-700, and
+ * dark text on amber. `--sui-btn-text-override` replaces the derived text
+ * tone where the mix would be too light (amber on a light theme).
+ */
+export const SUI_BUTTON_COLOR: Record<SuiFieldVariant, string> = {
+	info: '[--sui-btn:var(--color-blue-600)] [--sui-btn-fg:var(--color-white)]',
+	success: '[--sui-btn:var(--color-green-700)] [--sui-btn-fg:var(--color-white)]',
+	warning:
+		'[--sui-btn:var(--color-amber-400)] [--sui-btn-fg:var(--color-amber-950)] [--sui-btn-text-override:var(--color-amber-800)] dark:[--sui-btn-text-override:initial]',
+	error: '[--sui-btn:var(--color-red-600)] [--sui-btn-fg:var(--color-white)]'
+};
+
+/**
+ * Tones derived from `--sui-btn` — computed with `color-mix`, so ANY colour
+ * (semantic or custom) gets readable soft / outline / ghost / link styles:
+ * text is the colour pulled 25% toward the foreground (darker on light
+ * themes, lighter on dark ones), tints are translucent washes of it.
+ */
+const SUI_BUTTON_DERIVED =
+	'[--sui-btn-text:var(--sui-btn-text-override,color-mix(in_oklab,var(--sui-btn)_75%,var(--color-foreground)))] [--sui-btn-tint:color-mix(in_oklab,var(--sui-btn)_14%,transparent)] [--sui-btn-tint-strong:color-mix(in_oklab,var(--sui-btn)_24%,transparent)] [--sui-btn-line:color-mix(in_oklab,var(--sui-btn)_45%,transparent)] [--sui-btn-hover:color-mix(in_oklab,var(--sui-btn)_85%,var(--color-black))]';
+
+/** Per-variant classes reading the colour tokens (merged over the shadcn variant). */
+export const SUI_BUTTON_TONE: Record<SuiButtonTone, string> = {
+	primary:
+		'bg-(--sui-btn) text-(--sui-btn-fg) hover:bg-(--sui-btn-hover) focus-visible:border-(--sui-btn) focus-visible:ring-(--sui-btn-line)',
+	secondary:
+		'bg-(--sui-btn-tint) text-(--sui-btn-text) hover:bg-(--sui-btn-tint-strong) aria-expanded:bg-(--sui-btn-tint-strong) aria-expanded:text-(--sui-btn-text) focus-visible:border-(--sui-btn) focus-visible:ring-(--sui-btn-line)',
+	outline:
+		'border-(--sui-btn-line) bg-transparent text-(--sui-btn-text) hover:bg-(--sui-btn-tint) hover:text-(--sui-btn-text) aria-expanded:bg-(--sui-btn-tint) aria-expanded:text-(--sui-btn-text) dark:border-(--sui-btn-line) dark:bg-transparent dark:hover:bg-(--sui-btn-tint) focus-visible:border-(--sui-btn) focus-visible:ring-(--sui-btn-line)',
+	ghost:
+		'text-(--sui-btn-text) hover:bg-(--sui-btn-tint) hover:text-(--sui-btn-text) aria-expanded:bg-(--sui-btn-tint) aria-expanded:text-(--sui-btn-text) dark:hover:bg-(--sui-btn-tint) focus-visible:ring-(--sui-btn-line)',
+	link: 'text-(--sui-btn-text) focus-visible:ring-(--sui-btn-line)'
+};
+
+/**
+ * Classes + inline style that colour a button. Semantic colours resolve to
+ * {@link SUI_BUTTON_COLOR} tokens; any other string is used as a CSS
+ * colour through the `--sui-btn` custom property (text on solid fills
+ * defaults to white — override with `style="--sui-btn-fg: …"`).
+ */
+export function suiButtonColor(
+	color: SuiButtonColor | undefined,
+	variant: string
+): { class: string; style: string } {
+	if (!color || !(variant in SUI_BUTTON_TONE)) return { class: '', style: '' };
+	const tone = SUI_BUTTON_TONE[variant as SuiButtonTone];
+	if (color in SUI_BUTTON_COLOR) {
+		return {
+			class: `${SUI_BUTTON_COLOR[color as SuiFieldVariant]} ${SUI_BUTTON_DERIVED} ${tone}`,
+			style: ''
+		};
+	}
+	return {
+		class: `[--sui-btn-fg:var(--color-white)] ${SUI_BUTTON_DERIVED} ${tone}`,
+		style: `--sui-btn: ${color};`
+	};
 }

@@ -43,6 +43,12 @@ export const SITE_ROUTES: SiteRoute[] = [
 			'Checkbox, switch and radio-group fields with validation, variants and size-matched skeletons.'
 	},
 	{
+		path: '/date-time',
+		title: 'Date & Time',
+		description:
+			'Date, time and date-time pickers: typed, locale-aware segments plus calendar and time-slot popovers, ISO string values and zod validation.'
+	},
+	{
 		path: '/data-table',
 		title: 'Data Table',
 		description:

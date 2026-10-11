@@ -297,6 +297,178 @@ describe('SuiDataTable', () => {
 	});
 });
 
+describe('SuiDataTable — hardening', () => {
+	const many: Person[] = Array.from({ length: 25 }, (_, i) => ({
+		id: String(i),
+		name: i < 2 ? `Zed ${i}` : `Person ${i}`,
+		age: 20 + i,
+		city: i % 2 ? 'London' : 'Paris'
+	}));
+	const rows = () => document.querySelectorAll('[data-sui-data-table-body] tr');
+
+	it('a search recomputes the page count and returns to page one', async () => {
+		render(SuiDataTable, { data: many, columns, searchable: true, pageSize: 10, virtual: false });
+		expect(screen.getByText('1 / 3')).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Next page' }));
+		await user.click(screen.getByRole('button', { name: 'Next page' }));
+		expect(screen.getByText('3 / 3')).toBeInTheDocument();
+
+		await user.type(screen.getByPlaceholderText('Search…'), 'Zed');
+		await waitFor(() => expect(rows().length).toBe(2));
+		// not "3 / 3" over an empty page, not "1 / 3" with a live Next button
+		expect(screen.getByText('1 / 1')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+		expect(screen.getByText('2 rows')).toBeInTheDocument();
+	});
+
+	it('sortable headers are keyboard operable (a real button inside the header)', async () => {
+		render(SuiDataTable, { data, columns, pagination: 'none', virtual: false });
+		const ageHeader = screen.getByRole('columnheader', { name: /age/i });
+		const sortButton = within(ageHeader).getByRole('button', { name: /age/i });
+		sortButton.focus();
+		await user.keyboard('{Enter}');
+		expect(ageHeader).toHaveAttribute('aria-sort', 'ascending');
+		await user.keyboard(' ');
+		expect(ageHeader).toHaveAttribute('aria-sort', 'descending');
+		// display columns are not sortable — no button
+		const statusHeader = screen.getByRole('columnheader', { name: /status/i });
+		expect(within(statusHeader).queryByRole('button')).toBeNull();
+	});
+
+	it('select-all reads as checked (not mixed) once every row is selected', async () => {
+		render(SuiDataTable, {
+			data,
+			columns,
+			enableSelection: true,
+			pagination: 'none',
+			rowId: (row) => row.id,
+			virtual: false
+		});
+		const selectAll = screen.getByRole('checkbox', { name: 'Select all rows' });
+		await user.click(screen.getAllByRole('checkbox')[1]!);
+		expect(selectAll).toHaveAttribute('aria-checked', 'mixed');
+		await user.click(selectAll);
+		expect(selectAll).toHaveAttribute('aria-checked', 'true');
+	});
+
+	it('exports rows in the order the user sorted them', async () => {
+		const created: Blob[] = [];
+		URL.createObjectURL = vi.fn((blob: Blob) => {
+			created.push(blob);
+			return 'blob:mock';
+		}) as unknown as typeof URL.createObjectURL;
+		URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL;
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+		const { container } = render(SuiDataTable, {
+			data,
+			columns,
+			exportable: true,
+			pagination: 'none',
+			virtual: false
+		});
+		const ageHeader = screen.getByRole('columnheader', { name: /age/i });
+		await user.click(ageHeader);
+		await user.click(ageHeader); // descending: Margaret (87) first
+		await user.click(container.querySelector('[data-sui-data-table-export]')!);
+		const text = await created[0]!.text();
+		expect(text.split('\r\n')[1]).toBe('"Margaret","87","London"');
+	});
+
+	it('the column menu lists header text, not raw column ids', async () => {
+		const cols = [
+			col.accessor('name', { header: 'Full name' }),
+			col.accessor('city', { header: 'Home town' })
+		] as unknown as SuiDataTableColumn<Record<string, any>>[];
+		render(SuiDataTable, { data, columns: cols, pagination: 'none', virtual: false });
+		await user.click(screen.getByRole('button', { name: /toggle columns/i }));
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByText('Full name')).toBeInTheDocument();
+		expect(within(menu).getByText('Home town')).toBeInTheDocument();
+	});
+
+	it('server mode delegates search to the server (onSearchChange), never filtering one page', async () => {
+		const onSearchChange = vi.fn();
+		render(SuiDataTable, {
+			data,
+			columns,
+			searchable: true,
+			pagination: 'server',
+			rowCount: 400,
+			onSearchChange,
+			virtual: false
+		});
+		await user.type(screen.getByPlaceholderText('Search…'), 'Ada');
+		await waitFor(() => expect(onSearchChange).toHaveBeenLastCalledWith('Ada'));
+		// the current page is the server's answer — rows are not filtered client-side
+		expect(rows().length).toBe(4);
+	});
+
+	it('keeps the sticky header opaque so scrolled rows never show through it', () => {
+		const { container } = render(SuiDataTable, { data: many, columns, pagination: 'none' });
+		const head = container.querySelector('[data-sui-data-table-head]')!;
+		// a translucent tint (bg-muted/50) let row text bleed through on scroll
+		expect(head.className).not.toMatch(/bg-[a-z-]+\/\d+/);
+		expect(head.className).toMatch(/\bsticky\b/);
+	});
+
+	it('pinned columns render exactly as wide as their sticky offsets assume (virtual mode)', () => {
+		const pinned = [
+			col.accessor('name', { header: 'Name', meta: { pinned: 'left', width: 120 } }),
+			col.accessor('city', { header: 'City', meta: { pinned: 'left', width: 100 } }),
+			col.accessor('age', { header: 'Age', meta: { width: 300 } })
+		] as unknown as SuiDataTableColumn<Record<string, any>>[];
+		const { container } = render(SuiDataTable, {
+			data: many,
+			columns: pinned,
+			enableSelection: true,
+			pagination: 'none',
+			virtual: true
+		});
+		const header = container.querySelectorAll('[data-sui-data-table-head] th');
+		// Name occupies 40..160 — City must start exactly at 160 (it used to
+		// start at 160 while Name rendered 150px wide: the two overlapped)
+		expect(header[1].getAttribute('style')).toMatch(/width:\s*120px/);
+		expect(header[1].getAttribute('style')).toContain('min-width: 120px; max-width: 120px;');
+		expect(header[2].getAttribute('style')).toContain('left: 160px;');
+		// meta.width is honoured in virtual mode for unpinned columns too
+		expect(header[3].getAttribute('style')).toMatch(/width:\s*300px/);
+	});
+
+	it('pinned body cells — the selection column included — are opaque in every row state', () => {
+		const pinned = [
+			col.accessor('name', { header: 'Name', meta: { pinned: 'left', width: 120 } }),
+			col.accessor('age', { header: 'Age' })
+		] as unknown as SuiDataTableColumn<Record<string, any>>[];
+		const { container } = render(SuiDataTable, {
+			data,
+			columns: pinned,
+			enableSelection: true,
+			pagination: 'none',
+			virtual: false
+		});
+		const row = container.querySelector('[data-sui-data-table-body] tr')!;
+		const [selection, name] = row.querySelectorAll('td');
+		for (const cell of [selection, name]) {
+			expect(cell.className).toContain('bg-card');
+			// no translucent hover/selected tint: scrolled content would show through
+			expect(cell.className).not.toMatch(/bg-muted\/\d+/);
+		}
+		expect(container.querySelector('[data-sui-data-table-select-all]')?.className).toContain(
+			'bg-muted'
+		);
+	});
+
+	it('clickable rows are keyboard operable', async () => {
+		const onRowClick = vi.fn();
+		render(SuiDataTable, { data, columns, onRowClick, pagination: 'none', virtual: false });
+		const row = rows()[1] as HTMLElement;
+		expect(row).toHaveAttribute('tabindex', '0');
+		row.focus();
+		await user.keyboard('{Enter}');
+		expect(onRowClick).toHaveBeenCalledWith(expect.objectContaining({ name: 'Grace' }), 1);
+	});
+});
+
 describe('SuiDataTableSkeleton', () => {
 	it('renders the requested rows and columns', () => {
 		const { container } = render(SuiDataTableSkeleton, { rows: 3, columns: 4 });

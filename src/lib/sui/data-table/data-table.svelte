@@ -24,6 +24,12 @@
 		searchable?: boolean;
 		searchPlaceholder?: string;
 		/**
+		 * Fired with the search text on every change. In `server` mode the
+		 * table does NOT filter the current page — refetch with the query
+		 * (and typically reset to page one).
+		 */
+		onSearchChange?: (query: string) => void;
+		/**
 		 * `client` (default) sorts and paginates locally.
 		 * `server` switches to manual pagination + sort events.
 		 * `none` hides the footer.
@@ -47,7 +53,7 @@
 		maxHeight?: number;
 		/** Show a loading indicator / skeleton. */
 		loading?: boolean;
-		/** Message shown when there are no rows. Default `No data`. */
+		/** Message shown when there are no rows. Default `No data` (see `setSuiStrings`). */
 		emptyText?: string;
 		/** Show a CSV download button in the toolbar (exports the filtered rows). */
 		exportable?: boolean;
@@ -72,6 +78,7 @@
 	import SuiInput from '../input/input.svelte';
 	import { suiDownloadCsv, type SuiCsvColumn } from './csv.js';
 	import { SUI_TABLE_FEATURES, type SuiColumnMeta, type SuiTableFeatures } from './columns.js';
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
@@ -93,7 +100,8 @@
 		onSelectionChange,
 		onRowClick,
 		searchable = false,
-		searchPlaceholder = 'Search…',
+		searchPlaceholder,
+		onSearchChange,
 		pagination = 'client',
 		pageSize = 10,
 		pageSizeOptions = [10, 20, 30, 50, 100],
@@ -104,7 +112,7 @@
 		virtual = true,
 		maxHeight = 480,
 		loading = false,
-		emptyText = 'No data',
+		emptyText,
 		/** Show a CSV download button in the toolbar (exports the filtered rows). */
 		exportable = false,
 		/** File name for the CSV download. Default `sui-export.csv`. */
@@ -113,6 +121,8 @@
 		toolbar,
 		header
 	}: SuiDataTableProps<T> = $props();
+
+	const strings = getSuiStrings();
 
 	const CELL_SIZE: Record<SuiDataTableSize, { cell: string; header: string; estimate: number }> = {
 		sm: { cell: 'py-1.5 px-2 text-xs', header: 'py-2 px-2 text-xs', estimate: 32 },
@@ -204,23 +214,32 @@
 	});
 
 	/** Sticky inline style for a column cell; '' when unpinned. */
-	function pinStyle(columnId: string, header: boolean): string {
-		if (leftOffsets.has(columnId)) {
-			return `position: sticky; left: ${leftOffsets.get(columnId)}px; z-index: ${header ? 21 : 12};`;
-		}
-		if (rightOffsets.has(columnId)) {
-			return `position: sticky; right: ${rightOffsets.get(columnId)}px; z-index: ${header ? 21 : 12};`;
-		}
-		return '';
+	function pinStyle(
+		column: { id: string; columnDef: { meta?: unknown }; getSize(): number },
+		header: boolean
+	): string {
+		const side = leftOffsets.has(column.id) ? 'left' : rightOffsets.has(column.id) ? 'right' : null;
+		if (!side) return '';
+		const offset = (side === 'left' ? leftOffsets : rightOffsets).get(column.id);
+		// the sticky offsets are sums of these widths — lock the cell to its
+		// width so content can never stretch or squeeze it out of place
+		const width = columnWidth(column);
+		return `position: sticky; ${side}: ${offset}px; z-index: ${header ? 21 : 12}; width: ${width}px; min-width: ${width}px; max-width: ${width}px;`;
 	}
+
+	/**
+	 * Pinned body cells sit ON TOP of the scrolling ones, so every state is
+	 * opaque: the card colour at rest, and the row's hover / selected / focus
+	 * tints (muted at 40% / 50% over the card) pre-mixed instead of
+	 * translucent — scrolled content must never show through.
+	 */
+	const PIN_BODY_BG =
+		'bg-card group-hover/row:bg-[color-mix(in_oklab,var(--color-muted)_40%,var(--color-card))] group-data-[selected]/row:bg-[color-mix(in_oklab,var(--color-muted)_50%,var(--color-card))] group-focus-visible/row:bg-[color-mix(in_oklab,var(--color-muted)_50%,var(--color-card))]';
 
 	/** Extra classes for a pinned cell (opaque bg + row-state tinting). */
 	function pinClasses(columnId: string, header: boolean): string {
 		if (!leftOffsets.has(columnId) && !rightOffsets.has(columnId)) return '';
-		return cn(
-			header ? 'bg-muted' : 'bg-background',
-			!header && 'group-hover/row:bg-muted/50 group-data-[selected]/row:bg-muted/50'
-		);
+		return header ? 'bg-muted' : PIN_BODY_BG;
 	}
 
 	/** Which side of the pin group forms the shadow edge, if any. */
@@ -267,7 +286,16 @@
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				value: (row: any) => row.getValue(header.column.id)
 			}));
-		suiDownloadCsv(table.getFilteredRowModel().rows, columns, exportFilename);
+		// filtered AND sorted (pre-pagination): the export matches what the
+		// user sees, in the order they sorted it
+		suiDownloadCsv(table.getPrePaginatedRowModel().rows, columns, exportFilename);
+	}
+
+	/** Header text for menus and exports: the header string, else the column id. */
+	function columnLabel(column: { id: string; columnDef: { header?: unknown } }): string {
+		const header = column.columnDef.header;
+		if (typeof header === 'string' && header.trim() !== '') return header;
+		return column.id.replace(/([a-z])([A-Z])/g, '$1 $2');
 	}
 
 	// svelte-ignore state_referenced_locally
@@ -291,8 +319,15 @@
 		get manualSorting() {
 			return manual;
 		},
+		// server mode: the server filters (onSearchChange) — filtering one
+		// page client-side would silently hide matches on other pages
+		get manualFiltering() {
+			return manual;
+		},
+		// only manual pagination needs an explicit count; client mode must
+		// let the FILTERED row count drive the page count
 		get rowCount() {
-			return manual ? (rowCount ?? 0) : data.length;
+			return manual ? (rowCount ?? 0) : undefined;
 		},
 		state: {
 			get sorting() {
@@ -324,13 +359,26 @@
 			onSelectionChange?.(selectedRows, Object.keys(rowSelection));
 		},
 		onGlobalFilterChange: (updater) => {
-			globalFilter = isFunction(updater) ? updater(globalFilter) : updater;
+			setSearch(isFunction(updater) ? updater(globalFilter) : updater);
 		},
 		onPaginationChange: (updater) => {
 			paginationState = isFunction(updater) ? updater(paginationState) : updater;
 			onPageChange?.(paginationState);
 		}
 	});
+
+	/** One path for every search change: page reset + callback. */
+	function setSearch(next: string) {
+		if (next === globalFilter) return;
+		globalFilter = next;
+		// a narrower result set may not reach the current page — start over
+		// (server mode: the consumer refetches page one with the query)
+		if (paginationState.pageIndex !== 0 && !manualNone) {
+			paginationState = { ...paginationState, pageIndex: 0 };
+			if (manual) onPageChange?.(paginationState);
+		}
+		onSearchChange?.(next);
+	}
 
 	// Return to page 1 when a genuinely new dataset arrives (client mode).
 	// Server mode is skipped: the consumer refetches on every page change
@@ -358,7 +406,10 @@
 	const canPrevious = $derived(table.getCanPreviousPage());
 	const canNext = $derived(table.getCanNextPage());
 	const selectedCount = $derived(Object.keys(rowSelection).length);
-	const totalRows = $derived(manual ? (rowCount ?? 0) : data.length);
+	// rows matching the current search (client) / the server's total
+	const totalRows = $derived(
+		manual ? (rowCount ?? 0) : table.getPrePaginatedRowModel().rows.length
+	);
 	const showBody = $derived(!loading && rows.length > 0);
 	const gridMode = $derived(virtual && showBody);
 
@@ -405,6 +456,14 @@
 		else column.toggleSorting(sorted === 'asc');
 	}
 
+	/** Enter / Space on a focused clickable row activates it (like a click). */
+	function activateRow(event: KeyboardEvent, row: T, index: number) {
+		if (event.target !== event.currentTarget) return; // a control inside the row
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		onRowClick?.(row, index);
+	}
+
 	export function getPage(): PaginationState {
 		return paginationState;
 	}
@@ -428,11 +487,11 @@
 		{#if searchable}
 			<div class="w-full max-w-56" data-sui-data-table-search>
 				<SuiInput
-					bind:value={globalFilter}
+					bind:value={() => globalFilter, setSearch}
 					size="sm"
-					placeholder={searchPlaceholder}
+					placeholder={searchPlaceholder ?? strings.searchPlaceholder}
 					startIcon={SearchIcon}
-					aria-label={searchPlaceholder}
+					aria-label={searchPlaceholder ?? strings.searchPlaceholder}
 				/>
 			</div>
 		{/if}
@@ -443,34 +502,34 @@
 					type="button"
 					class="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium outline-none hover:bg-accent hover:text-accent-foreground"
 					data-sui-data-table-export
-					aria-label="Download the filtered rows as CSV"
+					aria-label={strings.tableExportLabel}
 					onclick={exportCsv}
 				>
 					<DownloadIcon class="size-3.5" aria-hidden="true" />
-					Export
+					{strings.tableExport}
 				</button>
 			{/if}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger
 					class="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium outline-none hover:bg-accent hover:text-accent-foreground"
 					data-sui-data-table-columns-trigger
-					aria-label="Toggle columns"
+					aria-label={strings.tableColumnsLabel}
 				>
 					<Columns3Icon class="size-3.5" aria-hidden="true" />
-					Columns
+					{strings.tableColumns}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end" class="z-50">
 					<DropdownMenu.Label class="text-xs text-muted-foreground"
-						>Visible columns</DropdownMenu.Label
+						>{strings.tableVisibleColumns}</DropdownMenu.Label
 					>
 					{#each table.getAllLeafColumns() as column (column.id)}
 						{#if column.getCanHide()}
 							<DropdownMenu.CheckboxItem
 								checked={column.getIsVisible()}
 								onCheckedChange={(value) => column.toggleVisibility(value)}
-								class="text-xs capitalize"
+								class="text-xs"
 							>
-								{column.id.replace(/([a-z])([A-Z])/g, '$1 $2')}
+								{columnLabel(column)}
 							</DropdownMenu.CheckboxItem>
 						{/if}
 					{/each}
@@ -491,18 +550,31 @@
 				<thead
 					class={cn(
 						'sticky top-0',
-						// pinned headers must be opaque (content scrolls under
-						// them) — so the whole header goes solid when pinning
-						anyPinned ? 'z-20 bg-muted' : 'z-10 bg-muted/50',
+						// rows scroll UNDER the sticky header, so it must be opaque.
+						// Unpinned: the same light tint as muted/50 over the card,
+						// pre-mixed so nothing shows through; pinned: solid muted
+						// to match the pinned cells
+						anyPinned
+							? 'z-20 bg-muted'
+							: 'z-10 bg-[color-mix(in_oklab,var(--color-muted)_50%,var(--color-card))]',
 						gridMode && '[display:grid]'
 					)}
 					data-sui-data-table-head
 				>
 					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-						<tr class={cn('border-b', gridMode && '[display:flex] w-full')}>
+						<!-- the header's bottom hairline: a border in grid (virtual) mode;
+						     an inset shadow on each cell in table mode — collapsed table
+						     borders don't travel with sticky cells and would scroll away -->
+						<tr
+							class={cn(
+								gridMode
+									? '[display:flex] w-full border-b'
+									: '[&>th]:shadow-[inset_0_-1px_0_var(--color-border)]'
+							)}
+						>
 							{#if enableSelection}
 								<th
-									class="w-10 border-b px-3 py-2"
+									class={cn('w-10 px-3 py-2', gridMode && 'border-b', anyPinned && 'bg-muted')}
 									style={`${gridMode ? 'display:flex; width:40px;' : ''}${anyPinned ? 'position: sticky; left: 0; z-index: 21;' : ''}`}
 									data-sui-data-table-select-all
 									data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0
@@ -511,9 +583,9 @@
 								>
 									<Checkbox
 										checked={table.getIsAllRowsSelected()}
-										indeterminate={table.getIsSomeRowsSelected()}
+										indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
 										onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
-										aria-label="Select all rows"
+										aria-label={strings.tableSelectAll}
 									/>
 								</th>
 							{/if}
@@ -527,17 +599,17 @@
 									scope="col"
 									style={`${
 										gridMode
-											? `display:flex; width:${header.getSize()}px;`
+											? `display:flex; width:${columnWidth(column)}px;`
 											: meta.width
 												? `width:${meta.width}px;`
 												: ''
-									}${pinStyle(column.id, true)}`}
+									}${pinStyle(column, true)}`}
 									data-sui-pin-shadow={edgeSide(column.id)}
 									class={cn(
 										'font-medium tracking-wide text-muted-foreground',
 										CELL_SIZE[size].header,
 										alignClass(meta.align),
-										column.getCanSort() ? 'cursor-pointer select-none hover:text-foreground' : '',
+										column.getCanSort() && 'cursor-pointer select-none hover:text-foreground',
 										gridMode && 'border-b',
 										pinClasses(column.id, true)
 									)}
@@ -546,18 +618,22 @@
 										: column.getIsSorted() === 'desc'
 											? 'descending'
 											: undefined}
-									onclick={() => toggleSort(column.id)}
-									onkeydown={(e) => {
-										if (e.key === 'Enter' || e.key === ' ') {
-											e.preventDefault();
-											toggleSort(column.id);
-										}
+									onclick={(event) => {
+										// the header's padding sorts too (the button inside handles the rest)
+										if (event.target === event.currentTarget) toggleSort(column.id);
 									}}
 								>
 									{#if !header.isPlaceholder}
-										<span class="inline-flex items-center gap-0.5">
-											<FlexRender {header} />
-											{#if column.getCanSort()}
+										{#if column.getCanSort()}
+											<!-- WAI-ARIA sortable table: a real button in the header (keyboard +
+											     screen reader operable); aria-sort stays on the th -->
+											<button
+												type="button"
+												class="inline-flex cursor-pointer items-center gap-0.5 rounded-sm tracking-wide outline-none select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+												data-sui-data-table-sort
+												onclick={() => toggleSort(column.id)}
+											>
+												<FlexRender {header} />
 												<span
 													class="ml-0.5 inline-flex text-muted-foreground/60"
 													aria-hidden="true"
@@ -570,8 +646,12 @@
 														<ChevronsUpDownIcon class="size-3.5 opacity-40" />
 													{/if}
 												</span>
-											{/if}
-										</span>
+											</button>
+										{:else}
+											<span class="inline-flex items-center gap-0.5">
+												<FlexRender {header} />
+											</span>
+										{/if}
 									{/if}
 								</th>
 							{/each}
@@ -592,7 +672,7 @@
 									role="status"
 								>
 									<LoaderCircleIcon class="size-4 animate-spin" aria-hidden="true" />
-									Loading…
+									{strings.loading}
 								</span>
 							</td>
 						</tr>
@@ -601,7 +681,7 @@
 							<td colspan={visibleColumnCount} class="py-16" data-sui-data-table-empty>
 								<div class="flex flex-col items-center gap-2 text-muted-foreground">
 									<InboxIcon class="size-8 opacity-40" aria-hidden="true" />
-									<span class="text-sm">{emptyText}</span>
+									<span class="text-sm">{emptyText ?? strings.tableEmpty}</span>
 								</div>
 							</td>
 						</tr>
@@ -613,17 +693,21 @@
 								use:measureRow
 								data-selected={row.getIsSelected() || undefined}
 								class={cn(
-									'group/row border-b transition-colors hover:bg-muted/40',
+									'group/row border-b transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
 									row.getIsSelected() && 'bg-muted/50',
 									onRowClick && 'cursor-pointer',
 									'absolute [display:flex] w-full'
 								)}
 								style="transform: translateY({virtualRow.start}px);"
+								tabindex={onRowClick ? 0 : undefined}
 								onclick={onRowClick ? () => onRowClick(row.original, virtualRow.index) : undefined}
+								onkeydown={onRowClick
+									? (event) => activateRow(event, row.original, virtualRow.index)
+									: undefined}
 							>
 								{#if enableSelection}
 									<td
-										class="w-10 px-3"
+										class={cn('w-10 px-3', anyPinned && PIN_BODY_BG)}
 										style={`display:flex; align-items:center;${anyPinned ? 'position: sticky; left: 0; z-index: 12;' : ''}`}
 										data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0
 											? 'left'
@@ -632,7 +716,7 @@
 										<Checkbox
 											checked={row.getIsSelected()}
 											onCheckedChange={(value) => row.toggleSelected(!!value)}
-											aria-label="Select row {virtualRow.index + 1}"
+											aria-label={strings.tableSelectRow(virtualRow.index + 1)}
 											onclick={(e) => e.stopPropagation()}
 										/>
 									</td>
@@ -643,7 +727,7 @@
 										class?: string;
 									}}
 									<td
-										style={`display:flex; width:${cell.column.getSize()}px; align-items:center;${pinStyle(cell.column.id, false)}`}
+										style={`display:flex; width:${columnWidth(cell.column)}px; align-items:center;${pinStyle(cell.column, false)}`}
 										data-sui-pin-shadow={edgeSide(cell.column.id)}
 										class={cn(
 											'truncate',
@@ -663,15 +747,19 @@
 							<tr
 								data-selected={row.getIsSelected() || undefined}
 								class={cn(
-									'group/row border-b transition-colors hover:bg-muted/40',
+									'group/row border-b transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
 									row.getIsSelected() && 'bg-muted/50',
 									onRowClick && 'cursor-pointer'
 								)}
+								tabindex={onRowClick ? 0 : undefined}
 								onclick={onRowClick ? () => onRowClick(row.original, index) : undefined}
+								onkeydown={onRowClick
+									? (event) => activateRow(event, row.original, index)
+									: undefined}
 							>
 								{#if enableSelection}
 									<td
-										class="w-10 px-3"
+										class={cn('w-10 px-3', anyPinned && PIN_BODY_BG)}
 										style={anyPinned ? 'position: sticky; left: 0; z-index: 12;' : ''}
 										data-sui-pin-shadow={anyPinned && pinnedColumns.start.length === 0
 											? 'left'
@@ -680,7 +768,7 @@
 										<Checkbox
 											checked={row.getIsSelected()}
 											onCheckedChange={(value) => row.toggleSelected(!!value)}
-											aria-label="Select row {index + 1}"
+											aria-label={strings.tableSelectRow(index + 1)}
 											onclick={(e) => e.stopPropagation()}
 										/>
 									</td>
@@ -691,7 +779,7 @@
 										class?: string;
 									}}
 									<td
-										style={pinStyle(cell.column.id, false)}
+										style={pinStyle(cell.column, false)}
 										data-sui-pin-shadow={edgeSide(cell.column.id)}
 										class={cn(
 											'truncate',
@@ -721,10 +809,14 @@
 		>
 			{#if enableSelection}
 				<span class="text-muted-foreground" data-sui-data-table-count>
-					{selectedCount > 0 ? `${selectedCount} of ${totalRows} selected` : `${totalRows} rows`}
+					{selectedCount > 0
+						? strings.tableSelectedCount(selectedCount, totalRows)
+						: strings.tableRowCount(totalRows)}
 				</span>
 			{:else}
-				<span class="text-muted-foreground" data-sui-data-table-count>{totalRows} rows</span>
+				<span class="text-muted-foreground" data-sui-data-table-count
+					>{strings.tableRowCount(totalRows)}</span
+				>
 			{/if}
 			{#if pagination !== 'none'}
 				{#if pagination === 'client' && rows.length !== 0}
@@ -732,12 +824,12 @@
 						class="ml-auto flex items-center gap-1.5 text-muted-foreground"
 						data-sui-data-table-page-size
 					>
-						Rows
+						{strings.tableRowsCaption}
 						<select
 							class="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none hover:bg-accent focus-visible:ring-ring/50"
 							value={currentPageSize}
 							onchange={(e) => table.setPageSize(Number(e.currentTarget.value))}
-							aria-label="Rows per page"
+							aria-label={strings.tableRowsPerPage}
 						>
 							{#each pageSizeOptions as opt (opt)}
 								<option value={opt}>{opt}</option>
@@ -753,7 +845,7 @@
 						class="inline-flex size-7 items-center justify-center rounded-md border outline-none hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
 						onclick={() => table.previousPage()}
 						disabled={!canPrevious}
-						aria-label="Previous page"
+						aria-label={strings.tablePreviousPage}
 					>
 						<ChevronLeftIcon class="size-3.5" aria-hidden="true" />
 					</button>
@@ -765,7 +857,7 @@
 						class="inline-flex size-7 items-center justify-center rounded-md border outline-none hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
 						onclick={() => table.nextPage()}
 						disabled={!canNext}
-						aria-label="Next page"
+						aria-label={strings.tableNextPage}
 					>
 						<ChevronRightIcon class="size-3.5" aria-hidden="true" />
 					</button>

@@ -51,15 +51,24 @@
 		emptyText?: string;
 		errorText?: string;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * Native form `name` (one hidden input per selected value carries
+		 * the selection for `FormData` / progressive enhancement) — and the
+		 * schema path a form-level submitter (`createSuiSubmitter`) maps it
+		 * to. Defaults to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		/** Selected values (two-way bindable). */
 		value?: V[];
+		/**
+		 * Items behind initial values that are not in the first loaded page
+		 * (edit forms over server-paginated options) — label their chips
+		 * instead of the raw values. Items the user picks are remembered
+		 * automatically, across searches.
+		 */
+		selectedItems?: SuiItem<V>[];
 		onSelect?: (value: V[], items: SuiItem<V>[]) => void;
 	};
 </script>
@@ -76,6 +85,8 @@
 	import { fitChipCount } from '../chip-fit.js';
 	import { observeSentinel } from '../intersection.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
+	import { getSuiStrings } from '../strings.js';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		suiEffectiveVariant,
 		SUI_CHIP,
@@ -92,6 +103,9 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
+	const uid = $props.id();
+	const strings = getSuiStrings();
+
 	let {
 		items: staticItems,
 		source,
@@ -103,8 +117,8 @@
 		variant = 'info',
 		startIcon,
 		action,
-		searchPlaceholder = 'Search…',
-		placeholder = 'Select…',
+		searchPlaceholder,
+		placeholder,
 		searchable = true,
 		searchDebounce = 250,
 		schema,
@@ -115,11 +129,12 @@
 		required = false,
 		clearable = false,
 		maxDisplay = 'responsive',
-		emptyText = 'No results',
-		errorText = 'Failed to load options',
+		emptyText,
+		errorText,
 		class: className = '',
-		id = `sui-multi-select-${crypto.randomUUID()}`,
+		id = `sui-multi-select-${uid}`,
 		value = $bindable<V[]>([]),
+		selectedItems,
 		onSelect,
 		onblur,
 		...rest
@@ -146,10 +161,8 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
 	// keep the bound shadow in sync with programmatic form changes (reset, setValues)
 	$effect(() => {
@@ -170,19 +183,27 @@
 
 	const resolvedItems = $derived(staticItems ?? list.items);
 
-	// Badge labels resolve from the loaded items, falling back to the raw value
-	// when an option is not (yet) loaded — common with server-paginated data.
-	// The cache is intentionally NOT reactive: it only grows monotonically so a
-	// value selected on page 3 keeps its label after pages are re-fetched.
-	const labelCache = new Map<V, string>();
+	// Chip labels resolve from the loaded items, then from items seen as part
+	// of the selection (a value picked on page 3 keeps its label after a new
+	// search resets the pages), then from `selectedItems`, then the raw value.
+	const remembered = new SvelteMap<V, SuiItem<V>>();
+	$effect(() => {
+		for (const v of current) {
+			const item = resolvedItems.find((candidate) => candidate.value === v);
+			if (item && remembered.get(v) !== item) remembered.set(v, item);
+		}
+	});
 	const selected = $derived(
 		current.map((v) => {
-			const item = resolvedItems.find((i) => i.value === v);
-			const label = item?.label ?? labelCache.get(v) ?? v;
-			if (item) labelCache.set(v, item.label);
-			return { value: v, label };
+			const item =
+				resolvedItems.find((candidate) => candidate.value === v) ??
+				remembered.get(v) ??
+				selectedItems?.find((candidate) => candidate.value === v);
+			return { value: v, label: item?.label ?? v };
 		})
 	);
+	// the form wins the `name` by default (native form data)
+	const formName = $derived(name ?? f?.name);
 
 	// ---- responsive chip overflow -------------------------------------------
 	// Ant Design `maxTagCount="responsive"` behaviour: measure every chip in a
@@ -248,11 +269,17 @@
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
 	const checking = $derived(!!f?.isValidating && !invalid);
-	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
-	// hint + error coexist in the description (GOV.UK pattern)
+	const checkingText = $derived(f?.checkingMessage ?? strings.checking);
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	let open = $state(false);
@@ -295,6 +322,10 @@
 		open = next;
 		if (next) {
 			dismiss.open();
+			// a failed first page: opening again is the user asking to retry
+			if (infinite && list.error && list.items.length === 0 && !list.loading) {
+				void list.loadMore();
+			}
 		} else {
 			query = '';
 			// pointer (outside click / drag) and Escape dismissals are
@@ -314,6 +345,8 @@
 		list.reset();
 		void list.loadMore();
 	});
+	// abort an in-flight page request when the field unmounts
+	$effect(() => () => list.reset());
 
 	$effect(() => {
 		if (!infinite || !open) return;
@@ -325,9 +358,13 @@
 		return () => clearTimeout(searchTimer);
 	});
 
+	// after a failed request, stop auto-loading on scroll — the error row
+	// offers an explicit retry
 	$effect(() => {
 		if (!infinite || !sentinel || !open) return;
-		return observeSentinel(sentinel, () => void list.loadMore());
+		return observeSentinel(sentinel, () => {
+			if (!list.error) void list.loadMore();
+		});
 	});
 
 	function isSelected(v: V): boolean {
@@ -344,25 +381,29 @@
 		fieldState.validate(next, schema, 'change', validateOn);
 	}
 
+	/** The full item for a selected value (label fallbacks as for the chips). */
+	function itemFor(v: V): SuiItem<V> {
+		return (
+			resolvedItems.find((candidate) => candidate.value === v) ??
+			remembered.get(v) ??
+			selectedItems?.find((candidate) => candidate.value === v) ?? { value: v, label: v }
+		);
+	}
+
 	function toggle(item: SuiItem<V>) {
 		if (item.disabled) return;
+		remembered.set(item.value, item);
 		const next = isSelected(item.value)
 			? current.filter((v) => v !== item.value)
 			: [...current, item.value];
 		commit(next);
-		const selectedItems = next.map(
-			(v) => resolvedItems.find((i) => i.value === v) ?? { value: v, label: v }
-		);
-		onSelect?.(next, selectedItems);
+		onSelect?.(next, next.map(itemFor));
 	}
 
 	function remove(v: V) {
 		const next = current.filter((x) => x !== v);
 		commit(next);
-		const selectedItems = next.map(
-			(x) => resolvedItems.find((i) => i.value === x) ?? { value: x, label: x }
-		);
-		onSelect?.(next, selectedItems);
+		onSelect?.(next, next.map(itemFor));
 	}
 
 	function clearAll() {
@@ -399,8 +440,8 @@
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
+				<!-- visual marker only: the trigger's aria-required announces it -->
 				<span class="text-destructive" aria-hidden="true">*</span>
-				<span class="sr-only">(required)</span>
 			{/if}
 		</label>
 	{/if}
@@ -423,7 +464,7 @@
 				data-sui-variant={effVariant}
 				data-invalid={invalid || undefined}
 				aria-invalid={invalid || undefined}
-				aria-describedby={describedBy}
+				aria-required={required || undefined}
 				aria-haspopup="listbox"
 				aria-controls={listboxId}
 				class={cn(
@@ -433,6 +474,7 @@
 					className
 				)}
 				{...rest as Record<string, unknown>}
+				aria-describedby={describedBy}
 				onkeydown={(event: KeyboardEvent) => {
 					// ArrowDown/ArrowUp open the menu (combobox convention);
 					// Enter/Space are delegated to bits-ui's handler below.
@@ -469,7 +511,7 @@
 					<span
 						class="flex min-w-0 flex-1 items-center self-stretch truncate text-left text-muted-foreground"
 					>
-						{placeholder}
+						{placeholder ?? strings.selectPlaceholder}
 					</span>
 				{:else}
 					<span
@@ -489,7 +531,7 @@
 									type="button"
 									data-sui-badge-remove
 									class="flex size-[1.15em] shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors outline-none hover:bg-accent-foreground/15 focus-visible:ring-2"
-									aria-label="Remove {sel.label}"
+									aria-label={strings.removeItem(sel.label)}
 									onclick={(event) => {
 										event.preventDefault();
 										event.stopPropagation();
@@ -509,7 +551,7 @@
 								class="inline-flex w-fit shrink-0 cursor-pointer items-center rounded-full bg-secondary text-secondary-foreground transition-colors outline-none hover:bg-accent-foreground/15 focus-visible:ring-2 {SUI_CHIP[
 									size
 								]}"
-								aria-label="Show {overflow} more selected: {hiddenLabels.join(', ')}"
+								aria-label={strings.showMore(overflow, hiddenLabels)}
 								title={hiddenLabels.join(', ')}
 								onclick={(event) => {
 									event.preventDefault();
@@ -533,7 +575,7 @@
 								}}
 								onkeydown={(event) => event.stopPropagation()}
 							>
-								Show less
+								{strings.showLess}
 							</button>
 						{/if}
 					</span>
@@ -560,7 +602,7 @@
 						class="flex text-muted-foreground hover:bg-accent hover:text-foreground {expanded
 							? 'mt-1.5 self-start'
 							: 'self-center'} size-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-2"
-						aria-label="Clear all"
+						aria-label={strings.clearAll}
 						onclick={(event) => {
 							event.preventDefault();
 							event.stopPropagation();
@@ -589,7 +631,7 @@
 					<div class="mb-1 border-b border-border px-0.5 pb-2.5">
 						<Command.Input
 							bind:value={query}
-							placeholder={searchPlaceholder}
+							placeholder={searchPlaceholder ?? strings.searchPlaceholder}
 							data-sui-multi-select-input
 						/>
 					</div>
@@ -601,17 +643,32 @@
 							data-sui-multi-select-error
 							role="alert"
 						>
-							{errorText}
+							{errorText ?? strings.loadError}
+							<button
+								type="button"
+								class="cursor-pointer rounded-md px-1.5 py-0.5 font-medium underline underline-offset-2 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+								data-sui-retry
+								onclick={() => void list.loadMore()}
+							>
+								{strings.retry}
+							</button>
 						</div>
 					{/if}
-					{#if !(infinite && (list.loading || list.loadingMore))}
-						<Command.Empty data-sui-multi-select-empty class="py-8">{emptyText}</Command.Empty>
+					{#if !(infinite && (list.loading || list.loadingMore || list.error))}
+						<Command.Empty data-sui-multi-select-empty class="py-8"
+							>{emptyText ?? strings.noResults}</Command.Empty
+						>
 					{/if}
 					{#each resolvedItems as item (item.value)}
 						<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui
                                                                 never sets its data-checked) — sui renders its own leading check. -->
+						<!-- keywords: static search matches the label (and description),
+						     not only the value; aria-checked exposes the selection — the
+						     command list's aria-selected tracks the highlight -->
 						<Command.Item
 							value={item.value}
+							keywords={[item.label, item.description ?? '']}
+							aria-checked={isSelected(item.value)}
 							data-sui-option
 							data-disabled={item.disabled || undefined}
 							disabled={item.disabled || undefined}
@@ -643,7 +700,7 @@
 								class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 								aria-hidden="true"
 							></span>
-							{list.loading ? 'Loading…' : 'Loading more…'}
+							{list.loading ? strings.loading : strings.loadingMore}
 						</div>
 					{/if}
 					{#if infinite && list.hasMore}
@@ -678,9 +735,11 @@
 					}}
 				>
 					<Drawer.Title class="sr-only"
-						>{typeof label === 'string' ? label : placeholder}</Drawer.Title
+						>{typeof label === 'string'
+							? label
+							: (placeholder ?? strings.selectPlaceholder)}</Drawer.Title
 					>
-					<Drawer.Description class="sr-only">Choose options</Drawer.Description>
+					<Drawer.Description class="sr-only">{strings.chooseOptions}</Drawer.Description>
 					{@render listbox('max-h-[60dvh]')}
 				</Drawer.Content>
 			</Drawer.Root>
@@ -734,6 +793,12 @@
 					+{selected.length}
 				</span>
 			</div>
+		{/if}
+		{#if formName}
+			<!-- native form data: one entry per selected value (FormData.getAll) -->
+			{#each current as v (v)}
+				<input type="hidden" name={formName} value={v} data-sui-hidden-input />
+			{/each}
 		{/if}
 	</div>
 

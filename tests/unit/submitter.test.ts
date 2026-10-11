@@ -35,7 +35,7 @@ async function findOption(match: RegExp): Promise<HTMLElement> {
 
 async function fillValid() {
 	await user.type(screen.getByLabelText('Name'), 'Ada Lovelace');
-	await user.click(screen.getByRole('button', { name: 'Role' }));
+	await user.click(screen.getByRole('combobox', { name: 'Role' }));
 	await user.click(await findOption(/^Admin$/));
 	await user.click(screen.getByRole('combobox', { name: /topics/i }));
 	await user.click(await findOption(/^Svelte$/));
@@ -137,5 +137,28 @@ describe('createSuiSubmitter', () => {
 		expect(submit.isSubmitting).toBe(true);
 		release();
 		await waitFor(() => expect(submit.isSubmitting).toBe(false));
+	});
+});
+
+describe('createSuiSubmitter — error routing', () => {
+	it('routes item-level issues to the parent control and lists the rest as unmappedErrors', async () => {
+		const strict = z.object({
+			name: z.string(),
+			role: z.string().optional(),
+			accept: z.boolean(),
+			topics: z.array(z.literal('svelte', { error: 'Only Svelte is allowed' })),
+			// no control renders `phone` — it must not fail silently
+			phone: z.string('Enter a phone number').min(1, 'Enter a phone number')
+		});
+		const onvalid = vi.fn();
+		const submit = createSuiSubmitter(strict, { onvalid });
+		render(SubmitterHarness, { submit: submit as never, topics: ['ui'] });
+
+		await fireEvent.submit(screen.getByRole('button', { name: 'Submit' }).closest('form')!);
+
+		// `topics.0` lands on the multi-select registered as `topics`
+		await waitFor(() => expect(screen.getByText('Only Svelte is allowed')).toBeInTheDocument());
+		expect(submit.unmappedErrors).toEqual(['Enter a phone number']);
+		expect(onvalid).not.toHaveBeenCalled();
 	});
 });

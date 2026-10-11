@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import type { Snippet } from 'svelte';
 
@@ -13,11 +14,12 @@
 	};
 
 	let { class: className = '', announce = true, children }: Props = $props();
+	const strings = getSuiStrings();
 </script>
 
 <div class={cn('contents', className)} aria-busy="true">
 	{#if announce}
-		<span class="sr-only" role="status">Loading</span>
+		<span class="sr-only" role="status">{strings.skeletonLoading}</span>
 	{/if}
 	{@render children()}
 </div>

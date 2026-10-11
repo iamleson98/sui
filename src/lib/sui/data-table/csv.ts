@@ -1,8 +1,12 @@
 /**
  * CSV export for table data — RFC 4180 compliant (quotes, commas, newlines
- * and tabs inside values are escaped; a leading quote-looking cell is
- * prefixed to protect it from spreadsheet formula injection).
+ * and tabs inside values are escaped; a cell that a spreadsheet would read
+ * as a formula is prefixed to protect it from formula injection — OWASP
+ * "CSV Injection").
  */
+
+/** A strictly numeric value (`-42`, `+1.5`, `-3e-4`) — can never carry a formula. */
+const NUMERIC = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 
 export type SuiCsvColumn<T> = {
 	/** Column id (used for the header row fallback). */
@@ -21,8 +25,12 @@ export function suiCsvCell(value: unknown): string {
 			: value instanceof Date
 				? value.toISOString()
 				: String(value);
-	// protect spreadsheet formula injection (=, +, -, @ prefixes)
-	if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+	// protect against spreadsheet formula injection (=, +, -, @, tab, CR
+	// prefixes) — but never mangle real numbers: a `'` would turn a negative
+	// balance into text in Excel
+	if (/^[=+\-@\t\r]/.test(text) && !(typeof value === 'number' || NUMERIC.test(text))) {
+		text = `'${text}`;
+	}
 	return `"${text.replace(/"/g, '""')}"`;
 }
 

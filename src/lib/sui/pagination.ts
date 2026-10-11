@@ -77,7 +77,10 @@ export type SuiSource<T> = (request: SuiPageRequest) => Promise<SuiPageResult<T>
 /** Shape returned by offset-style endpoints (e.g. Spring `Page<T>`). */
 export type SuiOffsetPage<T> = {
 	items: T[];
-	/** Defaults to `items.length === size` when omitted. */
+	/**
+	 * Defaults to `(page + 1) * size < total` when `total` is known, else
+	 * to `items.length === size`.
+	 */
 	hasMore?: boolean;
 	total?: number;
 };
@@ -86,10 +89,12 @@ export type SuiOffsetPage<T> = {
 export type SuiCursorPage<T> = {
 	items: T[];
 	/**
-	 * Cursor for the next page; `null`/`undefined` on the last page.
-	 * When omitted, `hasMore` defaults to `items.length === size`.
+	 * Cursor for the next page; `null`/`undefined` on the last page. The
+	 * list can only continue with a cursor, so a missing cursor always
+	 * ends it — whatever `hasMore` says.
 	 */
 	nextCursor?: string | null;
+	/** Optional explicit end-of-list flag (still requires a cursor to continue). */
 	hasMore?: boolean;
 };
 
@@ -121,7 +126,12 @@ export function offsetSource<T>(
 		});
 		return {
 			items: page.items,
-			hasMore: page.hasMore ?? page.items.length === request.size,
+			// `total` stops exactly at the last page — no trailing empty request
+			hasMore:
+				page.hasMore ??
+				(page.total !== undefined
+					? (request.page + 1) * request.size < page.total
+					: page.items.length === request.size),
 			total: page.total
 		};
 	};
@@ -157,7 +167,10 @@ export function cursorSource<T>(
 		const nextCursor = page.nextCursor ?? null;
 		return {
 			items: page.items,
-			hasMore: page.hasMore ?? (nextCursor !== null ? true : page.items.length === request.size),
+			// without a cursor there is no next request to make: guessing from
+			// `items.length === size` would re-request the FIRST page (cursor
+			// null) forever on a full last page
+			hasMore: nextCursor !== null && (page.hasMore ?? true),
 			nextCursor
 		};
 	};

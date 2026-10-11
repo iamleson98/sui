@@ -17,6 +17,7 @@
 		{ href: '/input', label: 'Input' },
 		{ href: '/selection', label: 'Selection' },
 		{ href: '/toggles', label: 'Toggles' },
+		{ href: '/date-time', label: 'Date & Time' },
 		{ href: '/data-table', label: 'Data Table' },
 		{ href: '/skeletons', label: 'Skeletons' },
 		{ href: '/validation', label: 'Validation' },
@@ -29,6 +30,12 @@
 
 	$effect(() => {
 		document.documentElement.classList.toggle('dark', theme.dark);
+	});
+
+	// effects only run once the app is hydrated: mark it, so end-to-end
+	// tests (tests/e2e/fixtures.ts) never interact with inert prerendered HTML
+	$effect(() => {
+		document.documentElement.dataset.hydrated = '';
 	});
 </script>
 

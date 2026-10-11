@@ -62,10 +62,15 @@ export type SuiFormFieldMode = 'text' | 'discrete';
  * or with anything else (`true`, `null`, `undefined`, `void`) to pass. A
  * rejected validator surfaces its error message on the field — visible
  * feedback beats silent failure.
+ *
+ * `context.signal` aborts when the run is superseded (newer input, reset,
+ * submit flush of a newer value) — pass it to `fetch` so stale checks are
+ * cancelled on the network too.
  */
 export type SuiAsyncValidator = (
 	value: unknown,
-	values: Record<string, unknown>
+	values: Record<string, unknown>,
+	context: { signal: AbortSignal }
 ) => Promise<string | string[] | true | null | undefined | void>;
 
 /**
@@ -89,8 +94,11 @@ export type SuiFieldHandle<V = unknown> = {
 	readonly controlId: string | undefined;
 	/** An async validator for this field is currently running. */
 	readonly isValidating: boolean;
-	/** Text the control shows while checking (from the form's `checkingMessage`). */
-	readonly checkingMessage: string;
+	/**
+	 * Text the control shows while checking (the form's `checkingMessage`;
+	 * `undefined` → the control's localized default, see `setSuiStrings`).
+	 */
+	readonly checkingMessage: string | undefined;
 	/**
 	 * The field has been revealed AND currently validates AND holds a
 	 * meaningful value (`''`, `undefined`, `[]` and `false` don't count) —
@@ -112,8 +120,13 @@ export type SuiFieldHandle<V = unknown> = {
 	setErrors(errors: string[]): void;
 	/** Hide and clear this field's errors. */
 	clear(): void;
-	/** Report the control's DOM id for summary links / focus management. */
-	registerControl(id: string): void;
+	/**
+	 * Report the control's DOM id for summary links / focus management —
+	 * and that a rendered control displays this path's errors. Returns an
+	 * unregister function: call it when the control unmounts (return it
+	 * from the `$effect` that registers).
+	 */
+	registerControl(id: string): (() => void) | void;
 };
 
 /** Per-field timing overrides, merged over the form-wide defaults. */
@@ -160,7 +173,7 @@ export type SuiFormOptions<Schema extends SuiSchemaLike> = {
 	asyncValidators?: Record<string, SuiAsyncValidator>;
 	/** Debounce (ms) for async validators. Default `400`. */
 	asyncDebounce?: number;
-	/** Text controls show while an async validator runs. Default `'Checking…'`. */
+	/** Text controls show while an async validator runs. Default `'Checking…'` (see `setSuiStrings`). */
 	checkingMessage?: string;
 	/**
 	 * Where focus lands after a failed submit: `'summary'` (default) —
@@ -178,7 +191,10 @@ export type SuiFormOptions<Schema extends SuiSchemaLike> = {
 	 * Called with the parsed output when a submit passes validation.
 	 * Throw a `ZodError` (or any issue-carrying error) to map server-side
 	 * issues back onto fields; any other thrown error becomes a
-	 * form-level error.
+	 * form-level error. Server errors from the previous attempt are
+	 * cleared before this runs — each server round-trip is the new verdict.
+	 * Repeated submits while it runs (double clicks, Enter mashing) join
+	 * the in-flight attempt instead of calling it again.
 	 */
 	onsubmit?: (data: SuiOut<Schema>, form: SuiFormInstance<Schema>) => void | Promise<void>;
 };
@@ -193,20 +209,12 @@ export type SuiFieldsFor<Schema extends SuiSchemaLike> = {
 	[K in keyof SuiIn<Schema> & string]-?: SuiFormField<SuiIn<Schema>[K]>;
 };
 
-/** True for thenables — guards against async schemas sneaking in. */
-function isPromiseLike(value: unknown): value is Promise<unknown> {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		typeof (value as { then?: unknown }).then === 'function'
-	);
-}
-
 /**
  * Smart per-type default: `''` for strings, `false` for booleans, `[]` for
  * arrays/sets, `{}` for nested objects, `z.default()` values, `undefined`
- * for enums/literals/numbers/dates (nothing chosen yet). Only meaningful
- * for zod schemas — other vendors pass `initialValues` instead.
+ * for enums/literals/numbers/dates (nothing chosen yet) and for anything
+ * `.optional()` (not provided). Only meaningful for zod schemas — other
+ * vendors pass `initialValues` instead.
  */
 function schemaDefault(schema: SuiSchemaLike): unknown {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -222,14 +230,21 @@ function schemaDefault(schema: SuiSchemaLike): unknown {
 	if (!def) return undefined;
 	switch (def.type) {
 		case 'default':
+		case 'prefault':
 			return typeof def.defaultValue === 'function' ? def.defaultValue() : def.defaultValue;
 		case 'optional':
+			// "not provided" — an optional `z.email()` / `z.iso.date()` must not
+			// start as '' (which fails the format it is allowed to skip)
+			return undefined;
 		case 'nullable':
 		case 'readonly':
+		case 'catch':
+		case 'nonoptional':
 			return def.innerType ? schemaDefault(def.innerType) : undefined;
 		case 'pipe':
-			// pipes (z.coerce…) transform on parse — start from the safe neutral value
-			return undefined;
+			// form values hold the INPUT side of a pipe: `z.string().transform(…)`
+			// edits a string, so it starts from the string default
+			return def.in ? schemaDefault(def.in) : undefined;
 		case 'lazy':
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			return schemaDefault((schema as any).schema ?? def.innerType);
@@ -288,6 +303,58 @@ function setByPath(obj: Record<string, unknown>, path: string, value: unknown): 
 	cur[keys[keys.length - 1]] = value;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	if (value === null || typeof value !== 'object') return false;
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Deep copy for form values: plain objects and arrays (including Svelte
+ * `$state` proxies) are copied, Dates are re-created, and every other
+ * object — `File`, `@internationalized/date` values, class instances — is
+ * shared by reference. `structuredClone` would throw on proxies and
+ * functions and strip class prototypes (a `CalendarDate` would lose its
+ * methods).
+ */
+function cloneValue<T>(value: T): T {
+	if (Array.isArray(value)) return value.map(cloneValue) as T;
+	if (value instanceof Date) return new Date(value.getTime()) as T;
+	if (isPlainObject(value)) {
+		const out: Record<string, unknown> = {};
+		for (const [key, nested] of Object.entries(value)) out[key] = cloneValue(nested);
+		return out as T;
+	}
+	return value;
+}
+
+/** Structural equality for form values (dirty tracking). */
+function valuesEqual(a: unknown, b: unknown): boolean {
+	if (Object.is(a, b)) return true;
+	if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+	if (Array.isArray(a) && Array.isArray(b)) {
+		return a.length === b.length && a.every((item, index) => valuesEqual(item, b[index]));
+	}
+	if (isPlainObject(a) && isPlainObject(b)) {
+		const keys = Object.keys(a);
+		if (keys.length !== Object.keys(b).length) return false;
+		return keys.every((key) => Object.hasOwn(b, key) && valuesEqual(a[key], b[key]));
+	}
+	return false;
+}
+
+/** `'a.b.c'` → `['a.b', 'a']` — every ancestor path, nearest first. */
+function ancestorsOf(path: string): string[] {
+	const out: string[] = [];
+	let index = path.lastIndexOf('.');
+	while (index > 0) {
+		path = path.slice(0, index);
+		out.push(path);
+		index = path.lastIndexOf('.');
+	}
+	return out;
+}
+
 /** Does a value count as "answered"? (drives the reward ring) */
 function hasMeaningfulValue(value: unknown): boolean {
 	if (value === undefined || value === null || value === '' || value === false) return false;
@@ -328,10 +395,9 @@ export class SuiFormField<V = unknown> {
 		return getByPath(this.#form.values, this.#path) as V;
 	}
 
-	/** Programmatic set — marks dirty, does NOT trigger validation. */
+	/** Programmatic set — updates dirty tracking, does NOT trigger validation. */
 	set value(next: V) {
-		setByPath(this.#form.values as Record<string, unknown>, this.#path, next);
-		this.#form.dirty[this.#path] = true;
+		this.#form.writeValue(this.#path, next);
 	}
 
 	get errors(): string[] {
@@ -358,7 +424,7 @@ export class SuiFormField<V = unknown> {
 		return !!this.#form.isValidating[this.#path];
 	}
 
-	get checkingMessage(): string {
+	get checkingMessage(): string | undefined {
 		return this.#form.checkingMessage;
 	}
 
@@ -398,8 +464,12 @@ export class SuiFormField<V = unknown> {
 		this.#form.clearField(this.#path);
 	}
 
-	registerControl(id: string): void {
+	registerControl(id: string): () => void {
 		this.#controlId = id;
+		return () => {
+			// a newer control (re-render with a new id) may own the field now
+			if (this.#controlId === id) this.#controlId = undefined;
+		};
 	}
 }
 
@@ -412,17 +482,22 @@ export class SuiFormField<V = unknown> {
 export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	#schema: Schema;
 	#options: SuiFormOptions<Schema>;
+	/** The baseline values: schema defaults + `initialValues` (or the last `reset(values)`). */
 	#defaults: Record<string, unknown>;
 	#handles = new Map<string, SuiFormField<never>>();
 	#fieldsProxy: SuiFieldsFor<Schema> | undefined;
 	#timers = new Map<string, ReturnType<typeof setTimeout>>();
+	/** The submit attempt in progress — repeated submits join it. */
+	#inflightSubmit: Promise<boolean> | null = null;
 
 	/**
-	 * Live form values — a deeply reactive proxy. Edit directly for
-	 * programmatic changes (`form.values.email = '…'`); reads are
-	 * reactive anywhere in a template or effect.
+	 * Live form values — a deeply reactive proxy holding the EDIT side of
+	 * the schema (its input type: a `z.string().transform(Number)` field
+	 * holds the string). Edit directly for programmatic changes
+	 * (`form.values.email = '…'`); reads are reactive anywhere in a
+	 * template or effect. `onsubmit` receives the parsed output.
 	 */
-	values = $state<Record<string, unknown>>({}) as SuiOut<Schema>;
+	values = $state<Record<string, unknown>>({}) as SuiIn<Schema>;
 	/** Schema issues from the last validation run, by dotted path (`''` = form-level). */
 	issues = $state<Record<string, string[]>>({});
 	/** External (server) errors by dotted path — cleared when the field is edited. */
@@ -437,7 +512,12 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	touched = $state<Record<string, boolean>>({});
 	/** Edited since the last external-errors update. */
 	edited = $state<Record<string, boolean>>({});
-	/** Changed from the initial value. */
+	/**
+	 * Paths whose value differs from the baseline (initial values, or the
+	 * last `reset(values)`). Editing a field back to its initial value
+	 * removes its entry — `Object.keys(form.dirty)` lists exactly the
+	 * unsaved changes (see also {@link isDirty}).
+	 */
 	dirty = $state<Record<string, boolean>>({});
 	/** Completed submit attempts (success or failure). */
 	submitCount = $state(0);
@@ -445,22 +525,29 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	isSubmitting = $state(false);
 	#submittedInvalid = $state(false);
 	// async validator bookkeeping: debounce timers, run ids (cancellation),
-	// in-flight runs (same-value dedup) and last-checked value memos
+	// abort controllers, in-flight runs (same-value dedup) and last-checked
+	// value memos
 	#asyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	#asyncRuns = new Map<string, number>();
+	#asyncAborts = new Map<string, AbortController>();
 	#asyncInflight = new Map<string, { value: unknown; promise: Promise<void> }>();
 	#asyncMemo = new Map<string, { value: unknown; errors: string[] }>();
 
 	constructor(schema: Schema, options: SuiFormOptions<Schema> = {}) {
 		this.#schema = schema;
 		this.#options = options;
-		this.#defaults = {
-			...schemaDefaults(schema),
-			...(options.initialValues as Record<string, unknown> | undefined)
-		};
+		this.#defaults = this.#baseline(options.initialValues);
 		// Object.assign THROUGH the $state proxy: nested defaults become
 		// deeply reactive without ever reassigning `values`.
-		Object.assign(this.values as Record<string, unknown>, structuredClone(this.#defaults));
+		Object.assign(this.values as Record<string, unknown>, cloneValue(this.#defaults));
+	}
+
+	/** Schema-derived defaults with `initial` layered on top (deep-copied, never aliased). */
+	#baseline(initial: unknown): Record<string, unknown> {
+		return {
+			...schemaDefaults(this.#schema),
+			...cloneValue((initial ?? {}) as Record<string, unknown>)
+		};
 	}
 
 	// ------------------------------------------------------------ reactive
@@ -475,29 +562,60 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		return this.submitCount > 0;
 	}
 
-	/** Form-level (root / `refine` without path) errors, local + external + async. */
+	/**
+	 * Form-level errors: root `refine`s without a path (shown once a
+	 * submit or `validate()` revealed them — never while the user is
+	 * still filling the form in), plus server-level messages.
+	 */
 	get formErrors(): string[] {
 		return [
 			...new Set([
-				...(this.issues[''] ?? []),
+				...(this.revealed[''] ? (this.issues[''] ?? []) : []),
 				...(this.external[''] ?? []),
 				...(this.asyncIssues[''] ?? [])
 			])
 		];
 	}
 
-	get hasErrors(): boolean {
-		return (
-			this.formErrors.length > 0 ||
-			Object.values(this.issues).some((list) => list.length > 0) ||
-			Object.values(this.external).some((list) => list.length > 0) ||
-			Object.values(this.asyncIssues).some((list) => list.length > 0)
-		);
+	/**
+	 * Revealed field errors that no rendered control can display — the
+	 * path has no registered control and neither has any ancestor (a
+	 * schema key without a field, a typo'd path, a field that is not
+	 * mounted). `<SuiForm>` shows them in its banner so a failed submit is
+	 * never silent. Descendant issues of a controlled field (`tags.1` under
+	 * a multi-select bound to `tags`) display on that field instead.
+	 */
+	get unmappedErrors(): string[] {
+		const out = new Set<string>();
+		for (const path of this.#issuePaths()) {
+			if (path === '' || !this.revealed[path] || this.#ownerOf(path) !== null) continue;
+			for (const message of this.#messagesAt(path, path)) out.add(message);
+		}
+		return [...out];
 	}
 
-	/** Text controls show while an async validator runs (`checkingMessage` option). */
-	get checkingMessage(): string {
-		return this.#options.checkingMessage ?? 'Checking…';
+	/** Some error is displayed right now (field, form-level or unmapped). */
+	get hasErrors(): boolean {
+		if (this.formErrors.length > 0 || this.unmappedErrors.length > 0) return true;
+		for (const path of this.#issuePaths()) {
+			if (path === '') continue;
+			if (this.displayedErrors(this.#ownerOf(path) ?? path).length > 0) return true;
+		}
+		return false;
+	}
+
+	/** Some value differs from its initial value (unsaved changes). */
+	get isDirty(): boolean {
+		return Object.keys(this.dirty).length > 0;
+	}
+
+	/**
+	 * Text controls show while an async validator runs (`checkingMessage`
+	 * option); `undefined` lets each control use its localized default
+	 * (`'Checking…'`, see `setSuiStrings`).
+	 */
+	get checkingMessage(): string | undefined {
+		return this.#options.checkingMessage;
 	}
 
 	/** Where focus lands after a failed submit (`focusOnSubmit` option, default `'summary'`). */
@@ -515,13 +633,16 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * a registered control — ready-made `{ fieldId, message }` links.
 	 */
 	get errorSummary(): { fieldId: string; message: string }[] {
+		// one entry per CONTROL: descendant issues (array items, nested
+		// keys) collapse onto the controlled field that displays them
 		const paths = [
-			...new Set([
-				...Object.keys(this.issues),
-				...Object.keys(this.external),
-				...Object.keys(this.asyncIssues)
-			])
-		].filter((p) => p !== '');
+			...new Set(
+				this.#issuePaths()
+					.filter((path) => path !== '')
+					.map((path) => this.#ownerOf(path))
+					.filter((path): path is string => path !== null)
+			)
+		];
 		const order = Object.keys(this.values as Record<string, unknown>);
 		paths.sort((a, b) => {
 			const ia = order.indexOf(a.split('.')[0]);
@@ -531,8 +652,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		const out: { fieldId: string; message: string }[] = [];
 		for (const path of paths) {
 			const handle = this.field(path);
-			if (handle.errors.length === 0) continue;
-			if (!handle.controlId) continue;
+			if (handle.errors.length === 0 || !handle.controlId) continue;
 			out.push({ fieldId: handle.controlId, message: handle.errors.join(' ') });
 		}
 		return out;
@@ -567,9 +687,70 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * value.
 	 */
 	displayedErrors(path: string): string[] {
-		if (!this.revealed[path]) return [];
-		const ext = this.edited[path] ? [] : (this.external[path] ?? []);
-		return [...new Set([...ext, ...(this.asyncIssues[path] ?? []), ...(this.issues[path] ?? [])])];
+		const messages: string[] = [];
+		if (this.revealed[path]) messages.push(...this.#messagesAt(path, path));
+		// descendant issues (array items, nested keys) whose nearest
+		// controlled ancestor is this field: a multi-select bound to `tags`
+		// shows the `tags.1` "Enter a valid email" too
+		const prefix = `${path}.`;
+		for (const child of this.#issuePaths()) {
+			if (!child.startsWith(prefix) || this.#ownerOf(child) !== path) continue;
+			if (!this.revealed[path] && !this.revealed[child]) continue;
+			messages.push(...this.#messagesAt(child, path));
+		}
+		return [...new Set(messages)];
+	}
+
+	/**
+	 * Messages recorded at exactly `path`. External (server) messages hide
+	 * once `path` — or the controlled field `gate` displaying it — was
+	 * edited: they describe a previous value.
+	 */
+	#messagesAt(path: string, gate: string): string[] {
+		const external = this.edited[path] || this.edited[gate] ? [] : (this.external[path] ?? []);
+		return [...external, ...(this.asyncIssues[path] ?? []), ...(this.issues[path] ?? [])];
+	}
+
+	/** Every path that currently carries a local, external or async issue. */
+	#issuePaths(): string[] {
+		return [
+			...new Set([
+				...Object.keys(this.issues),
+				...Object.keys(this.external),
+				...Object.keys(this.asyncIssues)
+			])
+		];
+	}
+
+	/**
+	 * The nearest path — `path` itself or an ancestor — with a registered
+	 * control, i.e. the field that displays `path`'s errors; `null` when
+	 * nothing rendered can show them.
+	 */
+	#ownerOf(path: string): string | null {
+		for (const candidate of [path, ...ancestorsOf(path)]) {
+			if (this.#handles.get(candidate)?.controlId) return candidate;
+		}
+		return null;
+	}
+
+	/** Track `path` in `dirty` iff its value differs from the baseline. */
+	#syncDirty(path: string): void {
+		const changed = !valuesEqual(getByPath(this.values, path), getByPath(this.#defaults, path));
+		if (changed) {
+			if (!this.dirty[path]) this.dirty[path] = true;
+		} else if (path in this.dirty) {
+			delete this.dirty[path];
+		}
+	}
+
+	/**
+	 * Programmatic write — updates dirty tracking, never validates.
+	 * @internal — the field handle's `value` setter
+	 */
+	writeValue(path: string, value: unknown): void {
+		setByPath(this.values as Record<string, unknown>, path, value);
+		this.#syncDirty(path);
 	}
 
 	/**
@@ -578,7 +759,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 */
 	fieldChange(path: string, value: unknown, mode: SuiFormFieldMode): void {
 		setByPath(this.values as Record<string, unknown>, path, value);
-		this.dirty[path] = true;
+		this.#syncDirty(path);
 		this.edited[path] = true;
 		// async (and server) errors describe the PREVIOUS value — drop them
 		// the moment the user edits; a fresh check is scheduled below
@@ -624,15 +805,26 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 
 	/** External (server) errors for one field. @internal */
 	setFieldExternal(path: string, errors: string[]): void {
-		if (errors.length === 0) {
-			const next = { ...this.external };
-			delete next[path];
-			this.external = next;
-			return;
+		this.#mergeExternal({ [path]: errors });
+	}
+
+	/**
+	 * Merge server-side messages by path (`''` = form-level): a non-empty
+	 * list displays immediately (revealed, display rights taken back from
+	 * any earlier edit); an empty list removes that path's messages.
+	 */
+	#mergeExternal(errors: Record<string, string[]>): void {
+		const next: Record<string, string[]> = { ...this.external };
+		for (const [path, list] of Object.entries(errors)) {
+			if (list.length === 0) {
+				delete next[path];
+				continue;
+			}
+			next[path] = list;
+			this.edited[path] = false;
+			this.revealed[path] = true;
 		}
-		this.external = { ...this.external, [path]: errors };
-		this.edited[path] = false;
-		this.revealed[path] = true;
+		this.external = next;
 	}
 
 	/** Clear one field's local + external + async errors. @internal */
@@ -754,13 +946,17 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 			return;
 		}
 		this.#setValidating(path, true);
-		const promise = this.#executeAsync(path, value, validator, runId);
+		this.#asyncAborts.get(path)?.abort();
+		const controller = new AbortController();
+		this.#asyncAborts.set(path, controller);
+		const promise = this.#executeAsync(path, value, validator, runId, controller.signal);
 		this.#asyncInflight.set(path, { value, promise });
 		try {
 			await promise;
 		} finally {
-			// only drop our own entry — a newer run may have replaced it
+			// only drop our own entries — a newer run may have replaced them
 			if (this.#asyncInflight.get(path)?.promise === promise) this.#asyncInflight.delete(path);
+			if (this.#asyncAborts.get(path) === controller) this.#asyncAborts.delete(path);
 		}
 	}
 
@@ -769,18 +965,20 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		path: string,
 		value: unknown,
 		validator: SuiAsyncValidator,
-		runId: number
+		runId: number,
+		signal: AbortSignal
 	): Promise<void> {
 		let errors: string[];
 		try {
-			const outcome = await validator(value, this.values as Record<string, unknown>);
+			const outcome = await validator(value, this.values as Record<string, unknown>, { signal });
 			errors = asyncOutcomeToErrors(outcome);
 		} catch (error) {
 			// a rejected validator surfaces as a field error — visible
-			// feedback beats silent failure
+			// feedback beats silent failure (an abort is no failure: the run
+			// was superseded and its result is discarded below)
 			errors = [error instanceof Error ? error.message : String(error)];
 		}
-		if (runId !== this.#asyncRuns.get(path)) return; // superseded while in flight
+		if (signal.aborted || runId !== this.#asyncRuns.get(path)) return; // superseded
 		this.#setValidating(path, false);
 		this.#asyncMemo.set(path, { value, errors });
 		this.#setAsyncIssues(path, errors);
@@ -793,6 +991,8 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 			clearTimeout(timer);
 			this.#asyncTimers.delete(path);
 		}
+		this.#asyncAborts.get(path)?.abort();
+		this.#asyncAborts.delete(path);
 		this.#asyncInflight.delete(path);
 		// bump the run id so any in-flight promise is ignored when it resolves
 		this.#asyncRuns.set(path, (this.#asyncRuns.get(path) ?? 0) + 1);
@@ -870,16 +1070,12 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * single message or a list. Cleared per-field as soon as it is edited.
 	 */
 	setErrors(errors: Record<string, string[] | string>): void {
-		const next: Record<string, string[]> = { ...this.external };
+		const normalised: Record<string, string[]> = {};
 		for (const [rawKey, raw] of Object.entries(errors)) {
 			const key = rawKey === '_form' ? '' : rawKey;
-			const list = Array.isArray(raw) ? raw : [raw];
-			if (list.length === 0) delete next[key];
-			else next[key] = list;
-			this.edited[key] = false;
-			if (list.length > 0) this.revealed[key] = true;
+			normalised[key] = [...(normalised[key] ?? []), ...(Array.isArray(raw) ? raw : [raw])];
 		}
-		this.external = next;
+		this.#mergeExternal(normalised);
 	}
 
 	/** Clear every error (local + external + async), keeping values and touched state. */
@@ -889,16 +1085,26 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		this.asyncIssues = {};
 	}
 
-	/** Shallow-merge values programmatically (no validation, marks dirty). */
-	setValues(patch: Partial<SuiOut<Schema>>): void {
-		for (const [key, value] of Object.entries(patch)) {
-			(this.values as Record<string, unknown>)[key] = value;
-			this.dirty[key] = true;
+	/** Shallow-merge values programmatically (no validation; updates dirty tracking). */
+	setValues(patch: Partial<SuiIn<Schema>>): void {
+		for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+			this.writeValue(key, value);
 		}
 	}
 
-	/** Values back to defaults; all validation state forgotten. */
-	reset(): void {
+	/**
+	 * Values back to the baseline; all validation, dirty and submit state
+	 * forgotten. Pass `values` to make them the NEW baseline — layered over
+	 * the schema defaults exactly like `initialValues` — e.g. once an edit
+	 * form's record has loaded, or after a successful save:
+	 *
+	 * ```ts
+	 * const user = await api.getUser(id);
+	 * form.reset(user); // pristine form showing the loaded record
+	 * ```
+	 */
+	reset(values?: Partial<SuiIn<Schema>>): void {
+		if (values !== undefined) this.#defaults = this.#baseline(values);
 		this.issues = {};
 		this.external = {};
 		this.asyncIssues = {};
@@ -914,12 +1120,14 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		this.#timers.clear();
 		for (const timer of this.#asyncTimers.values()) clearTimeout(timer);
 		this.#asyncTimers.clear();
+		for (const controller of this.#asyncAborts.values()) controller.abort();
+		this.#asyncAborts.clear();
 		this.#asyncRuns.clear();
 		this.#asyncInflight.clear();
 		this.#asyncMemo.clear();
-		const values = this.values as Record<string, unknown>;
-		for (const key of Object.keys(values)) delete values[key];
-		Object.assign(values, structuredClone(this.#defaults));
+		const current = this.values as Record<string, unknown>;
+		for (const key of Object.keys(current)) delete current[key];
+		Object.assign(current, cloneValue(this.#defaults));
 	}
 
 	/**
@@ -928,16 +1136,26 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * async validators, and on success the `onsubmit` callback receives
 	 * the parsed output. A thrown `ZodError` (or any issue-carrying error)
 	 * maps back onto fields; other errors become form-level messages.
-	 * Returns whether the submit passed validation.
+	 * Returns whether the submit passed validation. A submit fired while
+	 * one is still running joins it (same promise, no second `onsubmit`).
 	 */
-	handleSubmit = async (event?: { preventDefault(): void }): Promise<boolean> => {
+	handleSubmit = (event?: { preventDefault(): void }): Promise<boolean> => {
 		event?.preventDefault();
+		if (this.#inflightSubmit) return this.#inflightSubmit;
+		const attempt = this.#submit().finally(() => {
+			this.#inflightSubmit = null;
+		});
+		this.#inflightSubmit = attempt;
+		return attempt;
+	};
+
+	async #submit(): Promise<boolean> {
 		this.submitCount += 1;
 		const result = this.#parseNow();
 		if (!result.ok) {
 			this.#applyIssues(result.issues);
-			// a failed attempt reveals every invalid field and puts the
-			// form into always-revalidate-on-change mode
+			// a failed attempt reveals every invalid field (and form-level
+			// refines) and puts the form into always-revalidate-on-change mode
 			for (const path of Object.keys(this.issues)) this.revealed[path] = true;
 			this.#submittedInvalid = true;
 			return false;
@@ -961,26 +1179,31 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 				}
 			}
 			if (!onsubmit) return true;
+			// this round-trip's verdict replaces the previous one: stale
+			// server messages ("Network error", "Already registered") must
+			// not outlive a fresh attempt — the server re-reports what still
+			// applies
+			this.external = {};
 			await onsubmit(result.data as SuiOut<Schema>, this);
 			return true;
 		} catch (error) {
 			// ZodError and any issue-carrying error (Standard Schema vendors)
-			// map back onto fields. Server copy is authoritative — the messages
-			// override map does NOT re-resolve it.
+			// map back onto fields AS SERVER ERRORS: per-field taint-clearing
+			// (editing one field never wipes another's message) and server
+			// copy is authoritative — the messages map does NOT re-resolve it.
 			const issues = suiIssuesFromError(error);
 			if (issues.length > 0) {
-				this.issues = groupSuiIssues(issues);
-				for (const path of Object.keys(this.issues)) this.revealed[path] = true;
+				this.#mergeExternal(groupSuiIssues(issues));
 				this.#submittedInvalid = true;
 				return false;
 			}
 			const message = error instanceof Error ? error.message : String(error);
-			this.external = { ...this.external, '': [...(this.external[''] ?? []), message] };
+			this.#mergeExternal({ '': [message] });
 			return false;
 		} finally {
 			this.isSubmitting = false;
 		}
-	};
+	}
 }
 
 /**

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run format:check
+      - run: bun run check
+      # vitest + jsdom run on Node (they do not start under the bun runtime)
+      - run: npx vitest run
+      - run: npx playwright install --with-deps chromium
+      # behavioral e2e only: the visual baselines are rendered on the
+      # maintainer's machine, and font rasterization differs across OSes —
+      # run `npm run test:e2e` locally for the visual suite
+      - run: npx playwright test tests/e2e/interactions.spec.ts tests/e2e/mobile.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7

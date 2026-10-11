@@ -41,12 +41,17 @@ describe('suiCsvCell', () => {
 	it('prefixes spreadsheet formula triggers (CSV injection guard)', () => {
 		expect(suiCsvCell('=SUM(A1)')).toBe('"\'=SUM(A1)"');
 		expect(suiCsvCell('+cmd')).toBe('"\'+cmd"');
-		expect(suiCsvCell('-1')).toBe('"\'-1"');
+		expect(suiCsvCell("-2+3+cmd|' /C calc'!A0")).toBe("\"'-2+3+cmd|' /C calc'!A0\"");
 		expect(suiCsvCell('@x')).toBe('"\'@x"');
+		expect(suiCsvCell('+44 20 7946 0958')).toBe('"\'+44 20 7946 0958"');
 	});
 
-	it('keeps plain numbers unmodified', () => {
+	it('keeps plain numbers unmodified — negatives included', () => {
 		expect(suiCsvCell(42)).toBe('"42"');
+		// a `'` prefix would turn these into text in Excel (data corruption)
+		expect(suiCsvCell(-42.5)).toBe('"-42.5"');
+		expect(suiCsvCell('-1')).toBe('"-1"');
+		expect(suiCsvCell('+1.5e3')).toBe('"+1.5e3"');
 	});
 });
 

@@ -20,8 +20,10 @@
  * `data-invalid` attributes are painted.
  */
 export function focusFirstInvalid(root: ParentNode): boolean {
+	// segmented date/time fields focus through their first segment
+	// (`role="spinbutton"`), which precedes their calendar / clock button
 	const candidates = root.querySelectorAll<HTMLElement>(
-		'input, textarea, select, button, [role="combobox"]'
+		'input, textarea, select, button, [role="combobox"], [role="spinbutton"]'
 	);
 	for (const el of candidates) {
 		if (!el.closest('[data-invalid]')) continue;

@@ -244,10 +244,14 @@ describe('createSuiForm — async validators', () => {
 });
 
 describe('createSuiForm — valid / rewardValid / focus / checking options', () => {
-	it('exposes focusOnSubmit (default summary) and checkingMessage (default Checking…)', () => {
+	it('exposes focusOnSubmit (default summary) and checkingMessage (unset → localized control copy)', () => {
 		const form = makeForm();
 		expect(form.focusOnSubmit).toBe('summary');
-		expect(form.checkingMessage).toBe('Checking…');
+		// undefined lets each control render its `setSuiStrings` copy ('Checking…')
+		expect(form.checkingMessage).toBeUndefined();
+		expect(makeForm({ checkingMessage: 'Vérification…' }).fields.name.checkingMessage).toBe(
+			'Vérification…'
+		);
 	});
 
 	it('valid requires reveal + a meaningful value; rewardValid gates on the option', () => {

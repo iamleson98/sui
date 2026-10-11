@@ -14,10 +14,15 @@ describe('SuiInput', () => {
 		expect(input).toHaveAttribute('placeholder', 'you@example.com');
 	});
 
-	it('shows a required indicator with a screen-reader hint', () => {
+	it('shows a visual required marker; the input itself announces "required"', () => {
 		const { container } = render(SuiInput, { label: 'Email', required: true });
-		expect(container.querySelector('[data-sui-label] .text-destructive')).toBeInTheDocument();
-		expect(container.querySelector('[data-sui-label] .sr-only')).toHaveTextContent('(required)');
+		const marker = container.querySelector('[data-sui-label] .text-destructive');
+		expect(marker).toBeInTheDocument();
+		expect(marker).toHaveAttribute('aria-hidden', 'true');
+		// no "(required)" label text on top of the native `required` —
+		// screen readers would announce it twice
+		expect(container.querySelector('[data-sui-label] .sr-only')).toBeNull();
+		expect(screen.getByRole('textbox', { name: 'Email' })).toBeRequired();
 	});
 
 	it('applies shared size classes to the control wrapper', () => {

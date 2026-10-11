@@ -30,7 +30,7 @@
 		endIcon?: SuiIconComponent;
 		/** Interactive snippet at the end of the trigger. */
 		action?: Snippet;
-		/** Placeholder shown before a value is selected. Default `"Select…"`. */
+		/** Placeholder shown before a value is selected. Default `"Select…"` (see `setSuiStrings`). */
 		placeholder?: string;
 		/** zod v4 or Standard Schema v1 schema validated on selection and blur. */
 		schema?: SuiSchemaLike;
@@ -51,15 +51,24 @@
 		/** Error message shown when a `source` request fails. */
 		errorText?: string;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * Native form `name` (a hidden input carries the value for
+		 * `FormData` / progressive enhancement) — and the schema path a
+		 * form-level submitter (`createSuiSubmitter`) maps it to. Defaults
+		 * to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		/** Selected value (two-way bindable). */
 		value?: V;
+		/**
+		 * The item behind an initial `value` that is not in the first loaded
+		 * page (edit forms over server-paginated options) — labels the
+		 * trigger instead of the raw value. Items the user picks are
+		 * remembered automatically.
+		 */
+		selectedItem?: SuiItem<V>;
 		/** Fires whenever the selection changes. */
 		onSelect?: (value: V | undefined, item: SuiItem<V> | undefined) => void;
 	};
@@ -76,6 +85,8 @@
 	import { SuiInfiniteList } from '../infinite-list.svelte.js';
 	import { observeSentinel } from '../intersection.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
+	import { getSuiStrings } from '../strings.js';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		suiEffectiveVariant,
 		SUI_CHEVRON_PIN,
@@ -86,6 +97,7 @@
 		SUI_ICON,
 		SUI_FIELD_TEXT,
 		SUI_FIELD_TRIGGER,
+		SUI_INVALID_TRIGGER,
 		SUI_LABEL,
 		SUI_SUBTEXT
 	} from '../styles.js';
@@ -94,6 +106,9 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+
+	const uid = $props.id();
+	const strings = getSuiStrings();
 
 	let {
 		items: staticItems,
@@ -107,7 +122,7 @@
 		startIcon,
 		endIcon,
 		action,
-		placeholder = 'Select…',
+		placeholder,
 		schema,
 		validateOn = 'both',
 		errors: externalErrors = [],
@@ -115,11 +130,12 @@
 		field: f,
 		required = false,
 		clearable = false,
-		emptyText = 'No options',
-		errorText = 'Failed to load options',
+		emptyText,
+		errorText,
 		class: className = '',
-		id = `sui-select-${crypto.randomUUID()}`,
+		id = `sui-select-${uid}`,
 		value = $bindable<V | undefined>(undefined),
+		selectedItem,
 		onSelect,
 		onblur,
 		...rest
@@ -146,10 +162,8 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
 	// keep the bound shadow in sync with programmatic form changes
 	// (reset, setValues) — bits-ui reads it for item highlighting
@@ -174,11 +188,30 @@
 		list.reset();
 		void list.loadMore();
 	});
+	// abort an in-flight page request when the field unmounts
+	$effect(() => () => list.reset());
 
 	const resolvedItems = $derived(staticItems ?? list.items);
 	const current = $derived((f ? f.value : value) as V | undefined);
-	const selected = $derived(resolvedItems.find((item) => item.value === current));
+	// Items seen as the selection, so a value keeps its label once the
+	// loaded pages no longer contain it (a page reset, a new source).
+	const remembered = new SvelteMap<V, SuiItem<V>>();
+	$effect(() => {
+		if (current === undefined) return;
+		const item = resolvedItems.find((candidate) => candidate.value === current);
+		if (item && remembered.get(current) !== item) remembered.set(current, item);
+	});
+	const selected = $derived(
+		current === undefined
+			? undefined
+			: (resolvedItems.find((item) => item.value === current) ??
+					remembered.get(current) ??
+					(selectedItem?.value === current ? selectedItem : undefined))
+	);
 	const hasValue = $derived(current !== undefined && current !== '');
+	// the form wins the `name` by default (native form data)
+	const formName = $derived(name ?? f?.name);
+	const placeholderText = $derived(placeholder ?? strings.selectPlaceholder);
 
 	// deduped: the same message can arrive from both the `errors` prop (server)
 	// and the local zod validation — duplicate keys would break {#each (error)}
@@ -191,11 +224,17 @@
 	const messageId = $derived(`${id}-message`);
 	const listboxId = $derived(`${id}-listbox`);
 	const checking = $derived(!!f?.isValidating && !invalid);
-	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
-	// hint + error coexist in the description (GOV.UK pattern)
+	const checkingText = $derived(f?.checkingMessage ?? strings.checking);
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	// sentinel wiring for infinite scroll
@@ -209,12 +248,15 @@
 	let triggerRef: HTMLButtonElement | null = $state(null);
 	$effect(() => {
 		if (!infinite || !sentinel) return;
-		// measure against the actual scroll port when we can — the bits-ui
-		// select viewport is the element that scrolls
-		return observeSentinel(sentinel, () => void list.loadMore());
+		// after a failed request, stop auto-loading on scroll — the error
+		// row offers an explicit retry instead of a request per scroll tick
+		return observeSentinel(sentinel, () => {
+			if (!list.error) void list.loadMore();
+		});
 	});
 
-	/** Undefined (nothing selected) is validated as '' so `z.string().min(1, 'msg')` works. */
+	// a pointer press outside the popup is a peek (see popup-blur.ts) —
+	// marked synchronously, before the trigger blur it causes
 	$effect(() => {
 		if (!(desktopOpen || mobileOpen)) return;
 		const onDown = (e: PointerEvent) => {
@@ -235,6 +277,8 @@
 	}
 
 	function select(next: V) {
+		const item = resolvedItems.find((candidate) => candidate.value === next);
+		if (item) remembered.set(next, item);
 		if (f) {
 			f.change(next, 'discrete');
 		} else {
@@ -244,10 +288,7 @@
 		// no such auto-close — selecting commits and dismisses
 		mobileOpen = false;
 		validateSelection(next);
-		onSelect?.(
-			next,
-			resolvedItems.find((item) => item.value === next)
-		);
+		onSelect?.(next, item);
 	}
 
 	function clear() {
@@ -274,7 +315,7 @@
 		mobileOpen = next;
 		if (next) {
 			dismiss.open();
-			// pre-load the first page when the sheet opens for the first time
+			// load the first page on the first open (or retry a failed one)
 			if (infinite && list.items.length === 0 && !list.loading) void list.loadMore();
 		} else {
 			// pointer (overlay tap / drag) and Escape dismissals are peeks —
@@ -314,13 +355,43 @@
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
+				<!-- visual marker only: the trigger's aria-required announces it -->
 				<span class="text-destructive" aria-hidden="true">*</span>
-				<span class="sr-only">(required)</span>
 			{/if}
 		</label>
 	{/if}
 
 	<div class="relative w-full">
+		{#snippet loadError()}
+			<div
+				class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-destructive"
+				data-sui-select-error
+				role="alert"
+			>
+				{errorText ?? strings.loadError}
+				<button
+					type="button"
+					class="cursor-pointer rounded-md px-1.5 py-0.5 font-medium underline underline-offset-2 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+					data-sui-retry
+					onclick={() => void list.loadMore()}
+				>
+					{strings.retry}
+				</button>
+			</div>
+		{/snippet}
+		{#snippet loadingRow()}
+			<div
+				class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-muted-foreground"
+				data-sui-select-loading
+				role="status"
+			>
+				<span
+					class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					aria-hidden="true"
+				></span>
+				{list.loading ? strings.loading : strings.loadingMore}
+			</div>
+		{/snippet}
 		{#snippet triggerInner()}
 			{#if startIcon}
 				<span class="pointer-events-none shrink-0 text-muted-foreground">
@@ -332,7 +403,7 @@
 					<span class="truncate">{selected?.label ?? current}</span>
 				</span>
 			{:else}
-				<span class="flex-1 truncate text-left text-muted-foreground">{placeholder}</span>
+				<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
 			{/if}
 			{#if endIcon}
 				<span class="pointer-events-none shrink-0 text-muted-foreground">
@@ -373,8 +444,9 @@
 							data-sui-size={size}
 							data-sui-variant={effVariant}
 							data-invalid={invalid || undefined}
+							role="combobox"
 							aria-invalid={invalid || undefined}
-							aria-describedby={describedBy}
+							aria-required={required || undefined}
 							aria-haspopup="listbox"
 							aria-controls={listboxId}
 							class={cn(
@@ -386,6 +458,7 @@
 								className
 							)}
 							{...rest as Record<string, unknown>}
+							aria-describedby={describedBy}
 							onblur={(event: FocusEvent) => {
 								onblur?.(event as never);
 								if (dismiss.shouldSwallowBlur(event, contentRef)) return;
@@ -418,19 +491,13 @@
 					onpointerdown={() => dismiss.pointer()}
 				>
 					<Drawer.Title class="sr-only"
-						>{typeof label === 'string' ? label : placeholder}</Drawer.Title
+						>{typeof label === 'string' ? label : placeholderText}</Drawer.Title
 					>
-					<Drawer.Description class="sr-only">Choose an option</Drawer.Description>
+					<Drawer.Description class="sr-only">{strings.chooseOption}</Drawer.Description>
 					<Command.Root data-sui-select-command>
 						<Command.List id={listboxId} data-sui-select-list class="max-h-[60dvh] px-1">
 							{#if infinite && list.error}
-								<div
-									class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-destructive"
-									data-sui-select-error
-									role="alert"
-								>
-									{errorText}
-								</div>
+								{@render loadError()}
 							{/if}
 							{#each resolvedItems as item (item.value)}
 								<Command.Item
@@ -456,26 +523,16 @@
 									</span>
 								</Command.Item>
 							{/each}
-							{#if resolvedItems.length === 0 && !(infinite && list.loading)}
+							{#if resolvedItems.length === 0 && !(infinite && (list.loading || list.error))}
 								<div
 									class="px-2.5 py-6 text-center text-sm text-muted-foreground"
 									data-sui-select-empty
 								>
-									{emptyText}
+									{emptyText ?? strings.noOptions}
 								</div>
 							{/if}
 							{#if infinite && (list.loading || list.loadingMore)}
-								<div
-									class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-muted-foreground"
-									data-sui-select-loading
-									role="status"
-								>
-									<span
-										class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-										aria-hidden="true"
-									></span>
-									{list.loading ? 'Loading…' : 'Loading more…'}
-								</div>
+								{@render loadingRow()}
 							{/if}
 							{#if infinite && list.hasMore}
 								<div
@@ -504,26 +561,33 @@
 					if (open && infinite && list.items.length === 0 && !list.loading) void list.loadMore();
 				}}
 			>
+				<!-- role="combobox": the WAI-ARIA select-only combobox pattern (bits-ui
+				     already drives aria-activedescendant/aria-expanded on it) — makes
+				     aria-invalid / aria-required valid and matches the other pickers -->
 				<Select.Trigger
 					bind:ref={triggerRef}
 					{id}
+					role="combobox"
 					data-sui-select
 					data-sui-trigger
 					data-sui-size={size}
 					data-sui-variant={effVariant}
 					data-invalid={invalid || undefined}
 					aria-invalid={invalid || undefined}
-					aria-describedby={describedBy}
+					aria-required={required || undefined}
 					class={cn(
 						'relative flex w-full items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
 						SUI_CONTROL[size],
 						SUI_FIELD_TRIGGER[effVariant],
+						// the shadcn trigger rings every aria-invalid control — keep it for focus only
+						SUI_INVALID_TRIGGER,
 						// reserve the ✕ zone and pin the chevron far-right inside it
 						clearable && hasValue && SUI_CLEAR_PE[size],
 						clearable && hasValue && SUI_CHEVRON_PIN,
 						className
 					)}
 					{...rest as Record<string, unknown>}
+					aria-describedby={describedBy}
 					onblur={(event: FocusEvent) => {
 						onblur?.(event as never);
 						if (dismiss.shouldSwallowBlur(event, contentRef)) return;
@@ -544,7 +608,7 @@
 							<span class="truncate">{selected?.label ?? current}</span>
 						</span>
 					{:else}
-						<span class="flex-1 truncate text-left text-muted-foreground">{placeholder}</span>
+						<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
 					{/if}
 					{#if endIcon}
 						<span class="pointer-events-none shrink-0 text-muted-foreground">
@@ -577,13 +641,7 @@
 					onEscapeKeydown={() => dismiss.keyboard()}
 				>
 					{#if infinite && list.error}
-						<div
-							class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-destructive"
-							data-sui-select-error
-							role="alert"
-						>
-							{errorText}
-						</div>
+						{@render loadError()}
 					{/if}
 					{#each resolvedItems as item (item.value)}
 						<Select.Item
@@ -604,35 +662,16 @@
 							</span>
 						</Select.Item>
 					{/each}
-					{#if resolvedItems.length === 0}
-						{#if !infinite}
-							<div
-								class="px-2.5 py-6 text-center text-sm text-muted-foreground"
-								data-sui-select-empty
-							>
-								{emptyText}
-							</div>
-						{:else if !list.loading && !list.loadingMore && !list.error}
-							<div
-								class="px-2.5 py-6 text-center text-sm text-muted-foreground"
-								data-sui-select-empty
-							>
-								{emptyText}
-							</div>
-						{/if}
+					{#if resolvedItems.length === 0 && !(infinite && (list.loading || list.loadingMore || list.error))}
+						<div
+							class="px-2.5 py-6 text-center text-sm text-muted-foreground"
+							data-sui-select-empty
+						>
+							{emptyText ?? strings.noOptions}
+						</div>
 					{/if}
 					{#if infinite && (list.loading || list.loadingMore)}
-						<div
-							class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-muted-foreground"
-							data-sui-select-loading
-							role="status"
-						>
-							<span
-								class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-								aria-hidden="true"
-							></span>
-							{list.loading ? 'Loading…' : 'Loading more…'}
-						</div>
+						{@render loadingRow()}
 					{/if}
 					{#if infinite && list.hasMore}
 						<div
@@ -656,7 +695,7 @@
 				class="{SUI_CLEAR_END[size]} {SUI_CLEAR_SIZE[
 					size
 				]} absolute top-1/2 z-10 flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-				aria-label="Clear selection"
+				aria-label={strings.clearSelection}
 				onclick={(event) => {
 					event.preventDefault();
 					event.stopPropagation();
@@ -665,6 +704,11 @@
 			>
 				<SuiIcon icon={XIcon} size="xs" />
 			</button>
+		{/if}
+		{#if formName}
+			<!-- native form data (FormData, progressive enhancement) on both
+			     the popover and the bottom-sheet branch -->
+			<input type="hidden" name={formName} value={current ?? ''} data-sui-hidden-input />
 		{/if}
 	</div>
 

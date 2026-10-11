@@ -165,7 +165,14 @@ describe('SuiForm — error summary focus (GOV.UK pattern)', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Submit' }));
 
-		const summary = await screen.findByRole('alert');
+		// the harness renders 2 of the schema's fields — the others surface
+		// in the banner, so pick the summary by its marker, not by role
+		const summary = await waitFor(() => {
+			const el = document.querySelector<HTMLElement>('[data-sui-error-summary]');
+			expect(el).toBeTruthy();
+			return el!;
+		});
+		expect(summary).toHaveAttribute('role', 'alert');
 		expect(summary).toHaveAttribute('tabindex', '-1');
 		await waitFor(() => expect(document.activeElement).toBe(summary));
 	});
@@ -185,9 +192,34 @@ describe('SuiForm — error summary focus (GOV.UK pattern)', () => {
 		const button = screen.getByRole('button', { name: 'Submit' });
 
 		await user.click(button);
-		await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+		await waitFor(() =>
+			expect(document.querySelector('[data-sui-error-summary]')).toBeInTheDocument()
+		);
 		// focus stays wherever the user left it — nothing is yanked
 		expect(document.activeElement).toBe(button);
+	});
+
+	it('surfaces errors of schema fields with no rendered control — a submit is never silent', async () => {
+		// the harness renders `name` + `accept` only; `email`, `role` and
+		// `topics` are required by the schema but have no control
+		const form = makeForm();
+		render(FormA11yHarness, { form });
+		await user.type(screen.getByLabelText('Name'), 'Ada');
+		await user.click(screen.getByLabelText('Accept the terms'));
+		await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+		const banner = await waitFor(() => {
+			const el = document.querySelector<HTMLElement>('[data-sui-form-errors]');
+			expect(el).toHaveTextContent('Enter a valid email');
+			return el!;
+		});
+		expect(banner).toHaveTextContent('Pick a role');
+		expect(banner).toHaveTextContent('Select at least one topic');
+		expect(form.unmappedErrors).toEqual(
+			expect.arrayContaining(['Enter a valid email', 'Pick a role', 'Select at least one topic'])
+		);
+		// nothing else to land on — the banner takes focus
+		await waitFor(() => expect(document.activeElement).toBe(banner));
 	});
 
 	it('honours focusOnSubmit: "field" — the first invalid field, even with a summary', async () => {

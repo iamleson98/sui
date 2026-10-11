@@ -25,6 +25,13 @@ describe('offsetSource', () => {
 		expect(result.hasMore).toBe(false);
 	});
 
+	it('stops exactly at the last page when the total is known', async () => {
+		const source = offsetSource<number>(async () => ({ items: [1, 2, 3], total: 6 }));
+		expect((await source(pageRequest({ size: 3, page: 0 }))).hasMore).toBe(true);
+		// page 1 is full but the total says it is the last one — no extra request
+		expect((await source(pageRequest({ size: 3, page: 1 }))).hasMore).toBe(false);
+	});
+
 	it('carries the total through', async () => {
 		const source = offsetSource<number>(async () => ({ items: [1], total: 41 }));
 		const result = await source(pageRequest());
@@ -58,10 +65,21 @@ describe('cursorSource', () => {
 		expect(result.nextCursor).toBeNull();
 	});
 
-	it('falls back to items.length === size when no cursor given', async () => {
+	it('ends the list when no cursor is given — even on a full page', async () => {
+		// guessing "full page ⇒ more" would request the next page with a
+		// null cursor, i.e. the FIRST page again, forever
 		const source = cursorSource<string>(async () => ({ items: ['a', 'b'] }));
-		expect((await source(pageRequest({ size: 2 }))).hasMore).toBe(true); // full page
+		expect((await source(pageRequest({ size: 2 }))).hasMore).toBe(false); // full page
 		expect((await source(pageRequest({ size: 5 }))).hasMore).toBe(false); // short page
+	});
+
+	it('a null cursor wins over an explicit hasMore: true', async () => {
+		const source = cursorSource<string>(async () => ({
+			items: ['a', 'b'],
+			nextCursor: null,
+			hasMore: true
+		}));
+		expect((await source(pageRequest({ size: 2 }))).hasMore).toBe(false);
 	});
 
 	it('forwards the cursor to the loader', async () => {
@@ -126,6 +144,38 @@ describe('SuiInfiniteList', () => {
 		await list.loadMore();
 		await list.loadMore();
 		expect(cursors).toEqual([null, 'c1', 'c2']);
+	});
+
+	it('never re-requests the first page when a cursor source ends with a null cursor', async () => {
+		const cursors: (string | null)[] = [];
+		// a hand-written source that (wrongly) keeps hasMore on the last page
+		const source: SuiSource<string> = async (req) => {
+			cursors.push(req.cursor);
+			return req.cursor === null
+				? { items: ['a', 'b'], nextCursor: 'c1', hasMore: true }
+				: { items: ['c', 'd'], nextCursor: null, hasMore: true };
+		};
+		const list = new SuiInfiniteList(source, { pageSize: 2 });
+		await list.loadMore();
+		await list.loadMore();
+		expect(list.hasMore).toBe(false);
+		await list.loadMore(); // exhausted — no third request
+		expect(cursors).toEqual([null, 'c1']);
+		expect(list.items).toEqual(['a', 'b', 'c', 'd']);
+	});
+
+	it('flags later cursor pages as loadingMore, not loading', async () => {
+		const source: SuiSource<string> = async (req) => ({
+			items: [req.cursor ?? 'root'],
+			nextCursor: 'next',
+			hasMore: true
+		});
+		const list = new SuiInfiniteList(source, { pageSize: 1 });
+		await list.loadMore();
+		const second = list.loadMore();
+		expect(list.loading).toBe(false);
+		expect(list.loadingMore).toBe(true);
+		await second;
 	});
 
 	it('stops when hasMore is false and ignores concurrent calls', async () => {

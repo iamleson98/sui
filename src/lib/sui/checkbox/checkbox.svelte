@@ -21,14 +21,21 @@
 		field?: SuiFieldHandle<boolean | undefined>;
 		required?: boolean;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * Native form `name` (a hidden input carries the value for
+		 * `FormData` / progressive enhancement) — and the schema path a
+		 * form-level submitter (`createSuiSubmitter`) maps it to. Defaults
+		 * to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		checked?: boolean;
+		/**
+		 * Fires when the user toggles the box. (The control is a `<button
+		 * role="checkbox">`, so a native `onchange` never fires — use this.)
+		 */
+		onCheckedChange?: (checked: boolean) => void;
 	};
 </script>
 
@@ -36,8 +43,16 @@
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
-	import { suiEffectiveVariant, SUI_FIELD_TEXT, SUI_LABEL, SUI_SUBTEXT } from '../styles.js';
+	import {
+		suiEffectiveVariant,
+		SUI_FIELD_TEXT,
+		SUI_INVALID_RING,
+		SUI_LABEL,
+		SUI_SUBTEXT
+	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
+
+	const uid = $props.id();
 
 	let {
 		label,
@@ -51,10 +66,10 @@
 		field: f,
 		required = false,
 		class: className = '',
-		id = `sui-checkbox-${crypto.randomUUID()}`,
+		id = `sui-checkbox-${uid}`,
 		checked = $bindable(false),
 		disabled,
-		onchange,
+		onCheckedChange,
 		onblur,
 		...rest
 	}: SuiCheckboxProps = $props();
@@ -80,10 +95,8 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
 	// keep the bound shadow in sync with programmatic form changes (reset, setValues)
 	$effect(() => {
@@ -106,11 +119,16 @@
 	);
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
-	// hint + error coexist in the description (GOV.UK pattern; the old
-	// derivation pointed at a non-existent id whenever only a hint showed)
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	export function validate(): string[] {
@@ -134,22 +152,20 @@
 	<Checkbox
 		{id}
 		bind:checked
+		name={name ?? f?.name}
 		disabled={disabled || undefined}
 		required={required || undefined}
 		data-sui-checkbox
-		class="{BOX_SIZE[size]} mt-0.5"
+		class="{BOX_SIZE[size]} mt-0.5 {SUI_INVALID_RING}"
 		aria-invalid={invalid || undefined}
+		{...rest as Record<string, unknown>}
 		aria-describedby={describedBy}
 		onCheckedChange={(value: boolean) => {
-			// bits-ui fires this for both user and programmatic changes
-			if (f) {
-				f.change(value, 'discrete');
-				return;
-			}
-			fieldState.validate(value, schema, 'change', validateOn);
-		}}
-		onchange={(event) => {
-			onchange?.(event as never);
+			// bits-ui calls this for user toggles only (programmatic
+			// `checked` writes go through the bound prop)
+			if (f) f.change(value, 'discrete');
+			else fieldState.validate(value, schema, 'change', validateOn);
+			onCheckedChange?.(value);
 		}}
 		onblur={(event) => {
 			onblur?.(event as never);
@@ -159,7 +175,6 @@
 			}
 			fieldState.validate(checked, schema, 'blur', validateOn);
 		}}
-		{...rest as Record<string, unknown>}
 	/>
 	<div class="flex w-full flex-col">
 		{#if label}
@@ -172,8 +187,8 @@
 			>
 				{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 				{#if required}
+					<!-- visual marker only: the checkbox's aria-required already announces it -->
 					<span class="text-destructive" aria-hidden="true">*</span>
-					<span class="sr-only">(required)</span>
 				{/if}
 			</label>
 		{/if}

@@ -37,6 +37,7 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 | Area                | Components & exports                                                                                                                                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Form controls       | `SuiInput`, `SuiTextarea`, `SuiSelect`, `SuiCombobox`, `SuiMultiSelect`, `SuiCheckbox`, `SuiRadioGroup`, `SuiSwitch`                                                                                                     |
+| Date & time         | `SuiDatePicker`, `SuiTimePicker`, `SuiDateTimePicker` (+ skeletons, ISO helpers `isoToDate`, `dateToIso`, `timeSlots`, …)                                                                                                |
 | Actions             | `SuiButton`, `SuiIconButton`                                                                                                                                                                                             |
 | Data                | `SuiDataTable` (+ `suiColumn` helper, `renderComponent`), `SuiDataTableSkeleton`, CSV helpers (`suiDownloadCsv`, `suiRowsToCsv`, `suiCsvCell`)                                                                           |
 | Error handling      | `SuiErrorSummary` (WCAG 3.3.1 error box), `focusFirstInvalid()`                                                                                                                                                          |
@@ -45,6 +46,7 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 | Mobile              | `suiMobileQuery()` / `SUI_MOBILE_QUERY` — the breakpoint where the select family switches to bottom sheets                                                                                                               |
 | Validation          | zod v4 helpers — `suiValidate()`, `SuiFieldState` — plus the `schema` prop on every form control                                                                                                                         |
 | Schema-driven forms | `createSuiForm()`, `<SuiForm>`, `form.fields.*` handles (one zod schema wires values, timing, errors, submit parsing)                                                                                                    |
+| Localisation        | `setSuiStrings()`, `SUI_STRINGS` — every built-in string is overridable per subtree (i18n-ready, reactive)                                                                                                               |
 | Design tokens       | `SuiSize` scale + semantic variant maps (`SUI_CONTROL`, `SUI_FIELD_CONTROL`, …) shared by every component                                                                                                                |
 
 ## Design principles
@@ -64,7 +66,7 @@ sui is consumed as source (like shadcn-svelte itself) — copy `src/lib/sui` (an
 # inside your SvelteKit project
 npx sv add tailwindcss            # Tailwind v4
 npx shadcn-svelte@latest init     # shadcn-svelte base
-npm i zod @tanstack/svelte-table @tanstack/svelte-virtual @lucide/svelte vaul-svelte tailwind-variants
+npm i zod @tanstack/svelte-table @tanstack/svelte-virtual @lucide/svelte vaul-svelte tailwind-variants @internationalized/date
 
 # vaul-svelte powers the mobile bottom sheets; also grab the drawer
 # primitive: npx shadcn-svelte@latest add drawer   (see Mobile below)
@@ -170,10 +172,12 @@ That's the whole feature — the application code never calls `safeParse`, never
 The timing follows the same research as the per-field mode (Baymard / react-hook-form `onTouched` / superforms `auto`), extended to the whole-schema level the way superforms and react-hook-form do it:
 
 - **Pristine fields are never scolded.** Errors display only on _revealed_ fields — a field reveals on its first blur, on a discrete change (select/combobox/multi-select/checkbox/radio/switch — every interaction is a completed answer), or after a failed submit.
-- **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to _any_ field, so cross-field rules (password ≠ confirm) stay fresh the moment the _other_ field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet. One zod caveat to know: `.refine` callbacks only run when the object _shape_ parses — while other fields are still invalid, cross-field errors wait quietly (standard zod behavior; same gotcha as superforms).
+- **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to _any_ field, so cross-field rules (password ≠ confirm) stay fresh the moment the _other_ field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet. One zod caveat to know: zod v4 skips an object's `.refine` only after _aborting_ issues (a key missing or of the wrong type); format and length failures (`z.email()`, `.min(8)`) do not abort, so the refinement still runs on values that are themselves invalid — and sui starts string fields at `''`. Guard cross-field rules on the values they compare: `.refine((d) => !d.start || !d.end || d.end > d.start, …)`.
 - **A failed submit reveals every invalid field at once** and, from then on, any edit re-validates instantly (react-hook-form `isSubmitted` semantics). `<SuiForm>` then focuses the error summary box when one is rendered (the GOV.UK pattern — screen readers announce the whole problem list at once, and its links walk users to each field), falling back to the form-error banner, then to the first invalid control on desktop (WCAG 3.3.1); on mobile it scroll-snaps instead, where focus would open the on-screen keyboard and hide the message.
-- **Server errors taint-clear.** `form.setErrors({ email: 'Already registered' })` displays immediately and survives blurring — but the first edit of that field hands display back to the schema, so stale server messages never linger (superforms tainted-field behavior).
-- **Async validators run after the sync schema passes** — debounced (default 400ms), cancelled on new input (latest value wins; in-flight runs for the same value are deduped, so no duplicate network calls), memoised per value, surfaced as a `Checking…` state (`field.isValidating`) and taint-cleared exactly like server errors. A submit **flushes** any stale checks before `onsubmit` runs, so a form is never "submitted valid" while an availability check is still pending.
+- **Server errors taint-clear, per field.** `form.setErrors({ email: 'Already registered' })` — or a `ZodError` thrown from `onsubmit` — displays immediately and survives blurring; the first edit of _that_ field hands display back to the schema (editing another field never wipes it), and the next server round-trip replaces the previous verdict, so stale messages ("Network error", "Already registered") never linger (superforms tainted-field behavior).
+- **One submit at a time.** A submit fired while `onsubmit` is still running (double click, Enter mashing) joins the in-flight attempt instead of calling `onsubmit` again; a loading `SuiButton` additionally blocks activation while keeping keyboard focus.
+- **Never a silent failure.** Form-level refines (no `path`) show in the banner once a submit reveals them — not while the user is still filling the form in. Issues on array items or nested keys display on the control bound to their parent (`tags.1` on the multi-select bound to `tags`), and errors no rendered control can show (a schema key without a field, an unmounted step) surface in `<SuiForm>`'s banner as `form.unmappedErrors`.
+- **Async validators run after the sync schema passes** — debounced (default 400ms), cancelled on new input (latest value wins, and the superseded run's `signal` — the validator's third argument — aborts its `fetch`; in-flight runs for the same value are deduped, so no duplicate network calls), memoised per value, surfaced as a `Checking…` state (`field.isValidating`) and taint-cleared exactly like server errors. A submit **flushes** any stale checks before `onsubmit` runs, so a form is never "submitted valid" while an availability check is still pending.
 - **Message overrides rescue vendor copy.** zod's "Invalid input: expected string, received undefined" is not user copy — `messages: { email: 'Enter an address like name@example.com' }` (string or resolver) fixes it centrally, i18n-ready. Server-side messages are never overridden — server copy is authoritative.
 
 ### Reactive form state
@@ -184,16 +188,19 @@ form.fields.email; // handle: .value, .errors, .invalid, .touched, .dirty,
 //                .isValidating, .valid, .rewardValid, .checkingMessage
 form.field('address.city'); // nested paths use dotted keys
 form.isValid; // silent full-schema check (no display changes)
-form.formErrors; // root refine + server-level errors (render via showFormErrors)
+form.formErrors; // root refine (after a submit) + server-level errors (render via showFormErrors)
+form.unmappedErrors; // errors no rendered control can show — <SuiForm> banners them
 form.errorSummary; // ready-made entries for <SuiErrorSummary>
 form.isValidating; // paths with async validators currently running
+form.dirty / isDirty; // paths that differ from the initial values (unsaved changes)
 form.isSubmitting / isSubmitted / submitCount;
 
 // programmatic control
 form.validate(); // full validation, reveals everything
 form.setErrors({ email: ['Taken'] }); // server errors ('' or '_form' = form-level)
 form.setValues({ email: 'a@b.co' }); // silent merge
-form.reset(); // values → defaults, state forgotten
+form.reset(); // values → initial values, state forgotten
+form.reset(user); // …or make a loaded record the new pristine baseline (edit forms)
 form.handleSubmit(event); // manual submit handler for plain <form> elements
 
 // server payloads → setErrors shape, one line:
@@ -212,16 +219,16 @@ All form controls share this core API:
 | ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `label`                 | `string \| Snippet`                                | Rendered above the field, associated for screen readers                                                                                                                                                                                                             |
 | `subText`               | `string`                                           | Helper text below the field — stays visible (and `aria-describedby`-associated) when errors appear, per GOV.UK                                                                                                                                                      |
-| `size`                  | `'sm' \| 'md' \| 'lg'`                             | Shared height/typography scale (default `md`)                                                                                                                                                                                                                       |
+| `size`                  | `'xs' \| 'sm' \| 'md' \| 'lg' \| 'xl'`             | Shared height/typography scale (default `md`)                                                                                                                                                                                                                       |
 | `variant`               | `'info' \| 'success' \| 'warning' \| 'error'`      | Semantic color state (default `info`)                                                                                                                                                                                                                               |
 | `startIcon` / `endIcon` | lucide component                                   | Icons inside the field                                                                                                                                                                                                                                              |
 | `action`                | `Snippet`                                          | Interactive content in the field's end slot (buttons, availability checks, …)                                                                                                                                                                                       |
 | `schema`                | zod or any Standard Schema                         | Validated per `validateOn` timing (see below). Ignored when `field` is set                                                                                                                                                                                          |
 | `field`                 | `SuiFieldHandle`                                   | **Schema-driven wiring** — a field handle from `createSuiForm` (`form.fields.email`). Takes over the value, validation timing and error display; `bind:value`/`schema`/`errors` become unnecessary (see [Schema-driven forms](#schema-driven-forms--createSuiform)) |
-| `name`                  | `string`                                           | Registers the control for `createSuiSubmitter` orchestration — the schema path it maps to. Ignored when `field` is set                                                                                                                                              |
+| `name`                  | `string`                                           | The native form `name` (pickers and toggles render hidden inputs, so `FormData`, SvelteKit actions and autofill see every field) and the schema path `createSuiSubmitter` maps the control to. Defaults to the `field` handle's path                                |
 | `validateOn`            | `'auto' \| 'change' \| 'blur' \| 'both' \| 'none'` | When the schema runs — `auto` for text fields, `both` for pickers/toggles (defaults)                                                                                                                                                                                |
 | `errors`                | `string[]`                                         | External errors (server-side validation) — shown until the user edits the field                                                                                                                                                                                     |
-| `required`              | `boolean`                                          | Adds the `*` marker and `aria-required`                                                                                                                                                                                                                             |
+| `required`              | `boolean`                                          | Adds the visual `*` marker; the control itself announces it (`required` / `aria-required`) — once, never doubled by label text                                                                                                                                      |
 
 ### Hand-wired forms — createSuiSubmitter
 
@@ -244,7 +251,7 @@ Keep your own `bind:value` state and still delete the whole hand-rolled submit h
 </form>
 ```
 
-A failed submit highlights every invalid field at once (editing one clears just its error, no re-submit needed) and focus lands on the error summary when one is rendered, else the first problem — scrolled into view on touch devices. A `ZodError` (or any issue-carrying error) thrown from `onvalid` maps back onto fields exactly like `createSuiForm`'s `onsubmit`; root refine issues collect in `submit.formErrors`. The submitter accepts the same `messages` copy map, and its `focusOnSubmit` option (`'summary' | 'field' | 'none'`) mirrors the form engine's. Because this mode keeps the values in your hands, it composes with non-sui fields and page-owned state; when the form engine can own the values, prefer `createSuiForm`.
+A failed submit highlights every invalid field at once (editing one clears just its error, no re-submit needed) and focus lands on the error summary when one is rendered, else the first problem — scrolled into view on touch devices. A `ZodError` (or any issue-carrying error) thrown from `onvalid` maps back onto fields exactly like `createSuiForm`'s `onsubmit`; root refine issues collect in `submit.formErrors`. Issues on array items or nested keys land on the control registered for their parent (`topics.0` on the multi-select named `topics`), and issues no named control can show collect in `submit.unmappedErrors` — render them next to `submit.formErrors` so a submit never fails silently. A submit fired while `onvalid` runs joins the in-flight attempt. The submitter accepts the same `messages` copy map, and its `focusOnSubmit` option (`'summary' | 'field' | 'none'`) mirrors the form engine's. Because this mode keeps the values in your hands, it composes with non-sui fields and page-owned state; when the form engine can own the values, prefer `createSuiForm`.
 
 Controls bound to a `field` handle ignore `name` — the engine already drives them. Individual fields can still validate standalone via the `schema` prop (see [Validation timing](#validation-timing)); every control also exports `validate(): string[]` and `reset()` methods for fully manual wiring.
 
@@ -261,7 +268,11 @@ Inline-validation research (Baymard) and the major form libraries (react-hook-fo
 
 ### Text inputs
 
-`SuiInput` adds `type`, `placeholder` (defaults to the label), `validateDebounce` (ms), `ref` (bindable). `SuiTextarea` mirrors it for multi-line text. Both accept `validateOn` (see [Validation timing](#validation-timing)).
+`SuiInput` adds `type`, `placeholder`, `validateDebounce` (ms), `ref` (bindable). `SuiTextarea` mirrors it for multi-line text. Both accept `validateOn` (see [Validation timing](#validation-timing)) and keep text typed before hydration on prerendered pages (the value goes through Svelte's own `bind:value` machinery).
+
+**Number fields:** with `type="number"` schemas validate — and `createSuiForm` / `createSuiSubmitter` collect — a `number` (`undefined` while empty), so `z.number('Enter your age').min(18)` works as-is. No `z.coerce.number()`, whose `'' → 0` coercion silently passes an empty required field.
+
+**Change callbacks:** `SuiCheckbox` / `SuiSwitch` take `onCheckedChange(checked)` and `SuiRadioGroup` takes `onValueChange(value)` (the checkbox and switch are `<button>`s, so a native `onchange` never fires on them).
 
 ### Selects
 
@@ -269,6 +280,8 @@ Inline-validation research (Baymard) and the major form libraries (react-hook-fo
 
 - **Static options:** `items: SuiItem[]` — see below
 - **Async + infinite scroll:** `source: SuiSource<SuiItem>` — the first page is prefetched, and streaming the next page is automatic: as the user scrolls towards the bottom of the list the component pre-fetches the next page (256 px before the end) and appends its items, so scrolling just continues. A `Loading more…` row signals in-flight pages and fetch failures surface through `errorText` with a `role="alert"` message.
+- **Labels for values that aren't loaded:** items the user picks are remembered, so a selection keeps its label after a new search resets the pages; pass `selectedItem` (`selectedItems` on the multi-select) to label an initial value from your record before its page loads — edit forms never show raw ids.
+- **Failed pages:** a failed `source` request shows `errorText` with a **Try again** button; auto-loading on scroll pauses until the user retries (no request storm against a failing API).
 - **Clearable:** the ✕ is a real `<button type="button">` rendered _outside_ the trigger (nested interactive elements are invalid HTML) — clicking it clears the selection without opening the menu and returns focus to the trigger. While it is visible the chevron is pinned to the trigger's end edge and the ✕ sits between the value and the chevron, so there is no dead gap before the border.
 - **Focus behavior:** triggers style their focused look with `focus-visible` (not `focus-within`): the menu hands DOM focus back to the trigger on close, and only keyboard focus paints the focused border. Dismissing the menu with an outside click lets the focus follow the pointer out of the field; `Esc` and keyboard selection return focus to the trigger as keyboard users expect.
 - **Scroll containment:** opening a menu (or selecting an item while it stays open) never scrolls the page. bits-ui's Command reveals the highlighted item with `scrollIntoView()`, which races floating-ui positioning — in the frames before the portal becomes `position: fixed` the item still sits at the top of the document flow, and the native call would scroll the _page_ to "reveal" it. The vendored `ui/command` wrappers (`contained-scroll-into-view.ts`, applied in `command-item.svelte` + `command-group.svelte`) replace that call with a container-scoped implementation that only ever scrolls the command list. Keyboard navigation still reveals items inside the list — just without hijacking the document. Keep this local deviation when re-syncing the shadcn wrappers.
@@ -302,6 +315,57 @@ On coarse pointers the demo `app.css` ships the ergonomics rules sui's data attr
 - `prefers-reduced-motion` disables entrance/exit animations
 
 `SuiInput` also derives mobile keyboard niceties from `type`: `inputmode` (`email` / `tel` / `url` / `decimal`) plus `autocapitalize="none"` / `autocorrect="off"` on email fields. Pass your own `inputmode` to override.
+
+## Date & time pickers
+
+Three pickers share the form-control API (label, `subText`, sizes, variants, `schema`, `field`, `name`, `errors`, `clearable`, `required`, skeletons) and follow the research consensus (GOV.UK, USWDS, React Aria): **typing always works** — one keyboard-editable segment per unit, in the locale's order — and the calendar or time list is a shortcut, never the only way in.
+
+```svelte
+<!-- scheduling: typed segments + calendar popover -->
+<SuiDatePicker
+	label="Delivery date"
+	min={todayIso}
+	isDateUnavailable={isWeekend}
+	bind:value={delivery}
+/>
+
+<!-- memorable dates (date of birth): typing only — calendars slow these down -->
+<SuiDatePicker label="Date of birth" calendar={false} subText="For example, 27 3 1990" />
+
+<!-- typed time + a keyboard-navigable slot list (every `step` minutes within min/max) -->
+<SuiTimePicker label="Meeting" step={15} min="09:00" max="17:30" bind:value={meeting} />
+
+<!-- date AND time: the popover pairs the calendar with a time column -->
+<SuiDateTimePicker label="Starts at" step={30} bind:value={startsAt} />
+```
+
+**Values are plain ISO strings** — exactly what native `<input type="date|time|datetime-local">` produce: `'2026-10-11'`, `'14:30'` (`'14:30:05'` with `granularity="second"`), `'2026-10-11T14:30'` (local). They validate with `z.iso.date()`, `z.iso.time()` and `z.iso.datetime({ local: true })`, compare correctly as strings in refinements, serialise to JSON and post through `FormData` (a hidden input carries the bound value). `min`/`max`/`isDateUnavailable`/`isDateDisabled` take ISO strings too; `isoToDate`, `dateToIso`, `isoToTime`, `timeToIso`, `isoToDateTime`, `dateTimeToIso` and `timeSlots` convert to and from `@internationalized/date` when you need date math.
+
+- **Locale-aware:** segment order, separators, month and weekday names and the 12/24-hour clock follow `locale` (per field, or app-wide via `setSuiStrings({ locale })`).
+- **Calendar:** today is marked, out-of-range days are disabled, unavailable days are struck through, a **Today** shortcut appears when today is selectable, and `captionLayout="dropdown"` adds month/year selects for distant dates. Day cells grow to 40px on touch screens.
+- **Robust input:** pasting an ISO value (`2026-10-20`) fills the field; IME / autofill inserts and Android keyboards (which send no usable key codes) are replayed through the segments instead of being lost or corrupting them.
+- **Mobile:** the date-time popover stacks its time slots as a swipeable row under the calendar on narrow screens — nothing overflows a 360px phone.
+- **Validation timing:** every completed value validates like a discrete control; leaving the field validates; peeking at the calendar or slot list does not. A failed submit focuses the first segment of the first invalid field.
+
+## Buttons
+
+`SuiButton` and `SuiIconButton` share one API: the same variants (`primary`, `secondary`, `outline`, `ghost`, `destructive`, `link`), the same sizes (`xs`–`xl`, identical heights — icon buttons are exactly square), `loading`, `href` (renders an anchor), a bindable `ref`, and `color`:
+
+```svelte
+<!-- semantic colours — the field palette, combined with any variant -->
+<SuiButton color="success">Approve</SuiButton>
+<SuiButton color="warning" variant="secondary">Review</SuiButton>
+<SuiButton color="error" variant="outline">Reject</SuiButton>
+<SuiIconButton icon={CheckIcon} label="Approve" color="success" variant="ghost" />
+
+<!-- any CSS colour for brand buttons -->
+<SuiButton color="#7c3aed">Upgrade</SuiButton>
+<SuiButton color="var(--brand)" variant="secondary">Learn more</SuiButton>
+```
+
+The colour becomes a `--sui-btn` token; the secondary tint, outline border, ghost/link text and hover shades are derived from it with `color-mix`, pulled toward the theme foreground so they stay readable in light and dark mode. The four semantic colours meet WCAG AA (≥ 4.5:1) in every variant and theme. With a custom colour, text on solid fills is white — pick a dark enough colour or set `style="--sui-btn-fg: …"`.
+
+`loading` shows a spinner and blocks activation (no double submits) while keeping focus on the button (`aria-disabled`, not `disabled`).
 
 ## Infinite scroll & REST pagination
 
@@ -373,7 +437,7 @@ Both adapters give the component everything it needs and nothing more: pages are
 />
 ```
 
-Features: sorting (none → asc → desc, `aria-sort` wired), global search, column visibility menu, row selection with a select-all and live footer count, pagination (client, server or none — `onPageChange` + `rowCount` for server mode), density sizes, loading/empty states, and virtual scrolling on by default (`virtual={true}` renders only the visible window of a 10,000-row list).
+Features: sorting (none → asc → desc, `aria-sort` wired, keyboard-operable header buttons), global search (page count and footer follow the filtered rows; a new search returns to page one), column visibility menu, row selection with a select-all and live footer count, pagination (client, server or none — `onPageChange` + `rowCount` for server mode, where search is delegated through `onSearchChange` instead of filtering one page client-side), keyboard-operable clickable rows (`onRowClick` + Enter/Space), density sizes, loading/empty states, and virtual scrolling on by default (`virtual={true}` renders only the visible window of a 10,000-row list).
 
 **Column pinning** — freeze columns to an edge while the rest scroll horizontally with `meta.pinned`:
 
@@ -390,9 +454,9 @@ const columns = [
 ] as SuiDataTableColumn<Person>[];
 ```
 
-Pinned columns should declare an explicit `width` (or `size`) so the sticky offsets stay deterministic; with row selection enabled the checkbox column pins along with them. Freeze edges get a hairline + soft inner shadow so the scrolling content reads as passing _underneath_. Pinning composes with virtual scrolling.
+Pinned columns should declare an explicit `width` (or `size`); pinned cells are locked to exactly that width, so the sticky offsets always line up. With row selection enabled the checkbox column pins along with them. Pinned cells and the sticky header are opaque in every row state (hover, selected, focus — light and dark), so scrolled content never shows through; freeze edges get a hairline + soft inner shadow so it reads as passing _underneath_. Pinning composes with virtual scrolling.
 
-**CSV export** — `exportable` adds a toolbar button that downloads the current filtered rows as RFC 4180 CSV (`exportFilename` to rename). Values are quoted/escaped correctly, dates serialize as ISO, leading `=` / `+` / `-` / `@` are prefixed to neutralize spreadsheet formula injection, display columns are skipped, and the file ships with a UTF-8 BOM so Excel opens it cleanly. The `suiDownloadCsv` / `suiRowsToCsv` / `suiCsvCell` helpers are exported for custom export flows.
+**CSV export** — `exportable` adds a toolbar button that downloads the current filtered rows, in the on-screen sort order, as RFC 4180 CSV (`exportFilename` to rename). Values are quoted/escaped correctly, dates serialize as ISO, text starting with `=` / `+` / `-` / `@` is prefixed to neutralize spreadsheet formula injection (real numbers like `-42` are left intact), display columns are skipped, and the file ships with a UTF-8 BOM so Excel opens it cleanly. The `suiDownloadCsv` / `suiRowsToCsv` / `suiCsvCell` helpers are exported for custom export flows.
 
 Column `meta` options: `align`, `width`, `class`, `hiddenByDefault`, `pinned`.
 
@@ -410,15 +474,37 @@ Every interactive component has a size-matched skeleton with the same public siz
 
 `SuiButtonSkeleton` matches button sizes/widths; `SuiDataTableSkeleton` takes `rows` / `columns` counts; `SuiMultiSelectSkeleton` takes `badges` for a number of placeholder pills. `SuiSkeleton` is the raw primitive.
 
+## Localisation
+
+Every string sui renders by itself — placeholders, loading/empty/error states, button labels, screen-reader text, the data-table toolbar and footer — comes from `SUI_STRINGS`. Override any subset for a subtree with `setSuiStrings` (typically once, in the root layout); per-instance props such as `placeholder` or `emptyText` still win:
+
+```svelte
+<!-- +layout.svelte -->
+<script lang="ts">
+	import { setSuiStrings } from '$lib/sui';
+	import * as m from '$lib/paraglide/messages';
+
+	// a function stays reactive: switching locale re-renders the copy
+	setSuiStrings(() => ({
+		selectPlaceholder: m.select_placeholder(),
+		noResults: m.no_results(),
+		tableRowCount: (count) => m.rows({ count })
+	}));
+</script>
+```
+
 ## Accessibility
 
 - labels bound to controls (`for`/`id`), required markers with `sr-only` text
 - `aria-invalid` + `aria-describedby` + `aria-live` on every field message
 - **persistent live regions** — each field's message region is mounted empty before any message exists, so the first announcement is never silently dropped (the classic live-region-created-with-content failure in NVDA/JAWS/VoiceOver)
 - **hint + error coexistence** (GOV.UK / WCAG 3.3.2): `subText` keeps its own id and stays visible when errors appear; `aria-describedby` references both ids in reading order
-- combobox pattern with `role="combobox"` triggers, `listbox`/`option` roles, `aria-expanded`
-- table headers are sortable buttons with `aria-sort`; selection uses real checkboxes with `aria-label`s
-- loading indicators expose `role="status"`; fetch failures use `role="alert"`
+- hydration-safe ids from `$props.id()` — server and client agree, and nothing depends on `crypto.randomUUID` (which only exists on HTTPS/localhost, so plain-HTTP intranet hosts work)
+- combobox pattern with `role="combobox"` triggers on every picker (select, combobox, multi-select), `listbox`/`option` roles, `aria-expanded`, `aria-required`; multi-select options expose `aria-checked`
+- table headers are real sort buttons inside `aria-sort` header cells; clickable rows take Enter/Space; selection uses real checkboxes with `aria-label`s
+- loading indicators expose `role="status"`; fetch failures use `role="alert"` with a retry button
+- date and time fields are labelled `role="group"`s of `role="spinbutton"` segments (value text announced per unit); calendars are keyboard-navigable grids; time slots are listboxes with arrow-key navigation
+- a loading button stays focusable (`aria-disabled` + blocked activation) — `disabled` would drop keyboard and screen-reader focus to `<body>` mid-action
 - `SuiErrorSummary` (focusable, `tabindex="-1"`) + `focusFirstInvalid()` implement the WCAG 3.3.1 / GOV.UK failed-submit pattern: the summary box receives focus and announces the whole problem list; its links focus each field without hash navigation
 - async validation exposes a visible `Checking…` state (spinner + text) so its latency is never invisible
 - mobile sheets are vaul dialogs with `aria-modal`, labelled by the field label, keyboard-dismissable
@@ -428,10 +514,12 @@ Every interactive component has a size-matched skeleton with the same public siz
 sui ships with the two-tier test setup the library itself uses:
 
 ```sh
-npm run test              # vitest + @testing-library/svelte (310 unit tests)
-npm run test:e2e          # Playwright: desktop + mobile projects (50 tests)
+npm run test              # vitest + @testing-library/svelte (401 unit tests)
+npm run test:e2e          # Playwright: desktop + mobile projects (56 tests)
 npm run test:e2e:update   # regenerate visual baselines
 ```
+
+CI (`.github/workflows/ci.yml`) runs formatting, `svelte-check`, the unit suite and the behavioral e2e suites on every push and pull request; the visual baselines are platform-specific and run locally. The e2e fixture (`tests/e2e/fixtures.ts`) waits for hydration after every navigation, so no test interacts with inert prerendered HTML.
 
 The unit suite covers props/ARIA/wiring in jsdom; the Playwright suite runs against the built demo app in a real browser — a desktop Chromium project (infinite scroll, floating positioning, focus management, full form flows, pinned-column geometry, CSV downloads, visual baselines) plus a **Pixel 7 mobile project** (bottom-sheet behavior, 16px inputs, coarse-pointer ergonomics).
 
@@ -447,6 +535,7 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/selection`  | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets                                                                                                                                                |
 | `/data-table` | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows                                                                                                                                                           |
 | `/toggles`    | checkbox / radio / switch with zod                                                                                                                                                                                                                                |
+| `/date-time`  | date, time and date-time pickers — calendar, time slots, memorable dates, a zod-validated booking form, locales, sizes                                                                                                                                            |
 | `/validation` | a schema-driven `createSuiForm` form (async availability check with live `Checking…` state, message overrides, form-error banner, GOV.UK summary focus, reward ring, server-error mapping) + a hand-wired `createSuiSubmitter` form + per-field timing playground |
 | `/pagination` | the infinite-scroll REST guide with live examples                                                                                                                                                                                                                 |
 | `/skeletons`  | every skeleton, every size                                                                                                                                                                                                                                        |

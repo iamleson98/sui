@@ -27,17 +27,17 @@ async function findCommandItem(match: RegExp): Promise<HTMLElement> {
 describe('SuiCombobox', () => {
 	it('renders a labelled trigger with placeholder', () => {
 		render(SuiCombobox, { label: 'Owner', placeholder: 'Search users…', items: countries });
-		expect(screen.getByRole('button', { name: /owner/i })).toHaveTextContent('Search users…');
+		expect(screen.getByRole('combobox', { name: /owner/i })).toHaveTextContent('Search users…');
 	});
 
 	it('shows the selected label in the trigger', () => {
 		render(SuiCombobox, { label: 'Owner', items: countries, value: 'de' });
-		expect(screen.getByRole('button', { name: /owner/i })).toHaveTextContent('Germany');
+		expect(screen.getByRole('combobox', { name: /owner/i })).toHaveTextContent('Germany');
 	});
 
 	it('opens a searchable command palette with all items', async () => {
 		render(SuiCombobox, { label: 'Owner', items: countries });
-		await user.click(screen.getByRole('button', { name: /owner/i }));
+		await user.click(screen.getByRole('combobox', { name: /owner/i }));
 		expect(await findCommandItem(/netherlands/i)).toBeInTheDocument();
 		expect(await findCommandItem(/vietnam/i)).toBeInTheDocument();
 		expect(document.querySelector('[data-sui-combobox-input]')).toBeInTheDocument();
@@ -45,7 +45,7 @@ describe('SuiCombobox', () => {
 
 	it('filters locally as you type', async () => {
 		render(SuiCombobox, { label: 'Owner', items: countries });
-		await user.click(screen.getByRole('button', { name: /owner/i }));
+		await user.click(screen.getByRole('combobox', { name: /owner/i }));
 		const input = document.querySelector('[data-sui-combobox-input]') as HTMLInputElement;
 
 		// matches keywords (labels), not just values
@@ -66,10 +66,10 @@ describe('SuiCombobox', () => {
 	it('selects an item, closes, and updates the trigger', async () => {
 		const onSelect = vi.fn();
 		render(SuiCombobox, { label: 'Owner', items: countries, onSelect });
-		await user.click(screen.getByRole('button', { name: /owner/i }));
+		await user.click(screen.getByRole('combobox', { name: /owner/i }));
 		await user.click(await findCommandItem(/germany/i));
 		expect(onSelect).toHaveBeenCalledWith('de', expect.objectContaining({ value: 'de' }));
-		expect(screen.getByRole('button', { name: /owner/i })).toHaveTextContent('Germany');
+		expect(screen.getByRole('combobox', { name: /owner/i })).toHaveTextContent('Germany');
 	});
 
 	it('validates with zod on a genuine blur — dismissing the popup is a peek', async () => {
@@ -78,7 +78,7 @@ describe('SuiCombobox', () => {
 			items: countries,
 			schema: z.string().min(1, 'Pick an owner')
 		});
-		const trigger = screen.getByRole('button', { name: /owner/i });
+		const trigger = screen.getByRole('combobox', { name: /owner/i });
 		await user.click(trigger);
 		// Escape (keyboard peek) returns focus to the trigger without
 		// revealing the pristine field's error
@@ -109,7 +109,7 @@ describe('SuiCombobox — clear & semantics', () => {
 			clearable: true,
 			onSelect
 		});
-		const trigger = screen.getByRole('button', { name: /owner/i });
+		const trigger = screen.getByRole('combobox', { name: /owner/i });
 		const clear = screen.getByRole('button', { name: 'Clear selection' });
 		expect(clear.parentElement?.closest('button')).not.toBe(trigger);
 
@@ -120,7 +120,7 @@ describe('SuiCombobox — clear & semantics', () => {
 
 	it('announces a listbox popup and points aria-controls at it', async () => {
 		render(SuiCombobox, { label: 'Owner', items: countries });
-		const trigger = screen.getByRole('button', { name: /owner/i });
+		const trigger = screen.getByRole('combobox', { name: /owner/i });
 		expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
 		const listboxId = trigger.getAttribute('aria-controls');
 		expect(listboxId).toBeTruthy();
@@ -148,7 +148,7 @@ describe('SuiCombobox — server sources', () => {
 		render(SuiCombobox, { label: 'Owner', source, pageSize: 1 });
 		await waitFor(() => expect(state.calls).toBe(1));
 
-		await user.click(screen.getByRole('button', { name: /owner/i }));
+		await user.click(screen.getByRole('combobox', { name: /owner/i }));
 		expect(await findCommandItem(/user 1/i)).toBeInTheDocument();
 		expect(document.querySelector('[data-sui-load-more-sentinel]')).toBeInTheDocument();
 	});
@@ -164,7 +164,7 @@ describe('SuiCombobox — server sources', () => {
 		});
 
 		render(SuiCombobox, { label: 'Owner', source, searchDebounce: 10 });
-		await user.click(screen.getByRole('button', { name: /owner/i }));
+		await user.click(screen.getByRole('combobox', { name: /owner/i }));
 		await waitFor(() => expect(queries.length).toBeGreaterThanOrEqual(1));
 
 		const input = document.querySelector('[data-sui-combobox-input]') as HTMLInputElement;

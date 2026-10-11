@@ -23,11 +23,12 @@
 		field?: SuiFieldHandle<string | undefined>;
 		required?: boolean;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * The textarea's `name` (native form data, browser autofill) — and
+		 * the schema path a form-level submitter (`createSuiSubmitter`) maps
+		 * it to. Defaults to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		value?: string;
@@ -47,8 +48,12 @@
 		SUI_SUBTEXT,
 		SUI_TEXTAREA
 	} from '../styles.js';
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+
+	const uid = $props.id();
+	const strings = getSuiStrings();
 
 	let {
 		label,
@@ -64,7 +69,7 @@
 		field: f,
 		required = false,
 		class: className = '',
-		id = `sui-textarea-${crypto.randomUUID()}`,
+		id = `sui-textarea-${uid}`,
 		value = $bindable(''),
 		ref = $bindable<HTMLTextAreaElement | null>(null),
 		disabled,
@@ -97,13 +102,23 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
-	// controlled value: the form handle owns it when present
-	const current = $derived(f ? f.value : value);
+	// Svelte's `bind:value` (function bindings) owns the DOM value: text
+	// typed before hydration survives, a focused field is never rewritten
+	function readValue(): string {
+		return (f ? f.value : value) ?? '';
+	}
+	function writeValue(next: string) {
+		if (f) f.change(next, 'text');
+		else {
+			value = next;
+			fieldState.validate(next, schema, 'change', validateOn);
+		}
+	}
+	// the form wins the `name` by default (autofill + native form data)
+	const textareaName = $derived(name ?? f?.name);
 
 	const allErrors = $derived(f ? f.errors : fieldState.displayed);
 	const invalid = $derived(allErrors.length > 0);
@@ -114,11 +129,17 @@
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
 	const checking = $derived(!!f?.isValidating && !invalid);
-	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
-	// hint + error coexist in the description (GOV.UK pattern)
+	const checkingText = $derived(f?.checkingMessage ?? strings.checking);
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	export function validate(): string[] {
@@ -134,8 +155,7 @@
 
 <!-- Single root: the field never leaks layout primitives into the parent.
      The wrapper has no fixed height and no horizontal padding — the inner
-     <textarea
-                {name} rows> drives the height and owns its px-3 py-2 padding, so the
+     <textarea rows> drives the height and owns its px-3 py-2 padding, so the
      field renders as a real multi-line box instead of a one-line input. -->
 <div
 	bind:this={fieldRoot}
@@ -153,8 +173,8 @@
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
+				<!-- visual marker only: the textarea's `required` already announces it -->
 				<span class="text-destructive" aria-hidden="true">*</span>
-				<span class="sr-only">(required)</span>
 			{/if}
 		</label>
 	{/if}
@@ -178,7 +198,8 @@
 		<textarea
 			bind:this={ref}
 			{id}
-			value={current}
+			name={textareaName}
+			bind:value={readValue, writeValue}
 			{disabled}
 			{placeholder}
 			{required}
@@ -186,16 +207,9 @@
 			data-sui-textarea
 			class="w-full min-w-0 flex-1 resize-y bg-transparent px-3 py-2 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed dark:bg-input/30"
 			aria-invalid={invalid || undefined}
+			{...rest}
 			aria-describedby={describedBy}
-			oninput={(event) => {
-				oninput?.(event);
-				const next = event.currentTarget.value;
-				if (f) f.change(next, 'text');
-				else {
-					value = next;
-					fieldState.validate(next, schema, 'change', validateOn);
-				}
-			}}
+			oninput={(event) => oninput?.(event)}
 			onchange={(event) => {
 				onchange?.(event);
 				if (f) return;
@@ -208,8 +222,7 @@
 					return;
 				}
 				fieldState.validate(event.currentTarget.value, schema, 'blur', validateOn);
-			}}
-			{...rest}></textarea>
+			}}></textarea>
 		{#if action}
 			<span data-sui-action class="flex shrink-0 items-center self-start pe-2.5 pt-2">
 				{@render action({ size })}

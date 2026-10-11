@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Interaction tests running against the built demo app in a real browser:
@@ -44,7 +45,7 @@ test.describe('select / combobox / multi-select', () => {
 		page
 	}) => {
 		await page.goto('/selection');
-		const trigger = page.getByRole('button', { name: 'Country' });
+		const trigger = page.getByRole('combobox', { name: 'Country' });
 		await trigger.click();
 
 		await expect(page.getByRole('option', { name: /netherlands/i })).toBeVisible();
@@ -56,7 +57,7 @@ test.describe('select / combobox / multi-select', () => {
 
 	test('combobox: filters options via server search', async ({ page }) => {
 		await page.goto('/selection');
-		await page.getByRole('button', { name: 'Owner' }).click();
+		await page.getByRole('combobox', { name: 'Owner' }).click();
 
 		const searchbox = page.locator('[data-sui-combobox-input]');
 		await expect(searchbox).toBeFocused();
@@ -85,7 +86,7 @@ test.describe('select / combobox / multi-select', () => {
 
 	test('select: clear button clears without opening the menu', async ({ page }) => {
 		await page.goto('/selection');
-		const trigger = page.getByRole('button', { name: /country/i });
+		const trigger = page.getByRole('combobox', { name: /country/i });
 		await trigger.click();
 		await page.getByRole('option', { name: /germany/i }).click();
 		await expect(trigger).toContainText('Germany');
@@ -106,7 +107,7 @@ test.describe('select / combobox / multi-select', () => {
 
 	test('select: infinite scroll streams pages from the REST source', async ({ page }) => {
 		await page.goto('/selection');
-		await page.getByRole('button', { name: /region manager/i }).click();
+		await page.getByRole('combobox', { name: /region manager/i }).click();
 
 		await expect(options(page).first()).toBeVisible();
 		const initial = await options(page).count();
@@ -158,7 +159,7 @@ test.describe('select / combobox / multi-select', () => {
 
 	test('select: infinite scroll loads the next REST page at the bottom', async ({ page }) => {
 		await page.goto('/selection');
-		await page.getByRole('button', { name: 'Owner' }).click();
+		await page.getByRole('combobox', { name: 'Owner' }).click();
 
 		// first page from /api/users (cursor, size 20)
 		await expect(options(page).first()).toBeVisible();
@@ -265,7 +266,7 @@ test.describe('data table', () => {
 		// column visibility menu — it portals to body level, so it is NOT a
 		// child of the table element; items are labelled by lowercase column id
 		await table.getByRole('button', { name: 'Toggle columns' }).click();
-		await page.getByRole('menu').getByText('email', { exact: true }).click();
+		await page.getByRole('menu').getByText('Email', { exact: true }).click();
 		await expect(table.getByRole('columnheader', { name: /email/i })).toBeHidden();
 		await page.keyboard.press('Escape');
 
@@ -368,7 +369,7 @@ test.describe('full form + zod submit flow', () => {
 		// fill everything correctly
 		await form.getByLabel('Name').fill('Minh Nguyen');
 		await form.getByLabel('Email').fill('minh@example.com');
-		await form.getByRole('button', { name: 'Role' }).click();
+		await form.getByRole('combobox', { name: 'Role' }).click();
 		await page.getByRole('option', { name: 'Admin' }).click();
 		await form.getByRole('combobox', { name: /topics/i }).click();
 		await page.getByRole('option', { name: 'Svelte', exact: true }).click();
@@ -405,9 +406,33 @@ test.describe('keyboard + a11y', () => {
 });
 
 test.describe('focus, clear geometry and layout regressions', () => {
+	test('select: clear, then click outside — the invalid trigger shows no focus-like ring', async ({
+		page
+	}) => {
+		await page.goto('/selection');
+		const trigger = page.getByRole('combobox', { name: /country/i });
+		await trigger.click();
+		await page.getByRole('option', { name: /germany/i }).click();
+		await page.getByRole('button', { name: 'Clear selection' }).first().click();
+		// clearing a required select is a completed (empty) answer → invalid
+		await expect(trigger).toHaveAttribute('aria-invalid', 'true');
+		await page.getByRole('heading', { name: /select — static items/i }).click();
+		await expect(trigger).not.toBeFocused();
+		// a ring is a 0-offset box-shadow with a spread; only focus may draw one
+		const ringSpread = await trigger.evaluate((el) =>
+			Math.max(
+				0,
+				...[...getComputedStyle(el).boxShadow.matchAll(/0px 0px 0px (\d+(?:\.\d+)?)px/g)].map((m) =>
+					Number(m[1])
+				)
+			)
+		);
+		expect(ringSpread).toBe(0);
+	});
+
 	test('combobox: Esc returns focus, outside click lets it leave', async ({ page }) => {
 		await page.goto('/selection');
-		const trigger = page.getByRole('button', { name: 'Owner' });
+		const trigger = page.getByRole('combobox', { name: 'Owner' });
 
 		// keyboard dismissal returns focus to the trigger (a11y contract)
 		await trigger.click();
@@ -435,7 +460,7 @@ test.describe('focus, clear geometry and layout regressions', () => {
 		page
 	}) => {
 		await page.goto('/selection');
-		const trigger = page.getByRole('button', { name: /country/i });
+		const trigger = page.getByRole('combobox', { name: /country/i });
 		await trigger.click();
 		await page.getByRole('option', { name: /germany/i }).click();
 		await expect(trigger).toContainText('Germany');
@@ -513,7 +538,7 @@ test.describe('validation timing (blur-first, then eager)', () => {
 
 	test('select: blurring an untouched required select shows its error', async ({ page }) => {
 		await page.goto('/validation');
-		const role = engineForm(page).getByRole('button', { name: 'Role' });
+		const role = engineForm(page).getByRole('combobox', { name: 'Role' });
 
 		await role.focus();
 		await role.blur();
@@ -641,12 +666,11 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 		const confirm = suiForm.getByLabel(/^Confirm password/);
 		const mismatch = () => inlineMessage(page, "Passwords don't match");
 
-		// make everything else valid first: zod only runs `.refine` when the
-		// object shape parses, so the password/confirm rule needs a valid shape
-		// to speak up at all
+		// make everything else valid first, so the only open question is the
+		// password/confirm rule
 		await suiForm.getByLabel('Name').fill('Ada Lovelace');
 		await suiForm.getByLabel('Email').fill('ada@example.com');
-		await suiForm.getByRole('button', { name: 'Role' }).click();
+		await suiForm.getByRole('combobox', { name: 'Role' }).click();
 		await page.getByRole('option', { name: 'Admin' }).click();
 		await suiForm.getByRole('combobox', { name: /topics/i }).click();
 		await page.getByRole('option', { name: 'Svelte', exact: true }).click();
@@ -679,6 +703,28 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 		await expect(mismatch()).toBeHidden();
 	});
 
+	test('text typed before hydration is kept (prerendered page, slow JS)', async ({ page }) => {
+		// hold the app's JS back so the prerendered form is interactive HTML
+		// for a moment — what users on slow phones see
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		await page.route('**/_app/immutable/entry/**', async (route) => {
+			await gate;
+			await route.continue();
+		});
+		await page.goto('/validation', { waitUntil: 'domcontentloaded' });
+		const name = form(page).getByLabel('Name');
+		await name.fill('Typed early');
+
+		release();
+		await page.waitForLoadState('networkidle');
+		// hydration must neither wipe the text nor leave the form state blank
+		await expect(name).toHaveValue('Typed early');
+		await form(page).getByRole('button', { name: 'Create account' }).click();
+		await expect(form(page).getByLabel('Email')).toHaveAttribute('aria-invalid', 'true');
+		await expect(name).not.toHaveAttribute('aria-invalid', 'true');
+	});
+
 	test('submit parses client-side; thrown ZodErrors map back and taint-clear', async ({ page }) => {
 		await page.goto('/validation');
 		const suiForm = form(page);
@@ -688,7 +734,7 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 		await suiForm.getByLabel('Email').fill('taken@example.com');
 		await suiForm.getByLabel(/^Password/).fill('supersecret');
 		await suiForm.getByLabel(/^Confirm password/).fill('supersecret');
-		await suiForm.getByRole('button', { name: 'Role' }).click();
+		await suiForm.getByRole('combobox', { name: 'Role' }).click();
 		await page.getByRole('option', { name: 'Admin' }).click();
 		await suiForm.getByRole('combobox', { name: /topics/i }).click();
 		await page.getByRole('option', { name: 'Svelte', exact: true }).click();
@@ -711,5 +757,63 @@ test.describe('schema-driven form (createSuiForm) — client-side validation', (
 			timeout: 10_000
 		});
 		await expect(page.getByText(/"email": "ada@example.com"/)).toBeVisible();
+	});
+});
+
+test.describe('date & time pickers', () => {
+	const bound = (page: Page, index: number) => page.locator('code').nth(index);
+
+	test('date-time: "Today", then a time slot — ISO value, popover closes', async ({ page }) => {
+		await page.goto('/date-time');
+		const field = page.locator('[data-sui-field="date-time-picker"]').first();
+		await field.getByRole('button', { name: 'Open calendar' }).click();
+		await page.getByRole('button', { name: 'Today' }).click();
+		await page.getByRole('option', { name: '9:30 AM' }).click();
+
+		const today = await page.evaluate(() => {
+			const d = new Date();
+			const pad = (n: number) => String(n).padStart(2, '0');
+			return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+		});
+		await expect(bound(page, 3)).toHaveText(`${today}T09:30`);
+		await expect(page.locator('[data-sui-time-slots]')).toHaveCount(0);
+	});
+
+	test('time: keyboard picks a slot from the dropdown', async ({ page }) => {
+		await page.goto('/date-time');
+		await page.getByRole('button', { name: 'Choose a time' }).first().click();
+		// focus starts on the current value (10:30) — two steps down is 11:00
+		await expect(page.getByRole('option', { name: '10:30 AM' })).toBeFocused();
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('Enter');
+		await expect(bound(page, 2)).toHaveText('11:00');
+	});
+
+	test('booking form: typed dates and time validate with zod and submit as ISO strings', async ({
+		page
+	}) => {
+		await page.goto('/date-time');
+		const form = page.locator('form[data-sui-form]');
+		await form.getByRole('button', { name: 'Book' }).click();
+		await expect(form.getByText('Choose a check-in date')).toBeVisible();
+		// focus lands in the first segment of the first invalid field
+		await expect(page.locator(':focus')).toHaveAttribute('data-segment', 'month');
+
+		await page.keyboard.type('12202030');
+		await form
+			.locator('[data-sui-field="date-picker"]')
+			.nth(1)
+			.locator('[data-segment="month"]')
+			.click();
+		await page.keyboard.type('12232030');
+		await form.locator('[data-sui-time-input] [data-segment="hour"]').click();
+		await page.keyboard.type('0230p');
+		await form.getByRole('button', { name: 'Book' }).click();
+
+		const result = page.getByTestId('booking-result');
+		await expect(result).toContainText('"checkIn": "2030-12-20"');
+		await expect(result).toContainText('"checkOut": "2030-12-23"');
+		await expect(result).toContainText('"arrival": "14:30"');
 	});
 });

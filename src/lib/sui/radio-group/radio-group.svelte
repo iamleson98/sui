@@ -7,7 +7,10 @@
 
 	export type SuiRadioItem = SuiItem<string>;
 
-	export type SuiRadioGroupProps = Omit<HTMLInputAttributes, 'size' | 'value' | 'class'> & {
+	export type SuiRadioGroupProps = Omit<
+		HTMLInputAttributes,
+		'size' | 'value' | 'class' | 'onchange'
+	> & {
 		/** Group label rendered above the options. */
 		label?: string | Snippet;
 		subText?: string;
@@ -26,14 +29,18 @@
 		field?: SuiFieldHandle<string | undefined>;
 		required?: boolean;
 		/**
-		 * Schema path this field maps to when a form-level submitter
-		 * (`createSuiSubmitter`) orchestrates the form. Ignored when `field`
-		 * is set — `createSuiForm` drives those.
+		 * Native form `name` (a hidden input carries the value for
+		 * `FormData` / progressive enhancement) — and the schema path a
+		 * form-level submitter (`createSuiSubmitter`) maps it to. Defaults
+		 * to the `field` handle's path.
 		 */
 		name?: string;
+		/** Accessible id — a hydration-safe one is generated when omitted. */
 		id?: string;
 		class?: string;
 		value?: string;
+		/** Fires when the user picks an option. */
+		onValueChange?: (value: string) => void;
 	};
 </script>
 
@@ -42,8 +49,12 @@
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
 	import { suiEffectiveVariant, SUI_FIELD_TEXT, SUI_LABEL, SUI_SUBTEXT } from '../styles.js';
+	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+
+	const uid = $props.id();
+	const strings = getSuiStrings();
 
 	let {
 		label,
@@ -59,10 +70,10 @@
 		field: f,
 		required = false,
 		class: className = '',
-		id = `sui-radio-${crypto.randomUUID()}`,
+		id = `sui-radio-${uid}`,
 		value = $bindable(''),
 		disabled,
-		onchange,
+		onValueChange,
 		onblur,
 		...rest
 	}: SuiRadioGroupProps = $props();
@@ -88,10 +99,8 @@
 	// display; re-passing an unchanged list never resurrects cleared ones
 	$effect(() => fieldState.syncExternal(externalErrors));
 
-	// report the DOM id for form-level error summaries
-	$effect(() => {
-		f?.registerControl(id);
-	});
+	// report the DOM id for form-level error summaries (unregistered on unmount)
+	$effect(() => f?.registerControl(id));
 
 	// keep the bound shadow in sync with programmatic form changes (reset, setValues)
 	$effect(() => {
@@ -114,11 +123,17 @@
 	const hintId = $derived(`${id}-hint`);
 	const messageId = $derived(`${id}-message`);
 	const checking = $derived(!!f?.isValidating && !invalid);
-	const checkingText = $derived(f?.checkingMessage ?? 'Checking…');
-	// hint + error coexist in the description (GOV.UK pattern)
+	const checkingText = $derived(f?.checkingMessage ?? strings.checking);
+	// hint + error coexist in the description (GOV.UK pattern); a
+	// consumer's own aria-describedby is kept, not overwritten
 	const describedBy = $derived(
-		[subText ? hintId : undefined, invalid ? messageId : undefined].filter(Boolean).join(' ') ||
-			undefined
+		[
+			(rest as { 'aria-describedby'?: string })['aria-describedby'],
+			subText ? hintId : undefined,
+			invalid ? messageId : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
 	);
 
 	export function validate(): string[] {
@@ -149,8 +164,8 @@
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
+				<!-- visual marker only: the group's aria-required already announces it -->
 				<span class="text-destructive" aria-hidden="true">*</span>
-				<span class="sr-only">(required)</span>
 			{/if}
 		</div>
 	{/if}
@@ -159,6 +174,7 @@
 		{id}
 		aria-labelledby={label ? `${id}-label` : undefined}
 		bind:value
+		name={name ?? f?.name}
 		disabled={disabled || undefined}
 		required={required || undefined}
 		data-sui-radio-group
@@ -167,16 +183,19 @@
 			orientation === 'horizontal' ? 'auto-cols-max grid-flow-col' : 'grid-cols-1'
 		)}
 		aria-invalid={invalid || undefined}
+		{...rest as Record<string, unknown>}
 		aria-describedby={describedBy}
 		onValueChange={(next: string) => {
-			if (f) {
-				f.change(next, 'discrete');
-			} else {
-				fieldState.validate(next, schema, 'change', validateOn);
-			}
-			onchange?.(next as never);
+			if (f) f.change(next, 'discrete');
+			else fieldState.validate(next, schema, 'change', validateOn);
+			onValueChange?.(next);
 		}}
-		onblur={(event) => {
+		onfocusout={(event: FocusEvent & { currentTarget: HTMLElement }) => {
+			// the radiogroup itself never holds focus (its options do) and
+			// `blur` does not bubble: validate when focus LEAVES the group,
+			// not when it moves between options
+			const next = event.relatedTarget;
+			if (next instanceof Node && event.currentTarget.contains(next)) return;
 			onblur?.(event as never);
 			if (f) {
 				f.blur();
@@ -184,17 +203,17 @@
 			}
 			fieldState.validate(value, schema, 'blur', validateOn);
 		}}
-		{...rest as Record<string, unknown>}
 	>
-		{#each items as item (item.value)}
+		{#each items as item, index (item.value)}
+			<!-- index-based ids: option values may contain spaces or symbols -->
 			<label
-				for={`${id}-${item.value}`}
+				for={`${id}-option-${index}`}
 				class="flex w-full cursor-pointer items-start gap-2 {item.disabled || disabled
 					? 'cursor-not-allowed opacity-50'
 					: ''}"
 			>
 				<RadioGroup.Item
-					id={`${id}-${item.value}`}
+					id={`${id}-option-${index}`}
 					value={item.value}
 					disabled={item.disabled}
 					data-sui-radio-item

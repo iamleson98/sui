@@ -21,7 +21,7 @@ describe('createSuiForm — smart defaults & values', () => {
 			topics: [],
 			accept: undefined,
 			newsletter: true, // z.boolean().default(true)
-			address: { city: '' }
+			address: { city: undefined } // .optional() → not provided, not ''
 		});
 	});
 
@@ -361,7 +361,7 @@ describe('createSuiForm — component wiring', () => {
 
 	it('flows select selections through the handle', async () => {
 		const { form } = setup();
-		await user.click(screen.getByRole('button', { name: 'Role' }));
+		await user.click(screen.getByRole('combobox', { name: 'Role' }));
 		const option = await waitFor(() => {
 			const el = screen
 				.queryAllByRole('option', { hidden: true })

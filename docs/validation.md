@@ -59,7 +59,7 @@ Server-side messages are **never** re-resolved through the map — server copy i
 Async validators run **after the sync schema passes** for a revealed field, so users never wait on network checks for values that are already invalid. They are:
 
 - **debounced** — default 400ms (`asyncDebounce`, or per-field `fields: { username: { asyncDebounce: 200 } }`);
-- **cancellable** — new input supersedes pending checks; the latest value wins, stale results are discarded;
+- **cancellable** — new input supersedes pending checks; the latest value wins, stale results are discarded, and the superseded run's `signal` aborts (pass it to `fetch`);
 - **deduped** — an in-flight check for the same value is never re-run (no duplicate network calls), and completed results are memoised per value;
 - **visible** — controls show a spinner + `checkingMessage` (`field.isValidating`);
 - **taint-cleared** — like server errors, they vanish the moment the field is edited;
@@ -68,8 +68,11 @@ Async validators run **after the sync schema passes** for a revealed field, so u
 ```ts
 const form = createSuiForm(schema, {
 	asyncValidators: {
-		username: async (value) => {
-			const res = await fetch(`/api/available?u=${encodeURIComponent(String(value))}`);
+		// `signal` aborts when newer input supersedes this check
+		username: async (value, _values, { signal }) => {
+			const res = await fetch(`/api/available?u=${encodeURIComponent(String(value))}`, {
+				signal
+			});
 			const { available } = await res.json();
 			return available || 'That username is already taken.'; // a message fails; anything else passes
 		}
@@ -105,27 +108,52 @@ const form = createSuiForm(schema, {
 
 Finer-grained helpers: `suiErrors.fromIssues(issues)`, `suiErrors.fromZodError(error)`. Or throw a `ZodError` (or any issue-carrying object) straight from the callback — fields map automatically, root issues land in `form.formErrors`, and any other thrown error becomes a form-level message rendered by `<SuiForm showFormErrors>`.
 
-SvelteKit form actions (same pattern, server side):
+SvelteKit form actions — the action re-validates with the same schema and returns its issues through `fail()`:
+
+```ts
+// +page.server.ts
+import { fail } from '@sveltejs/kit';
+import { schema } from './schema';
+
+export const actions = {
+	signup: async ({ request }) => {
+		const parsed = schema.safeParse(Object.fromEntries(await request.formData()));
+		if (!parsed.success) {
+			// only path + message travel back — never echo the submitted input
+			const issues = parsed.error.issues.map(({ path, message }) => ({ path, message }));
+			return fail(400, { issues });
+		}
+		// …create the account
+	}
+};
+```
 
 ```svelte
 <!-- +page.svelte -->
 <script lang="ts">
+	import { deserialize } from '$app/forms';
 	import { createSuiForm, SuiForm, suiErrors } from '$lib/sui';
+	import { schema } from './schema';
 
 	const form = createSuiForm(schema, {
 		onsubmit: async (data) => {
+			const body = new FormData();
+			for (const [key, value] of Object.entries(data)) body.append(key, String(value));
 			const res = await fetch('?/signup', {
 				method: 'POST',
-				body: new FormData(event_target, JSON.stringify(data))
+				body,
+				headers: { 'x-sveltekit-action': 'true' }
 			});
-			const body = await res.json();
-			if (!res.ok) form.setErrors(suiErrors.fromIssues(body.issues));
+			const result = deserialize(await res.text());
+			if (result.type === 'failure') form.setErrors(suiErrors.fromResponse(result.data));
 		}
 	});
 </script>
 
 <SuiForm {form} showFormErrors>…</SuiForm>
 ```
+
+Flat schemas map onto `FormData` directly; for nested objects or arrays, post JSON to a `+server.ts` endpoint instead. Every sui control also renders its field path as the native `name` (hidden inputs for the pickers), so `new FormData(formElement)` and plain `use:enhance` forms see the same keys.
 
 ---
 
@@ -152,18 +180,20 @@ const form = createSuiForm(schema, {
 
 ## Unsaved-changes guard
 
-`form.dirty` tracks which paths changed from the initial value — one `beforeNavigate` is a complete guard:
+`form.dirty` lists the paths whose value differs from the initial value (editing a field back to its original value removes it), and `form.isDirty` summarises it — one `beforeNavigate` is a complete guard:
 
 ```svelte
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 
 	beforeNavigate(({ cancel }) => {
-		if (form.isSubmitted || Object.keys(form.dirty).length === 0) return;
+		if (!form.isDirty) return;
 		if (!confirm('You have unsaved changes. Leave anyway?')) cancel();
 	});
 </script>
 ```
+
+Edit forms whose record loads asynchronously re-baseline with `form.reset(values)` — the loaded record becomes the pristine state, so `isDirty` starts `false`; call it again after a successful save.
 
 ---
 

@@ -23,6 +23,14 @@ export type SuiSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 export type SuiFieldVariant = 'info' | 'success' | 'warning' | 'error';
 
 /**
+ * Button colour: one of the semantic colours shared with the field
+ * variants, or any CSS colour (`'#7c3aed'`, `'oklch(0.6 0.2 300)'`,
+ * `'var(--brand)'`) for brand buttons. Combines with every button variant
+ * (solid, secondary, outline, ghost, link) and adapts to dark mode.
+ */
+export type SuiButtonColor = SuiFieldVariant | (string & {});
+
+/**
  * A Svelte component that renders an icon — e.g. any lucide-svelte icon
  * or any custom component accepting a `class` prop.
  */
