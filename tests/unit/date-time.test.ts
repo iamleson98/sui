@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
 import { CalendarDate, CalendarDateTime, Time } from '@internationalized/date';
 import {
+	SuiDateRangePicker,
 	SuiDatePicker,
 	SuiDateTimePicker,
 	SuiTimePicker,
@@ -229,5 +230,71 @@ describe('SuiDateTimePicker', () => {
 		const list = await screen.findByRole('listbox', { name: 'Choose a time' });
 		await user.click(within(list).getByRole('option', { name: '9:30 AM' }));
 		expect(onValueChange).toHaveBeenLastCalledWith('2026-10-14T09:30');
+	});
+});
+
+describe('SuiDateRangePicker', () => {
+	it('shows a bound ISO range as two segment groups', () => {
+		const { container } = render(SuiDateRangePicker, {
+			label: 'Stay',
+			value: { start: '2026-10-11', end: '2026-10-14' }
+		});
+		expect(segmentsText(container, '[data-sui-date-input]')).toBe('10/11/2026–10/14/2026');
+	});
+
+	it('only commits complete ranges — a half-typed range never validates mid-selection', async () => {
+		const onValueChange = vi.fn();
+		render(SuiDateRangePicker, { label: 'Stay', onValueChange });
+		const segments = screen.getAllByRole('spinbutton');
+		segments[0]!.focus();
+		await user.keyboard('10112026');
+		await waitFor(() => expect(segments[3]).toBeInTheDocument());
+		expect(onValueChange).not.toHaveBeenCalled(); // start only
+
+		await user.keyboard('10142026');
+		await waitFor(() =>
+			expect(onValueChange).toHaveBeenLastCalledWith({ start: '2026-10-11', end: '2026-10-14' })
+		);
+	});
+
+	it('presets set the whole range and clearing empties it', async () => {
+		const onValueChange = vi.fn();
+		render(SuiDateRangePicker, {
+			label: 'Period',
+			clearable: true,
+			presets: [{ label: 'Q4', range: () => ({ start: '2026-10-01', end: '2026-12-31' }) }],
+			onValueChange
+		});
+		await user.click(screen.getByRole('button', { name: 'Open calendar' }));
+		await user.click(await screen.findByRole('button', { name: 'Q4' }));
+		expect(onValueChange).toHaveBeenLastCalledWith({ start: '2026-10-01', end: '2026-12-31' });
+
+		await user.click(screen.getByRole('button', { name: 'Clear selection' }));
+		expect(onValueChange).toHaveBeenLastCalledWith({ start: undefined, end: undefined });
+	});
+
+	it('works as a createSuiForm field (z.object({ start, end })) and posts dotted names', async () => {
+		const form = createSuiForm(
+			z.object({
+				stay: z
+					.object({
+						start: z.iso.date('Choose a check-in'),
+						end: z.iso.date('Choose a check-out')
+					})
+					.refine((r) => !r.start || !r.end || r.end >= r.start, 'Check-out is before check-in')
+			}),
+			{ initialValues: { stay: { start: '2026-10-14', end: '2026-10-11' } } }
+		);
+		const { container } = render(SuiDateRangePicker, { field: form.fields.stay, label: 'Stay' });
+		expect(container.querySelector<HTMLInputElement>('input[name="stay.start"]')?.value).toBe(
+			'2026-10-14'
+		);
+		expect(container.querySelector<HTMLInputElement>('input[name="stay.end"]')?.value).toBe(
+			'2026-10-11'
+		);
+		expect(await form.handleSubmit()).toBe(false);
+		await waitFor(() =>
+			expect(screen.getByText('Check-out is before check-in')).toBeInTheDocument()
+		);
 	});
 });

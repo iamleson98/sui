@@ -1,9 +1,11 @@
+import { tick, untrack } from 'svelte';
 import type { SuiValidateOn } from '../zod.js';
 import {
 	suiIssuesFromError,
 	suiParse,
 	groupSuiIssues,
 	resolveSuiMessages,
+	schemaAt,
 	type SuiFocusOnSubmit,
 	type SuiIn,
 	type SuiIssue,
@@ -188,6 +190,12 @@ export type SuiFormOptions<Schema extends SuiSchemaLike> = {
 	 */
 	rewardValid?: boolean;
 	/**
+	 * Server errors to show on first render — the `errors` a no-JS form
+	 * action returned (`data.form?.errors`), so a failed progressive
+	 * submit re-renders with its messages in place.
+	 */
+	initialErrors?: Record<string, string[] | string>;
+	/**
 	 * Called with the parsed output when a submit passes validation.
 	 * Throw a `ZodError` (or any issue-carrying error) to map server-side
 	 * issues back onto fields; any other thrown error becomes a
@@ -198,6 +206,59 @@ export type SuiFormOptions<Schema extends SuiSchemaLike> = {
 	 */
 	onsubmit?: (data: SuiOut<Schema>, form: SuiFormInstance<Schema>) => void | Promise<void>;
 };
+
+/** Depth guard for the recursive path types below. */
+type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+/**
+ * Every dotted path into `T`: `'address'`, `'address.city'`, `'tags.0'`,
+ * `` `items.${number}.name` `` — the strings `form.field()` / `form.array()`
+ * accept. Resolves to `never` for schemas without introspectable types
+ * (non-zod vendors), where paths stay plain strings.
+ */
+export type SuiPath<T, D extends number = 6> = [D] extends [never]
+	? never
+	: T extends readonly (infer U)[]
+		? `${number}` | `${number}.${SuiPath<NonNullable<U>, Prev[D]>}`
+		: T extends Date | File | ((...args: never[]) => unknown)
+			? never
+			: T extends object
+				? {
+						[K in keyof T & string]-?:
+							| K
+							| (NonNullable<T[K]> extends object
+									? `${K}.${SuiPath<NonNullable<T[K]>, Prev[D]>}`
+									: never);
+					}[keyof T & string]
+				: never;
+
+/**
+ * What `form.field()` / `form.array()` accept for input type `In`: the
+ * schema's own {@link SuiPath}s when they can be derived (zod), otherwise
+ * any string (other vendors, `any`).
+ */
+export type SuiPathArg<In> = 0 extends 1 & In
+	? string
+	: [SuiPath<In>] extends [never]
+		? string
+		: SuiPath<In>;
+
+/** The value type at a dotted {@link SuiPath}. */
+export type SuiPathValue<T, P extends string> = P extends `${infer H}.${infer R}`
+	? H extends keyof T
+		? SuiPathValue<NonNullable<T[H]>, R>
+		: T extends readonly (infer U)[]
+			? SuiPathValue<NonNullable<U>, R>
+			: unknown
+	: P extends keyof T
+		? T[P]
+		: T extends readonly (infer U)[]
+			? U
+			: unknown;
+
+/** The item type of the array at `P` (`unknown` when `P` is not an array). */
+export type SuiArrayItem<T, P extends string> =
+	NonNullable<SuiPathValue<T, P>> extends readonly (infer U)[] ? U : unknown;
 
 /**
  * Per-key field handles, typed on the **edit side** (input) — the
@@ -217,7 +278,6 @@ export type SuiFieldsFor<Schema extends SuiSchemaLike> = {
  * vendors pass `initialValues` instead.
  */
 function schemaDefault(schema: SuiSchemaLike): unknown {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const def = (schema as any)?.def as
 		| {
 				type: string;
@@ -246,7 +306,6 @@ function schemaDefault(schema: SuiSchemaLike): unknown {
 			// edits a string, so it starts from the string default
 			return def.in ? schemaDefault(def.in) : undefined;
 		case 'lazy':
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			return schemaDefault((schema as any).schema ?? def.innerType);
 		case 'string':
 			return '';
@@ -268,7 +327,6 @@ function schemaDefault(schema: SuiSchemaLike): unknown {
 
 /** Defaults for every key of a `z.object` shape (refinements keep `.shape`). */
 function schemaDefaults(schema: SuiSchemaLike): Record<string, unknown> {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const shape = (schema as any)?.shape as Record<string, SuiSchemaLike> | undefined;
 	if (!shape) return {};
 	const out: Record<string, unknown> = {};
@@ -283,7 +341,7 @@ function getByPath(obj: unknown, path: string): unknown {
 	let cur: unknown = obj;
 	for (const key of path.split('.')) {
 		if (cur === null || cur === undefined) return undefined;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		cur = (cur as any)[key];
 	}
 	return cur;
@@ -297,7 +355,7 @@ function setByPath(obj: Record<string, unknown>, path: string, value: unknown): 
 		const key = keys[i];
 		const next = cur[key];
 		if (typeof next !== 'object' || next === null) cur[key] = {};
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 		cur = cur[key] as any;
 	}
 	cur[keys[keys.length - 1]] = value;
@@ -466,10 +524,190 @@ export class SuiFormField<V = unknown> {
 
 	registerControl(id: string): () => void {
 		this.#controlId = id;
+		this.#form.noteControl(+1);
 		return () => {
+			this.#form.noteControl(-1);
 			// a newer control (re-render with a new id) may own the field now
 			if (this.#controlId === id) this.#controlId = undefined;
 		};
+	}
+}
+
+/**
+ * Re-key a path-indexed record after the array at `path` changed:
+ * `items.2.name` → `items.1.name` per `remap` (`null` drops the entry).
+ */
+function remapRecord<T>(
+	record: Record<string, T>,
+	path: string,
+	remap: (index: number) => number | null
+): Record<string, T> {
+	const prefix = `${path}.`;
+	const out: Record<string, T> = {};
+	for (const [key, value] of Object.entries(record)) {
+		if (!key.startsWith(prefix)) {
+			out[key] = value;
+			continue;
+		}
+		const rest = key.slice(prefix.length);
+		const dot = rest.indexOf('.');
+		const segment = dot < 0 ? rest : rest.slice(0, dot);
+		if (!/^\d+$/.test(segment)) {
+			out[key] = value;
+			continue;
+		}
+		const next = remap(Number(segment));
+		if (next === null) continue;
+		out[`${prefix}${next}${dot < 0 ? '' : rest.slice(dot)}`] = value;
+	}
+	return out;
+}
+
+/** One rendered item of a {@link SuiFormArray}. */
+export type SuiFormArrayEntry<Item> = {
+	/** Stable identity — use as the `{#each}` key. */
+	readonly key: string;
+	readonly index: number;
+	/** Dotted path of this item (`'emails.1'`). */
+	readonly path: string;
+	/** Field handle of the item (or of a sub-field: `item.field('name')`). */
+	field<V = Item>(sub?: string): SuiFormField<V>;
+};
+
+/**
+ * A dynamic list of fields — see {@link SuiFormInstance.array}. Mutations
+ * keep errors, touched, dirty and async state attached to the item they
+ * describe, and keys stable so Svelte moves DOM instead of re-creating it.
+ */
+export class SuiFormArray<Item = unknown> {
+	#form: SuiFormInstance<SuiSchemaLike>;
+	#path: string;
+
+	constructor(form: SuiFormInstance<SuiSchemaLike>, path: string) {
+		this.#form = form;
+		this.#path = path;
+	}
+
+	/** Dotted path of the array. */
+	get path(): string {
+		return this.#path;
+	}
+
+	/** Live item values (reactive). */
+	get items(): Item[] {
+		const value = getByPath(this.#form.values, this.#path);
+		return (Array.isArray(value) ? value : []) as Item[];
+	}
+
+	get length(): number {
+		return this.items.length;
+	}
+
+	/** Stable keys, one per item. */
+	get keys(): string[] {
+		return this.#form.arrayKeys(this.#path);
+	}
+
+	/** Render list: `{#each arr.entries as item (item.key)}`. */
+	get entries(): SuiFormArrayEntry<Item>[] {
+		return this.keys.map((key, index) => ({
+			key,
+			index,
+			path: `${this.#path}.${index}`,
+			field: <V = Item>(sub?: string) =>
+				this.#form.fieldAt<V>(sub ? `${this.#path}.${index}.${sub}` : `${this.#path}.${index}`)
+		}));
+	}
+
+	/** Field handle of item `index` (or its sub-field). */
+	field<V = Item>(index: number, sub?: string): SuiFormField<V> {
+		return this.#form.fieldAt<V>(sub ? `${this.#path}.${index}.${sub}` : `${this.#path}.${index}`);
+	}
+
+	#item(value?: Item): Item {
+		return (value !== undefined ? value : this.#form.newArrayItem(this.#path)) as Item;
+	}
+
+	/** Append an item (default: the element schema's default). */
+	push(value?: Item): void {
+		this.insert(this.length, value);
+	}
+
+	/** Insert at `index` (clamped); later items shift up. */
+	insert(index: number, value?: Item): void {
+		const item = this.#item(value);
+		this.#form.arrayMutate(this.#path, (items, keys) => {
+			const at = Math.max(0, Math.min(index, items.length));
+			items.splice(at, 0, item);
+			keys.splice(at, 0, `k${Math.random().toString(36).slice(2, 10)}`);
+			return (i) => (i >= at ? i + 1 : i);
+		});
+	}
+
+	/**
+	 * Remove the item at `index`; its state goes with it. Focus moves to the
+	 * neighbouring item (WCAG 2.4.3 — it would otherwise fall to `<body>`);
+	 * pass `{ focus: false }` to opt out.
+	 */
+	remove(index: number, options: { focus?: boolean } = {}): void {
+		if (index < 0 || index >= this.length) return;
+		this.#form.arrayMutate(this.#path, (items, keys) => {
+			items.splice(index, 1);
+			keys.splice(index, 1);
+			return (i) => (i === index ? null : i > index ? i - 1 : i);
+		});
+		// the user acted on the list: its own rule (min items) may now speak
+		this.#form.revealed[this.#path] = true;
+		if (options.focus !== false && this.length > 0) {
+			void this.#form.focusControlUnder(`${this.#path}.${Math.min(index, this.length - 1)}`);
+		}
+	}
+
+	/** Move an item; the ones between shift. */
+	move(from: number, to: number): void {
+		const length = this.length;
+		if (from === to || from < 0 || from >= length || to < 0 || to >= length) return;
+		this.#form.arrayMutate(this.#path, (items, keys) => {
+			const [item] = items.splice(from, 1);
+			const [key] = keys.splice(from, 1);
+			items.splice(to, 0, item);
+			keys.splice(to, 0, key!);
+			return (i) => {
+				if (i === from) return to;
+				if (from < to && i > from && i <= to) return i - 1;
+				if (from > to && i >= to && i < from) return i + 1;
+				return i;
+			};
+		});
+	}
+
+	/** Swap two items. */
+	swap(a: number, b: number): void {
+		const length = this.length;
+		if (a === b || a < 0 || b < 0 || a >= length || b >= length) return;
+		this.#form.arrayMutate(this.#path, (items, keys) => {
+			[items[a], items[b]] = [items[b], items[a]];
+			[keys[a], keys[b]] = [keys[b]!, keys[a]!];
+			return (i) => (i === a ? b : i === b ? a : i);
+		});
+	}
+
+	/** Remove every item. */
+	clear(): void {
+		this.#form.arrayMutate(this.#path, (items, keys) => {
+			items.length = 0;
+			keys.length = 0;
+			return () => null;
+		});
+	}
+
+	/** Replace the whole list (all per-item state is dropped). */
+	replace(next: Item[]): void {
+		this.#form.arrayMutate(this.#path, (items, keys) => {
+			items.splice(0, items.length, ...next);
+			keys.length = 0;
+			return () => null;
+		});
 	}
 }
 
@@ -485,6 +723,13 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	/** The baseline values: schema defaults + `initialValues` (or the last `reset(values)`). */
 	#defaults: Record<string, unknown>;
 	#handles = new Map<string, SuiFormField<never>>();
+	#arrays = new Map<string, SuiFormArray<unknown>>();
+	/** Stable item keys per array path (kept in lockstep by `arrayMutate`). */
+	#arrayKeys = new Map<string, string[]>();
+	#arrayVersion = $state(0);
+	#keySeq = 0;
+	/** Mounted controls bound to this form (effects only — never counted on the server). */
+	#controlCount = $state(0);
 	#fieldsProxy: SuiFieldsFor<Schema> | undefined;
 	#timers = new Map<string, ReturnType<typeof setTimeout>>();
 	/** The submit attempt in progress — repeated submits join it. */
@@ -540,6 +785,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		// Object.assign THROUGH the $state proxy: nested defaults become
 		// deeply reactive without ever reassigning `values`.
 		Object.assign(this.values as Record<string, unknown>, cloneValue(this.#defaults));
+		if (options.initialErrors) this.setErrors(options.initialErrors);
 	}
 
 	/** Schema-derived defaults with `initial` layered on top (deep-copied, never aliased). */
@@ -586,6 +832,9 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * a multi-select bound to `tags`) display on that field instead.
 	 */
 	get unmappedErrors(): string[] {
+		// controls register in effects: on the server and during hydration
+		// none have yet, and "no control can show it" would be a false alarm
+		if (this.#controlCount === 0) return [];
 		const out = new Set<string>();
 		for (const path of this.#issuePaths()) {
 			if (path === '' || !this.revealed[path] || this.#ownerOf(path) !== null) continue;
@@ -651,7 +900,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		});
 		const out: { fieldId: string; message: string }[] = [];
 		for (const path of paths) {
-			const handle = this.field(path);
+			const handle = this.fieldAt(path);
 			if (handle.errors.length === 0 || !handle.controlId) continue;
 			out.push({ fieldId: handle.controlId, message: handle.errors.join(' ') });
 		}
@@ -661,20 +910,160 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	/** Per-key field handles (`form.fields.email`) — created lazily, cached. */
 	get fields(): SuiFieldsFor<Schema> {
 		this.#fieldsProxy ??= new Proxy({} as SuiFieldsFor<Schema>, {
-			get: (_target, key) => (typeof key === 'string' ? (this.field(key) as never) : undefined),
+			get: (_target, key) => (typeof key === 'string' ? (this.fieldAt(key) as never) : undefined),
 			has: (_target, key) => typeof key === 'string'
 		});
 		return this.#fieldsProxy;
 	}
 
-	/** Field handle for an explicit (possibly dotted) path. */
-	field<V = unknown>(path: string): SuiFormField<V> {
+	/**
+	 * Field handle for a dotted path. Paths are type-checked against the
+	 * schema (`form.field('address.city')`, `` form.field(`items.${i}.name`) ``)
+	 * and the handle carries the value's type; plain strings still work for
+	 * other vendors and computed paths.
+	 */
+	field<P extends SuiPathArg<SuiIn<Schema>>>(path: P): SuiFormField<SuiPathValue<SuiIn<Schema>, P>>;
+	field(path: string): SuiFormField<unknown> {
+		return this.fieldAt(path);
+	}
+
+	/** Untyped field handle for a computed path (internal helpers, adapters). @internal */
+	fieldAt<V = unknown>(path: string): SuiFormField<V> {
 		let handle = this.#handles.get(path);
 		if (!handle) {
 			handle = new SuiFormField(this as never, path) as SuiFormField<never>;
 			this.#handles.set(path, handle);
 		}
 		return handle as SuiFormField<V>;
+	}
+
+	/**
+	 * A dynamic list of fields — "add another email", invoice line items.
+	 * Keys are stable across inserts, removals and moves, and every piece
+	 * of per-item state (errors, touched, dirty, async checks) follows the
+	 * item it belongs to:
+	 *
+	 * ```svelte
+	 * {#each emails.entries as item (item.key)}
+	 *   <SuiInput field={item.field()} label="Email {item.index + 1}" />
+	 *   <SuiButton onclick={() => emails.remove(item.index)}>Remove</SuiButton>
+	 * {/each}
+	 * <SuiButton onclick={() => emails.push()}>Add another</SuiButton>
+	 * ```
+	 */
+	array<P extends SuiPathArg<SuiIn<Schema>>>(path: P): SuiFormArray<SuiArrayItem<SuiIn<Schema>, P>>;
+	array(path: string): SuiFormArray<unknown> {
+		let handle = this.#arrays.get(path);
+		if (!handle) {
+			handle = new SuiFormArray(this as never, path);
+			this.#arrays.set(path, handle);
+		}
+		return handle;
+	}
+
+	/** A control (un)registered. @internal */
+	noteControl(delta: 1 | -1): void {
+		// untracked read: this runs inside the controls' registration
+		// effects, which must not subscribe to (and re-trigger on) the count
+		untrack(() => {
+			this.#controlCount += delta;
+		});
+	}
+
+	/** The default value of a new array item at `path`'s element schema. @internal */
+	newArrayItem(path: string): unknown {
+		const element = schemaAt(this.#schema, `${path}.0`);
+		return cloneValue(element ? schemaDefault(element) : undefined);
+	}
+
+	/** Stable keys of the array at `path`, reconciled with its length. @internal */
+	arrayKeys(path: string): string[] {
+		void this.#arrayVersion; // re-read after every structural change
+		const value = getByPath(this.values, path);
+		const length = Array.isArray(value) ? value.length : 0;
+		let keys = this.#arrayKeys.get(path);
+		if (!keys) this.#arrayKeys.set(path, (keys = []));
+		while (keys.length < length) keys.push(`k${++this.#keySeq}`);
+		if (keys.length > length) keys.length = length;
+		return [...keys];
+	}
+
+	/**
+	 * Structural change of the array at `path`: `op` mutates the live array
+	 * and its keys in lockstep and returns the old → new index map (`null` =
+	 * removed). Per-item state is re-indexed accordingly. @internal
+	 */
+	arrayMutate(
+		path: string,
+		op: (items: unknown[], keys: string[]) => (index: number) => number | null
+	): void {
+		this.arrayKeys(path); // reconcile first
+		let items = getByPath(this.values, path);
+		if (!Array.isArray(items)) {
+			setByPath(this.values as Record<string, unknown>, path, []);
+			items = getByPath(this.values, path);
+		}
+		const keys = this.#arrayKeys.get(path)!;
+		const remap = op(items as unknown[], keys);
+		const prefix = `${path}.`;
+
+		// in-flight/debounced work and memos describe positions that moved
+		for (const key of new Set([
+			...this.#asyncTimers.keys(),
+			...this.#asyncInflight.keys(),
+			...this.#asyncMemo.keys(),
+			...this.#asyncAborts.keys()
+		])) {
+			if (!key.startsWith(prefix)) continue;
+			this.#cancelAsync(key);
+			this.#asyncMemo.delete(key);
+		}
+		for (const [key, timer] of this.#timers) {
+			if (!key.startsWith(prefix)) continue;
+			clearTimeout(timer);
+			this.#timers.delete(key);
+		}
+
+		this.issues = remapRecord(this.issues, path, remap);
+		this.external = remapRecord(this.external, path, remap);
+		this.asyncIssues = remapRecord(this.asyncIssues, path, remap);
+		this.isValidating = remapRecord(this.isValidating, path, remap);
+		this.revealed = remapRecord(this.revealed, path, remap);
+		this.touched = remapRecord(this.touched, path, remap);
+		this.edited = remapRecord(this.edited, path, remap);
+		// dirty is value-vs-baseline: the list as a whole is the unit
+		for (const key of Object.keys(this.dirty)) {
+			if (key.startsWith(prefix)) delete this.dirty[key];
+		}
+		this.edited[path] = true;
+		this.#syncDirty(path);
+
+		// issues describe the old positions — refresh them silently (display
+		// is still reveal-gated)
+		const result = this.#parseNow();
+		if (result.ok) this.issues = {};
+		else this.#applyIssues(result.issues);
+		this.#arrayVersion += 1;
+	}
+
+	/** Focus the first control rendered under `prefix` (after the DOM settled). @internal */
+	async focusControlUnder(prefix: string): Promise<void> {
+		await tick();
+		for (const [path, handle] of this.#handles) {
+			if (path !== prefix && !path.startsWith(`${prefix}.`)) continue;
+			const id = handle.controlId;
+			const el = id ? document.getElementById(id) : null;
+			if (!el) continue;
+			const target = el.matches('input, textarea, select, button, [tabindex], [contenteditable]')
+				? el
+				: el.querySelector<HTMLElement>(
+						'input, textarea, select, button, [tabindex], [contenteditable]'
+					);
+			if (target) {
+				target.focus();
+				return;
+			}
+		}
 	}
 
 	// ------------------------------------------------------------ engine
@@ -1125,6 +1514,8 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		this.#asyncRuns.clear();
 		this.#asyncInflight.clear();
 		this.#asyncMemo.clear();
+		this.#arrayKeys.clear();
+		this.#arrayVersion += 1;
 		const current = this.values as Record<string, unknown>;
 		for (const key of Object.keys(current)) delete current[key];
 		Object.assign(current, cloneValue(this.#defaults));
@@ -1149,7 +1540,18 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		return attempt;
 	};
 
-	async #submit(): Promise<boolean> {
+	/**
+	 * Everything a submit does BEFORE the server round-trip: whole-schema
+	 * parse (reveals every invalid field), async-validator flush and the
+	 * failed-submit bookkeeping — without calling `onsubmit`. This is the
+	 * client-side gate for SvelteKit form actions (see `suiEnhance`):
+	 * resolves `true` when the browser may go on to post the form.
+	 */
+	prepareSubmit(): Promise<boolean> {
+		return this.#submit(false);
+	}
+
+	async #submit(callback = true): Promise<boolean> {
 		this.submitCount += 1;
 		const result = this.#parseNow();
 		if (!result.ok) {
@@ -1162,7 +1564,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		}
 		this.issues = {};
 		this.#submittedInvalid = false;
-		const { onsubmit } = this.#options;
+		const onsubmit = callback ? this.#options.onsubmit : undefined;
 		const hasAsync = !!this.#options.asyncValidators;
 		if (!onsubmit && !hasAsync) return true;
 		// the async flush is real work (network) — the button should show it

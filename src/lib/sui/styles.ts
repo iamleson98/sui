@@ -142,9 +142,11 @@ export const SUI_INVALID_TRIGGER = `${SUI_INVALID_RING} aria-invalid:border-red-
 
 /** Field variant classes applied to messages rendered below a control. */
 export const SUI_FIELD_TEXT: Record<SuiFieldVariant, string> = {
+	// 700-level on light surfaces: the 600s of green and amber miss the
+	// 4.5:1 AA contrast ratio on white (3.2:1 / 3.3:1)
 	info: 'text-blue-600 dark:text-blue-400',
-	success: 'text-green-600 dark:text-green-400',
-	warning: 'text-amber-600 dark:text-amber-400',
+	success: 'text-green-700 dark:text-green-400',
+	warning: 'text-amber-700 dark:text-amber-400',
 	error: 'text-red-600 dark:text-red-400'
 };
 

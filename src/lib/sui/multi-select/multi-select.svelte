@@ -287,7 +287,6 @@
 	let sentinel: HTMLElement | null = $state(null);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let triggerWidth = $state(0);
-	let listEl: HTMLElement | null = $state(null);
 
 	// popup dismissal + blur contract (see popup-blur.ts): pointer and
 	// Escape dismissals are peeks — no blur validation; pointer dismissal
@@ -583,7 +582,6 @@
 
 				{#if action}
 					<!-- A click shield: interactive content inside must not toggle the popover. -->
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 					<span
 						data-sui-action
 						role="presentation"
@@ -632,6 +630,9 @@
 						<Command.Input
 							bind:value={query}
 							placeholder={searchPlaceholder ?? strings.searchPlaceholder}
+							aria-label={searchPlaceholder ?? strings.searchPlaceholder}
+							aria-expanded="true"
+							aria-controls={listboxId}
 							data-sui-multi-select-input
 						/>
 					</div>

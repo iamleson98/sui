@@ -97,6 +97,8 @@
 	data-loading={loading || undefined}
 	class="{SUI_CONTROL[size]} {fullWidth ? 'w-full' : ''} {loading
 		? 'pointer-events-none opacity-50'
+		: ''} {variant === 'destructive' && !color
+		? 'text-red-700 dark:text-red-300'
 		: ''} {tint.class} {className}"
 	style={[tint.style, style].filter(Boolean).join(' ') || undefined}
 	data-sui-color={color ? (tint.style ? 'custom' : color) : undefined}

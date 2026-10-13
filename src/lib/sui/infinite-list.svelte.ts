@@ -58,7 +58,6 @@ export class SuiInfiniteList<T> {
 	/** Pages loaded since the last reset — page 0 shows `loading`, later ones `loadingMore`. */
 	#loaded = 0;
 	#cursor: string | null = null;
-	#mode: 'unknown' | 'cursor' | 'offset' = 'unknown';
 	#requestId = 0;
 	#abort: AbortController | null = null;
 	#query = '';
@@ -129,13 +128,11 @@ export class SuiInfiniteList<T> {
 			this.#loaded += 1;
 			this.total = result.total;
 			if (result.nextCursor !== undefined) {
-				this.#mode = 'cursor';
 				this.#cursor = result.nextCursor;
 				// a cursor list can only continue WITH a cursor — a null one
 				// would re-request the first page
 				this.hasMore = result.hasMore && result.nextCursor !== null;
 			} else {
-				this.#mode = 'offset';
 				this.#page += 1;
 				this.hasMore = result.hasMore;
 			}
@@ -172,7 +169,6 @@ export class SuiInfiniteList<T> {
 		this.#page = 0;
 		this.#loaded = 0;
 		this.#cursor = null;
-		this.#mode = 'unknown';
 		this.loading = false;
 		this.loadingMore = false;
 		this.hasMore = true;

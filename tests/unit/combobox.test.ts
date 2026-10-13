@@ -135,7 +135,7 @@ describe('SuiCombobox — clear & semantics', () => {
 describe('SuiCombobox — server sources', () => {
 	it('prefetches the first page and streams more via sentinel', async () => {
 		const state = { calls: 0, query: '' };
-		const source: SuiSource<SuiItem> = cursorSource(async ({ cursor, size, query }) => {
+		const source: SuiSource<SuiItem> = cursorSource(async ({ cursor, query }) => {
 			state.calls += 1;
 			state.query = query;
 			const page = cursor ? Number(atob(cursor)) : 0;

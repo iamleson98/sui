@@ -37,7 +37,6 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import CheckIcon from '@lucide/svelte/icons/check';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import UserIcon from '@lucide/svelte/icons/user';

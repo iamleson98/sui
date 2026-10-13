@@ -93,7 +93,7 @@
 			validateDebounce={300}
 			subText="Changing this will update your profile URL."
 		>
-			{#snippet action({ size })}
+			{#snippet action()}
 				{#if usernameAvailable === 'checking'}
 					<LoaderCircleIcon class="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
 				{:else if usernameAvailable === 'free'}
@@ -134,7 +134,7 @@
 			bind:value={password}
 			placeholder="••••••••"
 		>
-			{#snippet action({ size })}
+			{#snippet action()}
 				<button
 					type="button"
 					class="flex items-center text-muted-foreground hover:text-foreground"

@@ -148,7 +148,6 @@
 	// initial values intentionally captured once (initial state semantics)
 	// svelte-ignore state_referenced_locally
 	let sorting = $state.raw<SortingState>(defaultSorting);
-	// svelte-ignore state_referenced_locally
 	let columnVisibility = $state.raw<Record<string, boolean>>(initialVisibility);
 	let rowSelection = $state.raw<RowSelectionState>({});
 	let globalFilter = $state('');
@@ -272,7 +271,6 @@
 
 	/** CSV export of the current filtered rows (accessor columns only). */
 	function exportCsv() {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const columns: SuiCsvColumn<any>[] = displayHeaders
 			// TanStack resolves accessorFn onto the column instance
 			// (the raw def keeps only accessorKey for key-based defs)
@@ -283,7 +281,7 @@
 					typeof header.column.columnDef.header === 'string'
 						? header.column.columnDef.header
 						: header.column.id,
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 				value: (row: any) => row.getValue(header.column.id)
 			}));
 		// filtered AND sorted (pre-pagination): the export matches what the
@@ -305,7 +303,6 @@
 		get data() {
 			return data;
 		},
-		// svelte-ignore state_referenced_locally
 		getRowId: rowId ?? undefined,
 		get manualPagination() {
 			return manual || manualNone;
@@ -385,7 +382,7 @@
 	// and must stay on the requested page.
 	let sawFirstDataset = false;
 	$effect(() => {
-		const dataset = data;
+		void data; // re-run when a new dataset arrives
 		untrack(() => {
 			if (!sawFirstDataset) {
 				sawFirstDataset = true;

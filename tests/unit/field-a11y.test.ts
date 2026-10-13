@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
@@ -253,7 +253,7 @@ describe('SuiForm — form-level error banner', () => {
 	});
 
 	it('receives focus after a failed submit that produced only form-level errors', async () => {
-		const { form } = setupRootForm();
+		setupRootForm();
 		await user.type(screen.getByLabelText('Name'), 'anything');
 		await user.click(screen.getByRole('button', { name: 'Submit' }));
 

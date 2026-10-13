@@ -57,9 +57,6 @@
 		showcase.events.filter((e) => e.dayOffset >= 0 && e.dayOffset <= 7).length
 	);
 
-	function isToday(d: DateValue) {
-		return d.compare(TODAY) === 0;
-	}
 	function dayChip(d: DateValue | undefined): string {
 		if (!d) return '';
 		const diff = d.compare(TODAY);

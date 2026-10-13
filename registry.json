@@ -1,0 +1,394 @@
+{
+	"$schema": "https://shadcn-svelte.com/schema/registry.json",
+	"name": "sui",
+	"homepage": "https://github.com/iamleson98/sui",
+	"items": [
+		{
+			"name": "sui",
+			"type": "registry:lib",
+			"title": "sui",
+			"description": "Batteries-included form controls, schema-driven forms (zod v4 / Standard Schema), selects with REST infinite scroll, date & time pickers and a virtualized data table, on shadcn-svelte + bits-ui.",
+			"dependencies": [
+				"zod",
+				"bits-ui",
+				"@internationalized/date",
+				"@lucide/svelte",
+				"@tanstack/svelte-table",
+				"@tanstack/svelte-virtual",
+				"vaul-svelte",
+				"tailwind-variants",
+				"cn"
+			],
+			"registryDependencies": [
+				"button",
+				"calendar",
+				"range-calendar",
+				"checkbox",
+				"command",
+				"drawer",
+				"dropdown-menu",
+				"popover",
+				"radio-group",
+				"select",
+				"switch"
+			],
+			"files": [
+				{
+					"path": "src/lib/sui/button/button-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/button/button-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/button/button.svelte",
+					"type": "registry:lib",
+					"target": "sui/button/button.svelte"
+				},
+				{
+					"path": "src/lib/sui/button/icon-button-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/button/icon-button-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/button/icon-button.svelte",
+					"type": "registry:lib",
+					"target": "sui/button/icon-button.svelte"
+				},
+				{
+					"path": "src/lib/sui/button/index.ts",
+					"type": "registry:lib",
+					"target": "sui/button/index.ts"
+				},
+				{
+					"path": "src/lib/sui/checkbox/checkbox-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/checkbox/checkbox-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/checkbox/checkbox.svelte",
+					"type": "registry:lib",
+					"target": "sui/checkbox/checkbox.svelte"
+				},
+				{
+					"path": "src/lib/sui/checkbox/index.ts",
+					"type": "registry:lib",
+					"target": "sui/checkbox/index.ts"
+				},
+				{
+					"path": "src/lib/sui/chip-fit.ts",
+					"type": "registry:lib",
+					"target": "sui/chip-fit.ts"
+				},
+				{
+					"path": "src/lib/sui/combobox/combobox-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/combobox/combobox-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/combobox/combobox.svelte",
+					"type": "registry:lib",
+					"target": "sui/combobox/combobox.svelte"
+				},
+				{
+					"path": "src/lib/sui/combobox/index.ts",
+					"type": "registry:lib",
+					"target": "sui/combobox/index.ts"
+				},
+				{
+					"path": "src/lib/sui/data-table/columns.ts",
+					"type": "registry:lib",
+					"target": "sui/data-table/columns.ts"
+				},
+				{
+					"path": "src/lib/sui/data-table/csv.ts",
+					"type": "registry:lib",
+					"target": "sui/data-table/csv.ts"
+				},
+				{
+					"path": "src/lib/sui/data-table/data-table-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/data-table/data-table-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/data-table/data-table.svelte",
+					"type": "registry:lib",
+					"target": "sui/data-table/data-table.svelte"
+				},
+				{
+					"path": "src/lib/sui/data-table/index.ts",
+					"type": "registry:lib",
+					"target": "sui/data-table/index.ts"
+				},
+				{
+					"path": "src/lib/sui/date/date-calendar.svelte",
+					"type": "registry:lib",
+					"target": "sui/date/date-calendar.svelte"
+				},
+				{
+					"path": "src/lib/sui/date/date-picker.svelte",
+					"type": "registry:lib",
+					"target": "sui/date/date-picker.svelte"
+				},
+				{
+					"path": "src/lib/sui/date/date-range-calendar.svelte",
+					"type": "registry:lib",
+					"target": "sui/date/date-range-calendar.svelte"
+				},
+				{
+					"path": "src/lib/sui/date/date-range-picker.svelte",
+					"type": "registry:lib",
+					"target": "sui/date/date-range-picker.svelte"
+				},
+				{
+					"path": "src/lib/sui/date/date-time-picker.svelte",
+					"type": "registry:lib",
+					"target": "sui/date/date-time-picker.svelte"
+				},
+				{
+					"path": "src/lib/sui/date/index.ts",
+					"type": "registry:lib",
+					"target": "sui/date/index.ts"
+				},
+				{
+					"path": "src/lib/sui/date/iso.ts",
+					"type": "registry:lib",
+					"target": "sui/date/iso.ts"
+				},
+				{
+					"path": "src/lib/sui/date/segment-input.ts",
+					"type": "registry:lib",
+					"target": "sui/date/segment-input.ts"
+				},
+				{
+					"path": "src/lib/sui/date/time-picker.svelte",
+					"type": "registry:lib",
+					"target": "sui/date/time-picker.svelte"
+				},
+				{
+					"path": "src/lib/sui/error-summary/error-summary.svelte",
+					"type": "registry:lib",
+					"target": "sui/error-summary/error-summary.svelte"
+				},
+				{
+					"path": "src/lib/sui/error-summary/index.ts",
+					"type": "registry:lib",
+					"target": "sui/error-summary/index.ts"
+				},
+				{
+					"path": "src/lib/sui/field.svelte.ts",
+					"type": "registry:lib",
+					"target": "sui/field.svelte.ts"
+				},
+				{
+					"path": "src/lib/sui/form/create-form.svelte.ts",
+					"type": "registry:lib",
+					"target": "sui/form/create-form.svelte.ts"
+				},
+				{
+					"path": "src/lib/sui/form/field-registry.ts",
+					"type": "registry:lib",
+					"target": "sui/form/field-registry.ts"
+				},
+				{
+					"path": "src/lib/sui/form/form.svelte",
+					"type": "registry:lib",
+					"target": "sui/form/form.svelte"
+				},
+				{
+					"path": "src/lib/sui/form/index.ts",
+					"type": "registry:lib",
+					"target": "sui/form/index.ts"
+				},
+				{
+					"path": "src/lib/sui/form/kit.ts",
+					"type": "registry:lib",
+					"target": "sui/form/kit.ts"
+				},
+				{
+					"path": "src/lib/sui/form/schema.ts",
+					"type": "registry:lib",
+					"target": "sui/form/schema.ts"
+				},
+				{
+					"path": "src/lib/sui/form/submit.svelte.ts",
+					"type": "registry:lib",
+					"target": "sui/form/submit.svelte.ts"
+				},
+				{
+					"path": "src/lib/sui/form/utils.ts",
+					"type": "registry:lib",
+					"target": "sui/form/utils.ts"
+				},
+				{
+					"path": "src/lib/sui/index.ts",
+					"type": "registry:lib",
+					"target": "sui/index.ts"
+				},
+				{
+					"path": "src/lib/sui/infinite-list.svelte.ts",
+					"type": "registry:lib",
+					"target": "sui/infinite-list.svelte.ts"
+				},
+				{
+					"path": "src/lib/sui/input/index.ts",
+					"type": "registry:lib",
+					"target": "sui/input/index.ts"
+				},
+				{
+					"path": "src/lib/sui/input/input-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/input/input-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/input/input.svelte",
+					"type": "registry:lib",
+					"target": "sui/input/input.svelte"
+				},
+				{
+					"path": "src/lib/sui/input/textarea-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/input/textarea-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/input/textarea.svelte",
+					"type": "registry:lib",
+					"target": "sui/input/textarea.svelte"
+				},
+				{
+					"path": "src/lib/sui/intersection.ts",
+					"type": "registry:lib",
+					"target": "sui/intersection.ts"
+				},
+				{
+					"path": "src/lib/sui/mobile.svelte.ts",
+					"type": "registry:lib",
+					"target": "sui/mobile.svelte.ts"
+				},
+				{
+					"path": "src/lib/sui/multi-select/index.ts",
+					"type": "registry:lib",
+					"target": "sui/multi-select/index.ts"
+				},
+				{
+					"path": "src/lib/sui/multi-select/multi-select-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/multi-select/multi-select-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/multi-select/multi-select.svelte",
+					"type": "registry:lib",
+					"target": "sui/multi-select/multi-select.svelte"
+				},
+				{
+					"path": "src/lib/sui/pagination.ts",
+					"type": "registry:lib",
+					"target": "sui/pagination.ts"
+				},
+				{
+					"path": "src/lib/sui/popup-blur.ts",
+					"type": "registry:lib",
+					"target": "sui/popup-blur.ts"
+				},
+				{
+					"path": "src/lib/sui/radio-group/index.ts",
+					"type": "registry:lib",
+					"target": "sui/radio-group/index.ts"
+				},
+				{
+					"path": "src/lib/sui/radio-group/radio-group.svelte",
+					"type": "registry:lib",
+					"target": "sui/radio-group/radio-group.svelte"
+				},
+				{
+					"path": "src/lib/sui/radio-group/radio-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/radio-group/radio-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/select/index.ts",
+					"type": "registry:lib",
+					"target": "sui/select/index.ts"
+				},
+				{
+					"path": "src/lib/sui/select/select-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/select/select-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/select/select.svelte",
+					"type": "registry:lib",
+					"target": "sui/select/select.svelte"
+				},
+				{
+					"path": "src/lib/sui/skeleton/index.ts",
+					"type": "registry:lib",
+					"target": "sui/skeleton/index.ts"
+				},
+				{
+					"path": "src/lib/sui/skeleton/skeleton-container.svelte",
+					"type": "registry:lib",
+					"target": "sui/skeleton/skeleton-container.svelte"
+				},
+				{
+					"path": "src/lib/sui/skeleton/skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/skeleton/skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/strings.ts",
+					"type": "registry:lib",
+					"target": "sui/strings.ts"
+				},
+				{
+					"path": "src/lib/sui/styles.ts",
+					"type": "registry:lib",
+					"target": "sui/styles.ts"
+				},
+				{
+					"path": "src/lib/sui/sui-icon.svelte",
+					"type": "registry:lib",
+					"target": "sui/sui-icon.svelte"
+				},
+				{
+					"path": "src/lib/sui/switch/index.ts",
+					"type": "registry:lib",
+					"target": "sui/switch/index.ts"
+				},
+				{
+					"path": "src/lib/sui/switch/switch-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/switch/switch-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/switch/switch.svelte",
+					"type": "registry:lib",
+					"target": "sui/switch/switch.svelte"
+				},
+				{
+					"path": "src/lib/sui/types.ts",
+					"type": "registry:lib",
+					"target": "sui/types.ts"
+				},
+				{
+					"path": "src/lib/sui/zod.ts",
+					"type": "registry:lib",
+					"target": "sui/zod.ts"
+				},
+				{
+					"path": "src/lib/components/ui/command/command-item.svelte",
+					"type": "registry:lib",
+					"target": "components/ui/command/command-item.svelte"
+				},
+				{
+					"path": "src/lib/components/ui/command/command-group.svelte",
+					"type": "registry:lib",
+					"target": "components/ui/command/command-group.svelte"
+				},
+				{
+					"path": "src/lib/components/ui/command/contained-scroll-into-view.ts",
+					"type": "registry:lib",
+					"target": "components/ui/command/contained-scroll-into-view.ts"
+				}
+			]
+		}
+	]
+}

@@ -412,7 +412,6 @@
 			{/if}
 			{#if action}
 				<!-- A click shield: interactive content inside must not toggle the select. -->
-				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 				<span
 					data-sui-action
 					role="presentation"
@@ -434,7 +433,6 @@
 					{#snippet child({ props })}
 						<!-- aria-invalid mirrors the shadcn-svelte select-trigger pattern;
                                                         the checker is stricter than ARIA-in-HTML consumers expect here. -->
-						<!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
 						<button
 							{...props as Record<string, unknown>}
 							{id}
@@ -575,6 +573,7 @@
 					data-invalid={invalid || undefined}
 					aria-invalid={invalid || undefined}
 					aria-required={required || undefined}
+					aria-controls={listboxId}
 					class={cn(
 						'relative flex w-full items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
 						SUI_CONTROL[size],
@@ -617,7 +616,6 @@
 					{/if}
 					{#if action}
 						<!-- A click shield: interactive content inside must not toggle the select. -->
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 						<span
 							data-sui-action
 							role="presentation"
@@ -636,6 +634,7 @@
                                                         pointer dismissals synchronously; Escape stays here — it is
                                                         not debounced. -->
 				<Select.Content
+					id={listboxId}
 					bind:ref={contentRef}
 					class="sui-select-content z-50 p-1"
 					onEscapeKeydown={() => dismiss.keyboard()}

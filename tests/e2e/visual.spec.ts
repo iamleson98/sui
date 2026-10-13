@@ -17,6 +17,8 @@ const routes: Array<{ name: string; path: string }> = [
 	{ name: 'data-table', path: '/data-table' },
 	{ name: 'toggles', path: '/toggles' },
 	{ name: 'date-time', path: '/date-time' },
+	{ name: 'field-arrays', path: '/field-arrays' },
+	{ name: 'server-form', path: '/server-form' },
 	{ name: 'validation', path: '/validation' },
 	{ name: 'pagination', path: '/pagination' },
 	{ name: 'skeletons', path: '/skeletons' }

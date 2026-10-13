@@ -20,7 +20,6 @@
 	import { toast } from 'svelte-sonner';
 
 	import ViewHeader from './-view-header.svelte';
-	import Kbd from './-kbd.svelte';
 	import Chips from './-chips.svelte';
 	import PersonAvatar from './-person-avatar.svelte';
 	import PersonHover from './-person-hover.svelte';

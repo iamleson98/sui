@@ -5,6 +5,7 @@
 	import Section from '$lib/demo/section.svelte';
 	import CodeBlock from '$lib/demo/code-block.svelte';
 	import {
+		SuiDateRangePicker,
 		SuiDatePicker,
 		SuiDateTimePicker,
 		SuiTimePicker,
@@ -23,6 +24,30 @@
 	let meeting = $state<string | undefined>('10:30');
 	let startsAt = $state<string | undefined>(undefined);
 	const sizes = ['sm', 'md', 'lg'] as const;
+
+	// --- range picker ---
+	let stay = $state<{ start?: string; end?: string } | undefined>(undefined);
+	const addDays = (n: number) => {
+		const d = new Date();
+		d.setDate(d.getDate() + n);
+		const pad = (v: number) => String(v).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	};
+	const presets = [
+		{ label: 'Next 7 days', range: () => ({ start: addDays(0), end: addDays(6) }) },
+		{ label: 'Next 30 days', range: () => ({ start: addDays(0), end: addDays(29) }) }
+	];
+	const rangeCode = `<!-- value is { start, end } as ISO strings; only complete ranges are written back -->
+<SuiDateRangePicker label="Stay" min={todayIso} {presets} clearable bind:value={stay} />
+
+<!-- inside a form: a z.object({ start, end }) field -->
+const schema = z.object({
+  stay: z.object({
+    start: z.iso.date('Choose a check-in'),
+    end: z.iso.date('Choose a check-out')
+  }).refine((r) => !r.start || !r.end || r.end >= r.start, 'Check-out is before check-in')
+});
+<SuiDateRangePicker field={form.fields.stay} label="Stay" required />`;
 
 	// --- schema-driven booking form ---
 	const bookingSchema = z
@@ -159,6 +184,33 @@ const form = createSuiForm(schema, { onsubmit: (data) => book(data) });
 </Section>
 
 <Section
+	title="Date range"
+	description="One field for a stay, a report period or a booking window. Both ends are typed or picked in a two-month calendar; half-picked ranges never validate mid-selection, and presets jump straight to common periods."
+>
+	<div class="grid max-w-3xl gap-6 sm:grid-cols-2">
+		<div class="flex flex-col gap-2">
+			<SuiDateRangePicker
+				label="Stay"
+				subText="Pick check-in and check-out."
+				min={todayIso}
+				{presets}
+				clearable
+				bind:value={stay}
+			/>
+			<span class="text-xs text-muted-foreground"
+				>Bound value:
+				<code class="rounded bg-muted px-1" data-testid="range-value"
+					>{stay?.start ?? '…'} → {stay?.end ?? '…'}</code
+				></span
+			>
+		</div>
+	</div>
+	<div class="mt-8">
+		<CodeBlock code={rangeCode} />
+	</div>
+</Section>
+
+<Section
 	title="Forms"
 	description="ISO strings validate with zod's z.iso.date() / z.iso.time() / z.iso.datetime (local: true), compare as plain strings in refinements, and post through FormData untouched."
 >
@@ -174,7 +226,9 @@ const form = createSuiForm(schema, { onsubmit: (data) => book(data) });
 		</SuiForm>
 		<div class="rounded-lg border bg-muted/30 p-4 text-sm">
 			<p class="mb-2 font-medium">Parsed result</p>
-			<pre class="overflow-x-auto text-xs" data-testid="booking-result">{booked
+			<!-- a scrollable region must be keyboard-reachable (WCAG 2.1.1) -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<pre tabindex="0" class="overflow-x-auto text-xs" data-testid="booking-result">{booked
 					? JSON.stringify(booked, null, 2)
 					: 'Submit the form to see the parsed values.'}</pre>
 		</div>

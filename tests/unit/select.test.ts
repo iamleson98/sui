@@ -38,7 +38,7 @@ describe('SuiSelect', () => {
 	});
 
 	it('opens the menu and lists items with descriptions', async () => {
-		const { container } = render(SuiSelect, { label: 'Country', items: countries });
+		render(SuiSelect, { label: 'Country', items: countries });
 		await user.click(screen.getByRole('combobox', { name: 'Country' }));
 		const nl = await findOption(/netherlands/i);
 		expect(nl.textContent).toContain('Europe');
@@ -96,30 +96,9 @@ describe('SuiSelect', () => {
 });
 
 describe('SuiSelect — infinite scroll', () => {
-	function makeSource(): { source: SuiSource<SuiItem>; calls: number } {
-		const state = { calls: 0 };
-		const source = cursorSource<SuiItem>(async ({ cursor, size }) => {
-			state.calls += 1;
-			const page = cursor ? Number(atob(cursor)) : 0;
-			const items: SuiItem[] = Array.from({ length: size }, (_, i) => ({
-				value: `u-${page + i}`,
-				label: `User ${page + i + 1}`
-			}));
-			const next = page + size < 60 ? btoa(String(page + size)) : null;
-			return { items, nextCursor: next };
-		});
-		return {
-			source,
-			calls: 0,
-			get calls2() {
-				return state.calls;
-			}
-		} as never;
-	}
-
 	it('loads the first page when opened', async () => {
 		const state = { calls: 0 };
-		const source: SuiSource<SuiItem> = cursorSource(async ({ cursor, size }) => {
+		const source: SuiSource<SuiItem> = cursorSource(async ({ cursor }) => {
 			state.calls += 1;
 			const page = cursor ? Number(atob(cursor)) : 0;
 			return {

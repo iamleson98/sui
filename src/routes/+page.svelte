@@ -64,7 +64,8 @@
 <svelte:head>
 	<!-- {@html}: script content is raw text in HTML; Svelte's text escaping
 	would corrupt the JSON, {@html} keeps it verbatim -->
-	{@html `<script type="application/ld+json">${jsonLd}</` + 'script>'}
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- static site constants, `<` escaped -->
+	{@html `<script type="application/ld+json">${jsonLd.replace(/</g, '\\u003c')}</` + 'script>'}
 </svelte:head>
 
 <div class="flex flex-col items-center py-8 text-center">

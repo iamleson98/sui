@@ -42,5 +42,11 @@
 	>
 		{copied ? 'Copied!' : 'Copy'}
 	</button>
-	<pre class="overflow-x-auto bg-muted/30 p-4 text-xs leading-relaxed"><code>{code}</code></pre>
+	<!-- a scrollable region must be keyboard-reachable (WCAG 2.1.1) -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<pre
+		tabindex="0"
+		class="overflow-x-auto bg-muted/30 p-4 text-xs leading-relaxed focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"><code
+			>{code}</code
+		></pre>
 </div>

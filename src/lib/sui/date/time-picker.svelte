@@ -265,7 +265,6 @@
 			</TimeField.Label>
 		{/if}
 
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			data-sui-control="time-picker"
 			data-sui-size={size}
@@ -362,7 +361,7 @@
 									role="option"
 									aria-selected={slot === currentSlot}
 									data-slot-time={slot}
-									class="shrink-0 cursor-pointer rounded-md px-2.5 py-1.5 text-start text-sm whitespace-nowrap tabular-nums outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 aria-selected:bg-primary aria-selected:text-primary-foreground"
+									class="shrink-0 cursor-pointer rounded-md px-2.5 py-1.5 text-start text-sm whitespace-nowrap tabular-nums outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:hover:bg-primary aria-selected:focus-visible:bg-primary"
 									onclick={() => pickSlot(slot)}
 								>
 									{formatTimeSlot(slot, localeTag, hourCycle)}

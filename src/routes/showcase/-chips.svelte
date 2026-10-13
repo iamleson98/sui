@@ -12,8 +12,7 @@
 		type Priority,
 		type DeployStatus,
 		type Env,
-		type EventKind,
-		type ActivityKind
+		type EventKind
 	} from './-data.svelte';
 
 	import FlameIcon from '@lucide/svelte/icons/flame';

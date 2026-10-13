@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { createSuiForm } from '$lib/sui/form/index.js';
-import type { SuiFormInstance } from '$lib/sui/form/create-form.svelte.js';
 import { z, ZodError } from 'zod';
 import FormHarness from './harness/form-harness.svelte';
 import { testSchema, type TestSchema } from './harness/form-schema.js';

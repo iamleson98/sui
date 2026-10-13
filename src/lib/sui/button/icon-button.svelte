@@ -78,8 +78,9 @@
 	aria-busy={loading || undefined}
 	data-sui-size={size}
 	data-loading={loading || undefined}
-	class="{SUI_SQUARE[size]} {loading
-		? 'pointer-events-none opacity-50'
+	class="{SUI_SQUARE[size]} {loading ? 'pointer-events-none opacity-50' : ''} {variant ===
+		'destructive' && !color
+		? 'text-red-700 dark:text-red-300'
 		: ''} {tint.class} {className}"
 	style={[tint.style, style].filter(Boolean).join(' ') || undefined}
 	data-sui-color={color ? (tint.style ? 'custom' : color) : undefined}

@@ -195,7 +195,7 @@ describe('SuiInput', () => {
 	});
 
 	it('binds value two-way', async () => {
-		const { container } = render(InputHarness, {});
+		render(InputHarness, {});
 		const input = screen.getByLabelText('Email') as HTMLInputElement;
 		await userEvent.type(input, 'hello');
 		expect(input.value).toBe('hello');

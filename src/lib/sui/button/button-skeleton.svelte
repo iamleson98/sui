@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SUI_CONTROL, SUI_SKELETON_W, SUI_SQUARE } from '../styles.js';
+	import { SUI_CONTROL, SUI_SKELETON_W } from '../styles.js';
 	import type { SuiSize } from '../types.js';
 	import SuiSkeleton from '../skeleton/skeleton.svelte';
 

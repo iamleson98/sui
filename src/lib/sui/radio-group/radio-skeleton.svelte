@@ -9,22 +9,6 @@
 		count = 2
 	}: { size?: SuiSize; label?: boolean; count?: number } = $props();
 
-	const DOT: Record<SuiSize, string> = {
-		xs: 'size-3',
-		sm: 'size-3.5',
-		md: 'size-4',
-		lg: 'size-[18px]',
-		xl: 'size-5'
-	};
-
-	const LABEL_H: Record<SuiSize, string> = {
-		xs: 'h-3',
-		sm: 'h-3.5',
-		md: 'h-4',
-		lg: 'h-4',
-		xl: 'h-5'
-	};
-
 	const dots = ['size-3', 'size-3.5', 'size-4', 'size-[18px]', 'size-5'];
 	const labelHeights = ['h-3', 'h-3.5', 'h-4', 'h-4', 'h-5'];
 	const widths = ['w-20', 'w-28', 'w-16', 'w-24', 'w-32'];

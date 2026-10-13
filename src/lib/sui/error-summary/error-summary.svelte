@@ -56,7 +56,7 @@
 			className
 		)}
 	>
-		<p class="flex items-center gap-2 font-medium text-destructive">
+		<p class="flex items-center gap-2 font-medium text-red-700 dark:text-red-300">
 			<AlertCircleIcon class="size-4 shrink-0" aria-hidden="true" />
 			{title ?? strings.errorSummaryTitle}
 		</p>
@@ -67,7 +67,7 @@
                                                 handler focuses the field without a hash navigation jump -->
 					<a
 						href="#{error.fieldId}"
-						class="text-destructive underline underline-offset-2 hover:opacity-80"
+						class="text-red-700 underline underline-offset-2 hover:opacity-80 dark:text-red-300"
 						onclick={(event) => focusField(event, error.fieldId)}
 					>
 						{error.message}

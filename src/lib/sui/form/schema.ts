@@ -509,3 +509,41 @@ export const suiErrors = {
 		return out;
 	}
 };
+
+// ------------------------------------------------------ introspection
+
+/**
+ * The sub-schema at a dotted path (`'items.0.name'`), unwrapping
+ * optional/nullable/default/pipe wrappers; `undefined` when it cannot be
+ * resolved (non-zod vendors) — callers fall back to `undefined` defaults.
+ */
+export function schemaAt(schema: SuiSchemaLike, path: string): SuiSchemaLike | undefined {
+	let cur: any = schema;
+	for (const segment of path.split('.')) {
+		cur = unwrapSchema(cur);
+		if (!cur?.def) return undefined;
+		if (cur.def.type === 'array') cur = cur.def.element;
+		else if (cur.def.type === 'object' || cur.shape) cur = cur.shape?.[segment];
+		else if (cur.def.type === 'tuple') cur = cur.def.items?.[Number(segment)];
+		else if (cur.def.type === 'record') cur = cur.def.valueType;
+		else return undefined;
+	}
+	return cur;
+}
+
+export function unwrapSchema(schema: any): any {
+	let cur = schema;
+	for (let depth = 0; depth < 8 && cur?.def; depth++) {
+		const type = cur.def.type;
+		if (
+			['optional', 'nullable', 'default', 'prefault', 'readonly', 'catch', 'nonoptional'].includes(
+				type
+			)
+		) {
+			cur = cur.def.innerType;
+		} else if (type === 'pipe') cur = cur.def.in;
+		else if (type === 'lazy') cur = cur.def.getter?.() ?? cur.schema;
+		else break;
+	}
+	return cur;
+}

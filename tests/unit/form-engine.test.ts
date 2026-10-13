@@ -285,6 +285,7 @@ describe('createSuiForm — error routing to the controls that can show it', () 
 
 	it('an unmounted control stops owning its field', async () => {
 		const form = createSuiForm(schema);
+		form.field('address.city').registerControl('city-input'); // the form still has controls
 		const unregister = form.fields.internalId.registerControl('id-input');
 		await form.handleSubmit();
 		expect(form.unmappedErrors).not.toContain('Missing id');
@@ -395,5 +396,17 @@ describe('suiErrors.fromResponse — real-world error bodies', () => {
 				errors: { email: ['The email has already been taken.'] }
 			})
 		).toEqual({ email: ['The email has already been taken.'] });
+	});
+});
+
+describe('createSuiForm — unmapped errors before controls exist', () => {
+	it('is empty until a control registers (server render / hydration)', async () => {
+		const form = createSuiForm(accountSchema);
+		await form.handleSubmit();
+		// no control has mounted: "nothing can show it" would be a false alarm
+		expect(form.unmappedErrors).toEqual([]);
+
+		form.fields.name.registerControl('name-control');
+		expect(form.unmappedErrors).toEqual(['Enter a valid email']); // email has no control
 	});
 });

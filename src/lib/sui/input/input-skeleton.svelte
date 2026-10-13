@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SUI_CONTROL } from '../styles.js';
-	import type { SuiFieldVariant, SuiSize } from '../types.js';
+	import type { SuiSize } from '../types.js';
 	import SuiSkeleton from '../skeleton/skeleton.svelte';
 	import SuiSkeletonContainer from '../skeleton/skeleton-container.svelte';
 

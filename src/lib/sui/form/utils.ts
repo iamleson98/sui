@@ -1,3 +1,5 @@
+import { tick } from 'svelte';
+
 /**
  * Form-level helpers for the submit path.
  *
@@ -32,4 +34,50 @@ export function focusFirstInvalid(root: ParentNode): boolean {
 		return true;
 	}
 	return false;
+}
+
+/** The slice of a form instance the failed-submit focus logic reads. */
+type FocusableForm = {
+	focusOnSubmit: 'summary' | 'field' | 'none';
+	errorSummary: { fieldId: string }[];
+};
+
+/**
+ * Where focus lands after a failed submit (GOV.UK pattern), shared by
+ * `<SuiForm>` and `suiEnhance`:
+ *
+ * 1. the error summary box (when rendered) — announcing the whole list;
+ * 2. the form-error banner (when no field is invalid but it has content);
+ * 3. the first invalid control — focused on desktop, scrolled to on touch
+ *    devices, where focus would open the keyboard and hide the message.
+ *
+ * Honors `focusOnSubmit: 'field' | 'none'`.
+ */
+export async function focusFailedSubmit(
+	formEl: HTMLFormElement,
+	form: FocusableForm
+): Promise<void> {
+	if (form.focusOnSubmit === 'none') return;
+	// let the DOM settle so fresh data-invalid attributes are painted
+	await tick();
+	const mobile = typeof matchMedia !== 'undefined' && matchMedia('(max-width: 639px)').matches;
+	if (form.focusOnSubmit === 'summary') {
+		let target: HTMLElement | null = formEl.querySelector('[data-sui-error-summary]');
+		if (!target && form.errorSummary.length === 0) {
+			const banner = formEl.querySelector<HTMLElement>('[data-sui-form-errors]');
+			if (banner && (banner.textContent ?? '').trim().length > 0) target = banner;
+		}
+		if (target) {
+			// focusing the box announces the whole problem list (a div with
+			// tabindex="-1" opens no on-screen keyboard, so this is touch-safe)
+			target.focus();
+			if (mobile) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+			return;
+		}
+	}
+	if (mobile) {
+		formEl.querySelector('[data-invalid]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+	} else {
+		focusFirstInvalid(formEl);
+	}
 }

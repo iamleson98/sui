@@ -37,7 +37,7 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 | Area                | Components & exports                                                                                                                                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Form controls       | `SuiInput`, `SuiTextarea`, `SuiSelect`, `SuiCombobox`, `SuiMultiSelect`, `SuiCheckbox`, `SuiRadioGroup`, `SuiSwitch`                                                                                                     |
-| Date & time         | `SuiDatePicker`, `SuiTimePicker`, `SuiDateTimePicker` (+ skeletons, ISO helpers `isoToDate`, `dateToIso`, `timeSlots`, …)                                                                                                |
+| Date & time         | `SuiDatePicker`, `SuiDateRangePicker`, `SuiTimePicker`, `SuiDateTimePicker` (+ skeletons, ISO helpers `isoToDate`, `dateToIso`, `timeSlots`, …)                                                                          |
 | Actions             | `SuiButton`, `SuiIconButton`                                                                                                                                                                                             |
 | Data                | `SuiDataTable` (+ `suiColumn` helper, `renderComponent`), `SuiDataTableSkeleton`, CSV helpers (`suiDownloadCsv`, `suiRowsToCsv`, `suiCsvCell`)                                                                           |
 | Error handling      | `SuiErrorSummary` (WCAG 3.3.1 error box), `focusFirstInvalid()`                                                                                                                                                          |
@@ -45,7 +45,7 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 | Infinite scroll     | `SuiSource`, `offsetSource()`, `cursorSource()`, `SuiInfiniteList`, `observeSentinel()`                                                                                                                                  |
 | Mobile              | `suiMobileQuery()` / `SUI_MOBILE_QUERY` — the breakpoint where the select family switches to bottom sheets                                                                                                               |
 | Validation          | zod v4 helpers — `suiValidate()`, `SuiFieldState` — plus the `schema` prop on every form control                                                                                                                         |
-| Schema-driven forms | `createSuiForm()`, `<SuiForm>`, `form.fields.*` handles (one zod schema wires values, timing, errors, submit parsing)                                                                                                    |
+| Schema-driven forms | `createSuiForm()`, `<SuiForm>`, `form.fields.*` handles, `form.array()` lists, `suiParseFormData` / `suiEnhance` for SvelteKit actions (one zod schema wires values, timing, errors, submit parsing)                     |
 | Localisation        | `setSuiStrings()`, `SUI_STRINGS` — every built-in string is overridable per subtree (i18n-ready, reactive)                                                                                                               |
 | Design tokens       | `SuiSize` scale + semantic variant maps (`SUI_CONTROL`, `SUI_FIELD_CONTROL`, …) shared by every component                                                                                                                |
 
@@ -60,22 +60,16 @@ No separate `<Label>`, no `<FormField>`, no validation framework glue, no scroll
 
 ## Installation
 
-sui is consumed as source (like shadcn-svelte itself) — copy `src/lib/sui` (and the `src/lib/components/ui` primitives it builds on) into your SvelteKit project:
+sui ships as source — like shadcn-svelte itself — through a shadcn-svelte **registry**, so the files land in _your_ project and are yours to edit:
 
 ```sh
-# inside your SvelteKit project
-npx sv add tailwindcss            # Tailwind v4
-npx shadcn-svelte@latest init     # shadcn-svelte base
-npm i zod @tanstack/svelte-table @tanstack/svelte-virtual @lucide/svelte vaul-svelte tailwind-variants @internationalized/date
-
-# vaul-svelte powers the mobile bottom sheets; also grab the drawer
-# primitive: npx shadcn-svelte@latest add drawer   (see Mobile below)
-
-# then copy from this repo:
-#   src/lib/sui          → your src/lib/sui
-#   src/app.css          → theme variables (merge into your app.css)
-#   src/lib/utils.ts     → cn() helper (from shadcn-svelte init)
+# inside a SvelteKit project already set up with shadcn-svelte (https://shadcn-svelte.com/docs/installation)
+npx shadcn-svelte@latest add https://<your-host>/r/sui.json
 ```
+
+That copies `src/lib/sui`, the shadcn components it builds on (button, calendar, command, drawer, popover, select…) and sui's patched `command` wrappers, and installs the npm dependencies (`zod`, `bits-ui`, `@internationalized/date`, `@tanstack/svelte-table`, …). Merge the theme tokens from this repo's `src/app.css` into yours (notably `--muted-foreground`, darkened so secondary text keeps AA contrast on muted surfaces).
+
+Serving the registry yourself is one command — `npm run registry:build` writes `static/r/sui.json`, which this demo app then serves at `/r/sui.json`. Prefer manual? Copy `src/lib/sui` and the shadcn components listed in `registry.json`.
 
 Import everything from the barrel:
 
@@ -230,6 +224,68 @@ All form controls share this core API:
 | `errors`                | `string[]`                                         | External errors (server-side validation) — shown until the user edits the field                                                                                                                                                                                     |
 | `required`              | `boolean`                                          | Adds the visual `*` marker; the control itself announces it (`required` / `aria-required`) — once, never doubled by label text                                                                                                                                      |
 
+### Dynamic lists — `form.array()`
+
+"Add another email", invoice lines, repeatable addresses. Items have stable keys, and every piece of per-item state — errors, touched, dirty, async checks, server messages — follows the item it describes through inserts, removals and moves:
+
+```svelte
+<script lang="ts">
+	const schema = z.object({
+		emails: z.array(z.email('Enter a valid email')).min(1, 'Add at least one email'),
+		lines: z.array(z.object({ sku: z.string().min(1), qty: z.number().min(1) }))
+	});
+	const form = createSuiForm(schema, { initialValues: { emails: [''] } });
+	const emails = form.array('emails'); // typed from the schema
+	const lines = form.array('lines'); // items are { sku: string; qty: number }
+</script>
+
+{#each emails.entries as item (item.key)}
+	<SuiInput field={item.field()} label="Email {item.index + 1}" type="email" />
+	<SuiIconButton icon={TrashIcon} label="Remove" onclick={() => emails.remove(item.index)} />
+{/each}
+<SuiButton onclick={() => emails.push()}>Add email</SuiButton>
+
+{#each lines.entries as item (item.key)}
+	<SuiInput field={item.field('sku')} label="SKU" />
+	<SuiInput field={item.field('qty')} label="Qty" type="number" />
+{/each}
+```
+
+`push(value?)` (the element schema's default when omitted), `insert`, `remove`, `move`, `swap`, `clear` and `replace`. `remove()` moves focus to the neighbouring item (WCAG 2.4.3) and reveals the list's own rule (`min(1)`), a server error on `emails.1` keeps pointing at the same email after earlier items are removed, and in-flight async checks of moved items are cancelled rather than attributed to the wrong row.
+
+**Typed paths.** `form.field('address.city')`, ``form.field(`lines.${i}.sku`)`` and `form.array('lines')` are checked against the schema — a typo is a compile error — and the handle carries the value's type. Schemas that cannot be introspected (other Standard Schema vendors) accept plain strings.
+
+### SvelteKit form actions
+
+One schema validates live in the browser and authoritatively in the action; both speak one error shape, and the form works without JavaScript (every control renders its field path as the input `name`):
+
+```ts
+// +page.server.ts
+export const actions = {
+	signup: async ({ request }) => {
+		const parsed = suiParseFormData(schema, await request.formData());
+		if (!parsed.ok) return fail(400, { errors: parsed.errors, values: parsed.values });
+		await createAccount(parsed.data); // typed + transformed
+	}
+};
+```
+
+```svelte
+<!-- +page.svelte -->
+<script lang="ts">
+	import { enhance } from '$app/forms';
+	let { form: result } = $props();
+	const form = createSuiForm(schema, {
+		initialValues: result?.values, // a no-JS failure keeps what was typed…
+		initialErrors: result?.errors // …and shows the messages, server-rendered
+	});
+</script>
+
+<SuiForm {form} method="POST" action="?/signup" {@attach suiEnhance(form, enhance)}>…</SuiForm>
+```
+
+`suiParseFormData` rebuilds nested objects and arrays from `address.city` / `lines[0].sku` / repeated keys and coerces to what the schema expects (checkbox `'on'` → `true` including `z.literal(true)`, `''` → `undefined` for numbers, absent arrays → `[]`); passwords listed in `passwordFields` are never echoed back. With JavaScript, `suiEnhance` gates the request on the client schema (and async validators), cancels invalid submits with the usual focus management, maps `fail()` payloads back onto fields and applies SvelteKit's `update()` without resetting the controlled DOM. See `/server-form` in the demo.
+
 ### Hand-wired forms — createSuiSubmitter
 
 Keep your own `bind:value` state and still delete the whole hand-rolled submit handler. Give each control a `name` matching the schema, hand the schema to `createSuiSubmitter`, and it collects values, parses, maps issues onto fields, lands focus on the first problem and hands you typed data — the Felte / formisch / react-hook-form `handleSubmit` shape, minus the boilerplate:
@@ -338,6 +394,8 @@ Three pickers share the form-control API (label, `subText`, sizes, variants, `sc
 <!-- date AND time: the popover pairs the calendar with a time column -->
 <SuiDateTimePicker label="Starts at" step={30} bind:value={startsAt} />
 ```
+
+**Ranges:** `SuiDateRangePicker` binds `{ start, end }` (ISO strings) with typed start/end segments, a two-month calendar (one on phones), optional `presets` ("Next 7 days") and `min`/`max`/`isDateUnavailable`. Only complete ranges are written back, so a half-picked range never shows "Choose a check-out date" mid-selection; inside a form it is a `z.object({ start, end })` field and posts `name.start` / `name.end`.
 
 **Values are plain ISO strings** — exactly what native `<input type="date|time|datetime-local">` produce: `'2026-10-11'`, `'14:30'` (`'14:30:05'` with `granularity="second"`), `'2026-10-11T14:30'` (local). They validate with `z.iso.date()`, `z.iso.time()` and `z.iso.datetime({ local: true })`, compare correctly as strings in refinements, serialise to JSON and post through `FormData` (a hidden input carries the bound value). `min`/`max`/`isDateUnavailable`/`isDateDisabled` take ISO strings too; `isoToDate`, `dateToIso`, `isoToTime`, `timeToIso`, `isoToDateTime`, `dateTimeToIso` and `timeSlots` convert to and from `@internationalized/date` when you need date math.
 
@@ -514,9 +572,10 @@ Every string sui renders by itself — placeholders, loading/empty/error states,
 sui ships with the two-tier test setup the library itself uses:
 
 ```sh
-npm run test              # vitest + @testing-library/svelte (401 unit tests)
-npm run test:e2e          # Playwright: desktop + mobile projects (56 tests)
+npm run test              # vitest + @testing-library/svelte (427 unit tests)
+npm run test:e2e          # Playwright: desktop + mobile projects (78 tests, incl. axe-core accessibility audits)
 npm run test:e2e:update   # regenerate visual baselines
+npm run lint              # ESLint (typescript-eslint + eslint-plugin-svelte)
 ```
 
 CI (`.github/workflows/ci.yml`) runs formatting, `svelte-check`, the unit suite and the behavioral e2e suites on every push and pull request; the visual baselines are platform-specific and run locally. The e2e fixture (`tests/e2e/fixtures.ts`) waits for hydration after every navigation, so no test interacts with inert prerendered HTML.
@@ -527,19 +586,21 @@ The unit suite covers props/ARIA/wiring in jsdom; the Playwright suite runs agai
 
 The repo's routes are a live showcase of every component — run `npm run dev` and browse:
 
-| Route         | Shows                                                                                                                                                                                                                                                             |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`           | overview + philosophy                                                                                                                                                                                                                                             |
-| `/input`      | labels, icons, actions, variants, zod-as-you-type, sizes, skeletons                                                                                                                                                                                               |
-| `/button`     | variants, icons, loading, shared size scale                                                                                                                                                                                                                       |
-| `/selection`  | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets                                                                                                                                                |
-| `/data-table` | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows                                                                                                                                                           |
-| `/toggles`    | checkbox / radio / switch with zod                                                                                                                                                                                                                                |
-| `/date-time`  | date, time and date-time pickers — calendar, time slots, memorable dates, a zod-validated booking form, locales, sizes                                                                                                                                            |
-| `/validation` | a schema-driven `createSuiForm` form (async availability check with live `Checking…` state, message overrides, form-error banner, GOV.UK summary focus, reward ring, server-error mapping) + a hand-wired `createSuiSubmitter` form + per-field timing playground |
-| `/pagination` | the infinite-scroll REST guide with live examples                                                                                                                                                                                                                 |
-| `/skeletons`  | every skeleton, every size                                                                                                                                                                                                                                        |
-| `/showcase`   | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit                                                      |
+| Route           | Shows                                                                                                                                                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`             | overview + philosophy                                                                                                                                                                                                                                             |
+| `/input`        | labels, icons, actions, variants, zod-as-you-type, sizes, skeletons                                                                                                                                                                                               |
+| `/button`       | variants, icons, loading, shared size scale                                                                                                                                                                                                                       |
+| `/selection`    | static + infinite-scroll selects, searchable combobox, smart chip overflow, variant showcase, mobile bottom sheets                                                                                                                                                |
+| `/data-table`   | sorting, search, selection, pagination, column visibility, pinned columns, CSV export, 10k virtual rows                                                                                                                                                           |
+| `/toggles`      | checkbox / radio / switch with zod                                                                                                                                                                                                                                |
+| `/date-time`    | date, time and date-time pickers — calendar, time slots, memorable dates, a zod-validated booking form, locales, sizes                                                                                                                                            |
+| `/field-arrays` | dynamic lists: add / remove / reorder with per-item errors, typed paths, focus management                                                                                                                                                                         |
+| `/server-form`  | a SvelteKit form action: client gate, server validation, progressive enhancement without JavaScript                                                                                                                                                               |
+| `/validation`   | a schema-driven `createSuiForm` form (async availability check with live `Checking…` state, message overrides, form-error banner, GOV.UK summary focus, reward ring, server-error mapping) + a hand-wired `createSuiSubmitter` form + per-field timing playground |
+| `/pagination`   | the infinite-scroll REST guide with live examples                                                                                                                                                                                                                 |
+| `/skeletons`    | every skeleton, every size                                                                                                                                                                                                                                        |
+| `/showcase`     | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit                                                      |
 
 The demo app itself doubles as the deployment reference: it prerenders every page to static HTML (adapter-node serves the pages statically and keeps the `/api` mock endpoints dynamic), ships per-route code splitting via rolldown `codeSplitting` groups (the table engine only downloads on `/data-table`; icons and the sui root helpers live in one cached chunk each), self-hosts the latin subset of Inter (48 KB woff2, preloaded — not the 232 KB all-subsets bundle), and wires the full SEO set per route: meta description, canonical, Open Graph/Twitter cards, `robots.txt` and a generated `sitemap.xml`. Copy any of it from `src/lib/demo/seo.svelte`, `src/lib/demo/site.ts` and `vite.config.ts`.
 

@@ -34,7 +34,7 @@ export type SuiButtonColor = SuiFieldVariant | (string & {});
  * A Svelte component that renders an icon — e.g. any lucide-svelte icon
  * or any custom component accepting a `class` prop.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export type SuiIconComponent = Component<any>;
 
 /**

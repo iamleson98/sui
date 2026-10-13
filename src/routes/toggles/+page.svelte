@@ -8,7 +8,6 @@
 	import { z } from 'zod';
 
 	let marketing = $state(true);
-	let newsletter = $state(false);
 	let twoFactor = $state(true);
 	let plan = $state('pro');
 	let enableAnalytics = $state(true);
@@ -17,7 +16,6 @@
 	const planSchema = z.string().min(1, 'Choose a plan');
 
 	let terms = $state(false);
-	let termsTouchedManually = $state<string[] | undefined>(undefined);
 
 	const plans = [
 		{ value: 'free', label: 'Hobby', description: 'Side projects, community support' },

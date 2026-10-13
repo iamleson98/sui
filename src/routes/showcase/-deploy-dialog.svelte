@@ -9,7 +9,7 @@
 	import { toast } from 'svelte-sonner';
 
 	import { showcase } from './-state.svelte';
-	import { SERVICES, type Deployment, type Env } from './-data.svelte';
+	import { SERVICES, type Env } from './-data.svelte';
 
 	import CloudUploadIcon from '@lucide/svelte/icons/cloud-upload';
 

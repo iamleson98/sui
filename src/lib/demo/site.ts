@@ -43,6 +43,18 @@ export const SITE_ROUTES: SiteRoute[] = [
 			'Checkbox, switch and radio-group fields with validation, variants and size-matched skeletons.'
 	},
 	{
+		path: '/server-form',
+		title: 'Server Form',
+		description:
+			'A schema-driven form posting to a SvelteKit form action: client validation first, authoritative server validation, progressive enhancement without JavaScript.'
+	},
+	{
+		path: '/field-arrays',
+		title: 'Field Arrays',
+		description:
+			'Dynamic lists of fields — add, remove and reorder items with stable keys, errors that follow their item, and typed nested paths.'
+	},
+	{
 		path: '/date-time',
 		title: 'Date & Time',
 		description:

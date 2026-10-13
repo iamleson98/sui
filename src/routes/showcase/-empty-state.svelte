@@ -8,7 +8,6 @@
 		title,
 		description,
 		children
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	}: { icon: Component<any>; title: string; description?: string; children?: Snippet } = $props();
 </script>
 

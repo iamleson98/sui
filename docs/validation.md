@@ -108,22 +108,15 @@ const form = createSuiForm(schema, {
 
 Finer-grained helpers: `suiErrors.fromIssues(issues)`, `suiErrors.fromZodError(error)`. Or throw a `ZodError` (or any issue-carrying object) straight from the callback — fields map automatically, root issues land in `form.formErrors`, and any other thrown error becomes a form-level message rendered by `<SuiForm showFormErrors>`.
 
-SvelteKit form actions — the action re-validates with the same schema and returns its issues through `fail()`:
+SvelteKit form actions have first-class support — `suiParseFormData` on the server, `suiEnhance` on the client, one schema for both, and a form that still works without JavaScript:
 
 ```ts
 // +page.server.ts
-import { fail } from '@sveltejs/kit';
-import { schema } from './schema';
-
 export const actions = {
 	signup: async ({ request }) => {
-		const parsed = schema.safeParse(Object.fromEntries(await request.formData()));
-		if (!parsed.success) {
-			// only path + message travel back — never echo the submitted input
-			const issues = parsed.error.issues.map(({ path, message }) => ({ path, message }));
-			return fail(400, { issues });
-		}
-		// …create the account
+		const parsed = suiParseFormData(schema, await request.formData());
+		if (!parsed.ok) return fail(400, { errors: parsed.errors, values: parsed.values });
+		await createAccount(parsed.data);
 	}
 };
 ```
@@ -131,29 +124,24 @@ export const actions = {
 ```svelte
 <!-- +page.svelte -->
 <script lang="ts">
-	import { deserialize } from '$app/forms';
-	import { createSuiForm, SuiForm, suiErrors } from '$lib/sui';
-	import { schema } from './schema';
-
+	import { enhance } from '$app/forms';
+	let { form: result } = $props();
 	const form = createSuiForm(schema, {
-		onsubmit: async (data) => {
-			const body = new FormData();
-			for (const [key, value] of Object.entries(data)) body.append(key, String(value));
-			const res = await fetch('?/signup', {
-				method: 'POST',
-				body,
-				headers: { 'x-sveltekit-action': 'true' }
-			});
-			const result = deserialize(await res.text());
-			if (result.type === 'failure') form.setErrors(suiErrors.fromResponse(result.data));
-		}
+		initialValues: result?.values, // no-JS failure keeps the input…
+		initialErrors: result?.errors //  …and renders the messages server-side
 	});
 </script>
 
-<SuiForm {form} showFormErrors>…</SuiForm>
+<SuiForm {form} method="POST" action="?/signup" {@attach suiEnhance(form, enhance)}>…</SuiForm>
 ```
 
-Flat schemas map onto `FormData` directly; for nested objects or arrays, post JSON to a `+server.ts` endpoint instead. Every sui control also renders its field path as the native `name` (hidden inputs for the pickers), so `new FormData(formElement)` and plain `use:enhance` forms see the same keys.
+`suiParseFormData` rebuilds nested objects and arrays from `address.city`, `lines[0].sku` and repeated keys, and coerces to the schema's types (checkbox `'on'` → `true`, including `z.literal(true)`). Passwords listed in `passwordFields` are never sent back. With JavaScript, the client schema (and async validators) gate the request; a `fail()` payload maps onto the fields exactly like `setErrors`. Prefer plain `fetch`? The `onsubmit` + `suiErrors.fromResponse` pattern above is the same idea without SvelteKit.
+
+---
+
+## Dynamic lists
+
+`form.array(path)` manages repeatable fields — see the README's _Dynamic lists_ section. Errors, touched, dirty and async state follow each item through insertions, removals and moves, and `remove()` moves focus to the neighbouring item. A list-level rule (`.min(1, 'Add at least one')`) reappears when the last item is removed.
 
 ---
 

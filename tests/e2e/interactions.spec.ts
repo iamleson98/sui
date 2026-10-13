@@ -817,3 +817,121 @@ test.describe('date & time pickers', () => {
 		await expect(result).toContainText('"arrival": "14:30"');
 	});
 });
+
+test.describe('field arrays', () => {
+	test('errors follow their item; removal moves focus; list rules reappear', async ({ page }) => {
+		await page.goto('/field-arrays');
+		const form = page.locator('form[data-sui-form]');
+		const rows = form.getByTestId('email-row');
+		await expect(rows).toHaveCount(1);
+
+		await form.getByRole('button', { name: 'Add email' }).click();
+		await form.getByRole('button', { name: 'Add email' }).click();
+		await rows.nth(1).locator('input').fill('not-an-email');
+		await rows.nth(1).locator('input').blur();
+		await rows.nth(2).locator('input').fill('also bad');
+		await rows.nth(2).locator('input').blur();
+		await expect(rows.nth(1)).toContainText('Enter a valid email');
+		await expect(rows.nth(2)).toContainText('Enter a valid email');
+
+		// removing the valid first row: the two invalid ones keep their errors
+		await form.getByRole('button', { name: 'Remove email 1' }).click();
+		await expect(rows).toHaveCount(2);
+		await expect(rows.nth(0).locator('input')).toHaveValue('not-an-email');
+		await expect(rows.nth(0)).toContainText('Enter a valid email');
+		await expect(rows.nth(1)).toContainText('Enter a valid email');
+		// focus went to the neighbour, not <body>
+		await expect(rows.nth(0).locator('input')).toBeFocused();
+	});
+
+	test('reordering lines keeps values with their rows; submit parses typed numbers', async ({
+		page
+	}) => {
+		await page.goto('/field-arrays');
+		const form = page.locator('form[data-sui-form]');
+		await form.getByLabel('Customer').fill('Acme');
+		await form.getByRole('button', { name: 'Add line' }).click();
+		const lines = form.getByTestId('line-row');
+		await lines.nth(1).getByLabel('SKU 2').fill('MS-02');
+		await lines.nth(1).locator('input[type=number]').fill('5');
+		await form.getByRole('button', { name: 'Move line 2 up' }).click();
+		await expect(lines.nth(0).getByLabel('SKU 1')).toHaveValue('MS-02');
+		await expect(lines.nth(1).getByLabel('SKU 2')).toHaveValue('KB-01');
+
+		await form.getByRole('button', { name: 'Save order' }).click();
+		const result = page.getByTestId('array-result');
+		await expect(result).toContainText('"customer": "Acme"');
+		await expect(result).toContainText('"sku": "MS-02"');
+		await expect(result).toContainText('"qty": 5');
+	});
+});
+
+test.describe('date range picker', () => {
+	test('preset fills both ends; clearing empties them', async ({ page }) => {
+		await page.goto('/date-time');
+		const field = page.locator('[data-sui-field="date-range-picker"]').first();
+		await field.getByRole('button', { name: 'Open calendar' }).click();
+		await page.getByRole('button', { name: 'Next 7 days' }).click();
+		await expect(page.getByTestId('range-value')).toHaveText(
+			/\d{4}-\d{2}-\d{2} → \d{4}-\d{2}-\d{2}/
+		);
+		await field.getByRole('button', { name: 'Clear selection' }).click();
+		await expect(page.getByTestId('range-value')).toHaveText('… → …');
+	});
+});
+
+test.describe('SvelteKit form action', () => {
+	async function fill(page: import('@playwright/test').Page) {
+		const form = page.locator('form[data-sui-form]');
+		await form.getByLabel('Name').fill('Ada Lovelace');
+		await form.getByLabel('Email').fill('taken@example.com');
+		await form.getByRole('combobox', { name: 'Plan' }).click();
+		await page.getByRole('option', { name: 'Pro' }).click();
+		await form.locator('[data-sui-date-input] [data-segment="month"]').click();
+		await page.keyboard.type('11022030');
+		await form.getByLabel('I accept the terms').check();
+		return form;
+	}
+
+	test('client gate → server rejection maps onto the field, input kept', async ({ page }) => {
+		await page.goto('/server-form');
+		const form = page.locator('form[data-sui-form]');
+		await form.getByRole('button', { name: 'Create account' }).click();
+		// nothing reached the server: the client schema stopped it
+		await expect(form.getByText('Choose a plan')).toBeVisible();
+
+		await fill(page);
+		await form.getByRole('button', { name: 'Create account' }).click();
+		await expect(form.getByText('That email is already registered.')).toBeVisible();
+		await expect(form.getByLabel('Name')).toHaveValue('Ada Lovelace');
+		await expect(form.getByLabel('Email')).toBeFocused();
+
+		// fixing the email and re-posting succeeds
+		await form.getByLabel('Email').fill('ada@example.com');
+		await form.getByRole('button', { name: 'Create account' }).click();
+		await expect(page.getByTestId('server-result')).toContainText('"email": "ada@example.com"');
+		await expect(page.getByTestId('server-result')).toContainText('"startDate": "2030-11-02"');
+	});
+
+	test('works without JavaScript: native post, server-rendered errors, input kept', async ({
+		browser,
+		baseURL
+	}) => {
+		const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
+		const page = await context.newPage();
+		await page.goto('/server-form');
+		const form = page.locator('form[data-sui-form]');
+		await form.getByLabel('Name').fill('Ada Lovelace');
+		await form.getByLabel('Email').fill('taken@example.com');
+		await form.getByRole('button', { name: 'Create account' }).click();
+
+		// the page re-rendered from the server's 400: values + messages in place
+		await expect(form.getByLabel('Name')).toHaveValue('Ada Lovelace');
+		await expect(form.getByLabel('Email')).toHaveValue('taken@example.com');
+		// each message once — a field message, not also a banner entry
+		await expect(form.getByText('Choose a plan')).toHaveCount(1);
+		await expect(form.getByText('Choose a start date')).toHaveCount(1);
+		await expect(form.getByText('Choose a plan')).toBeVisible();
+		await context.close();
+	});
+});

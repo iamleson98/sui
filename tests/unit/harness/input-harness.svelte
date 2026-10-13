@@ -41,7 +41,7 @@
 	bind:value
 	{subText}
 >
-	{#snippet action({ size })}
+	{#snippet action()}
 		{#if withAction}
 			<button type="button" aria-label="Toggle visibility" class="p-1">
 				<EyeIcon class="size-4" />

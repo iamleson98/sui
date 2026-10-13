@@ -8,7 +8,6 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
@@ -38,8 +37,6 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 
 	/* ------------------------------------------------------------- general -- */
 	let wsName = $state('Nimbus Platform');
@@ -131,7 +128,6 @@
 	let transferOpen = $state(false);
 	let otp = $state('');
 	let deleteOpen = $state(false);
-	let deleteConfirm = $state('');
 	let deleteName = $state('');
 
 	function onOtpComplete() {
@@ -642,7 +638,6 @@
 									size="sm"
 									onclick={() => {
 										deleteOpen = true;
-										deleteConfirm = '';
 										deleteName = '';
 									}}>Delete workspace…</Button
 								>

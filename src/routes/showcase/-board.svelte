@@ -32,7 +32,6 @@
 		person,
 		type Issue,
 		type IssueStatus,
-		type LabelKey,
 		type Priority
 	} from './-data.svelte';
 
@@ -40,7 +39,6 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/more-horizontal';
-	import CopyIcon from '@lucide/svelte/icons/copy';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import MessageSquareIcon from '@lucide/svelte/icons/message-square';

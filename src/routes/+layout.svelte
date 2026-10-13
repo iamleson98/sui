@@ -18,6 +18,8 @@
 		{ href: '/selection', label: 'Selection' },
 		{ href: '/toggles', label: 'Toggles' },
 		{ href: '/date-time', label: 'Date & Time' },
+		{ href: '/field-arrays', label: 'Field Arrays' },
+		{ href: '/server-form', label: 'Server Form' },
 		{ href: '/data-table', label: 'Data Table' },
 		{ href: '/skeletons', label: 'Skeletons' },
 		{ href: '/validation', label: 'Validation' },
