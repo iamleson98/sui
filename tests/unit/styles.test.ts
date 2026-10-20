@@ -7,6 +7,7 @@ import {
 	SUI_TEXTAREA,
 	SUI_FIELD_CONTROL,
 	SUI_FIELD_TRIGGER,
+	SUI_FIELD_LABEL,
 	SUI_FIELD_TEXT,
 	SUI_CLEAR_PE,
 	SUI_CLEAR_END,
@@ -59,8 +60,16 @@ describe('SUI field variant maps', () => {
 		}
 	});
 
-	it('info maps to blue, success to green, warning to amber, error to red', () => {
-		expect(SUI_FIELD_CONTROL.info).toContain('blue');
+	it('info is neutral: no resting colour, only the focused border and ring change', () => {
+		expect(SUI_FIELD_CONTROL.info).not.toMatch(/blue/);
+		// every border class of the normal state is a focus one
+		expect(SUI_FIELD_CONTROL.info.split(' ').filter((c) => /^(dark:)?border-/.test(c))).toEqual([]);
+		expect(SUI_FIELD_CONTROL.info).toContain('focus-within:border-ring');
+		expect(SUI_FIELD_LABEL.info).toBe('text-foreground');
+		expect(SUI_FIELD_TEXT.info).toBe('text-muted-foreground');
+	});
+
+	it('success maps to green, warning to amber, error to red', () => {
 		expect(SUI_FIELD_CONTROL.success).toContain('green');
 		expect(SUI_FIELD_CONTROL.warning).toContain('amber');
 		expect(SUI_FIELD_CONTROL.error).toContain('red');
@@ -78,8 +87,9 @@ describe('SUI_FIELD_TRIGGER (button-like triggers)', () => {
 		}
 	});
 
-	it('keeps the same hues as the input variants', () => {
-		expect(SUI_FIELD_TRIGGER.info).toContain('blue');
+	it('keeps the same hues as the input variants (info neutral)', () => {
+		expect(SUI_FIELD_TRIGGER.info).not.toMatch(/blue/);
+		expect(SUI_FIELD_TRIGGER.info).toContain('focus-visible:border-ring');
 		expect(SUI_FIELD_TRIGGER.success).toContain('green');
 		expect(SUI_FIELD_TRIGGER.warning).toContain('amber');
 		expect(SUI_FIELD_TRIGGER.error).toContain('red');

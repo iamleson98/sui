@@ -91,12 +91,15 @@ export const SUI_SKELETON_W: Record<SuiSize, string> = {
 
 /**
  * Field variant classes applied to control wrappers (border + focus ring).
- * `info` (blue) is the normal state. Used by text-entry wrappers (input,
- * textarea) where any DOM focus inside — including mouse clicks — should
- * paint the focused look (native text-field behavior).
+ * `info` is the normal state and stays neutral like shadcn: the resting
+ * border is the theme's `input` colour (set by the control itself) and only
+ * focus changes the border and ring, to the theme's `ring` colour. Used by
+ * text-entry wrappers (input, textarea) where any DOM focus inside —
+ * including mouse clicks — should paint the focused look (native text-field
+ * behavior).
  */
 export const SUI_FIELD_CONTROL: Record<SuiFieldVariant, string> = {
-	info: 'border-blue-300 dark:border-blue-500/40 focus-within:border-blue-500 dark:focus-within:border-blue-400 focus-within:ring-blue-500/25',
+	info: 'focus-within:border-ring focus-within:ring-ring/50',
 	success:
 		'border-green-300 bg-green-50/40 dark:border-green-500/40 dark:bg-green-950/20 focus-within:border-green-500 dark:focus-within:border-green-400 focus-within:ring-green-500/25',
 	warning:
@@ -114,7 +117,7 @@ export const SUI_FIELD_CONTROL: Record<SuiFieldVariant, string> = {
  * keeps looking stuck after an outside click (matches Radix/shadcn).
  */
 export const SUI_FIELD_TRIGGER: Record<SuiFieldVariant, string> = {
-	info: 'border-blue-300 dark:border-blue-500/40 focus-visible:border-blue-500 dark:focus-visible:border-blue-400 focus-visible:ring-blue-500/25',
+	info: 'focus-visible:border-ring focus-visible:ring-ring/50',
 	success:
 		'border-green-300 bg-green-50/40 dark:border-green-500/40 dark:bg-green-950/20 focus-visible:border-green-500 dark:focus-visible:border-green-400 focus-visible:ring-green-500/25',
 	warning:
@@ -140,11 +143,19 @@ export const SUI_INVALID_RING = 'aria-invalid:ring-0 aria-invalid:focus-visible:
  */
 export const SUI_INVALID_TRIGGER = `${SUI_INVALID_RING} aria-invalid:border-red-300 dark:aria-invalid:border-red-500/40 aria-invalid:focus-visible:border-red-500 dark:aria-invalid:focus-visible:border-red-400`;
 
-/** Field variant classes applied to messages rendered below a control. */
+/** Field variant classes applied to labels (neutral text in the normal state). */
+export const SUI_FIELD_LABEL: Record<SuiFieldVariant, string> = {
+	info: 'text-foreground',
+	success: 'text-green-700 dark:text-green-400',
+	warning: 'text-amber-700 dark:text-amber-400',
+	error: 'text-red-600 dark:text-red-400'
+};
+
+/** Field variant classes applied to hints and messages rendered below a control. */
 export const SUI_FIELD_TEXT: Record<SuiFieldVariant, string> = {
 	// 700-level on light surfaces: the 600s of green and amber miss the
 	// 4.5:1 AA contrast ratio on white (3.2:1 / 3.3:1)
-	info: 'text-blue-600 dark:text-blue-400',
+	info: 'text-muted-foreground',
 	success: 'text-green-700 dark:text-green-400',
 	warning: 'text-amber-700 dark:text-amber-400',
 	error: 'text-red-600 dark:text-red-400'

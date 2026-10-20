@@ -91,6 +91,7 @@
 		suiEffectiveVariant,
 		SUI_CHIP,
 		SUI_CONTROL_MIN,
+		SUI_FIELD_LABEL,
 		SUI_FIELD_TEXT,
 		SUI_FIELD_TRIGGER,
 		SUI_ICON,
@@ -433,7 +434,7 @@
 			for={id}
 			id="{id}-label"
 			data-sui-label
-			class="{SUI_LABEL[size]} {SUI_FIELD_TEXT[
+			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
 				effVariant
 			]} mb-2 flex items-center gap-0.5 font-medium"
 		>

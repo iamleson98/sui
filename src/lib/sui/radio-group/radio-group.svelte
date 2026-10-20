@@ -48,7 +48,13 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
-	import { suiEffectiveVariant, SUI_FIELD_TEXT, SUI_LABEL, SUI_SUBTEXT } from '../styles.js';
+	import {
+		suiEffectiveVariant,
+		SUI_FIELD_LABEL,
+		SUI_FIELD_TEXT,
+		SUI_LABEL,
+		SUI_SUBTEXT
+	} from '../styles.js';
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
@@ -157,7 +163,7 @@
 	{#if label}
 		<div
 			id="{id}-label"
-			class="{SUI_FIELD_TEXT[effVariant]} mb-2 flex items-center gap-0.5 font-medium {SUI_LABEL[
+			class="{SUI_FIELD_LABEL[effVariant]} mb-2 flex items-center gap-0.5 font-medium {SUI_LABEL[
 				size
 			]}"
 			data-sui-label

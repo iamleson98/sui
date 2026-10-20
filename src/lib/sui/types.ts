@@ -12,7 +12,7 @@ export type SuiSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 /**
  * Semantic field color variants.
  *
- * - `info` — blue, the neutral/normal state (default)
+ * - `info` — neutral grey (shadcn), the normal state (default)
  * - `success` — green
  * - `warning` — yellow
  * - `error` — red

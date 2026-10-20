@@ -76,6 +76,7 @@
 		SUI_CLEAR_SIZE,
 		SUI_CONTROL,
 		SUI_FIELD_CONTROL,
+		SUI_FIELD_LABEL,
 		SUI_FIELD_TEXT,
 		SUI_ICON,
 		SUI_LABEL,
@@ -284,7 +285,7 @@
 			<DateRangePicker.Label
 				id={labelId}
 				data-sui-label
-				class="{SUI_LABEL[size]} {SUI_FIELD_TEXT[
+				class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
 					effVariant
 				]} mb-2 flex items-center gap-0.5 font-medium"
 			>

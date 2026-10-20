@@ -45,6 +45,7 @@
 	import { registerSuiField } from '../form/field-registry.js';
 	import {
 		suiEffectiveVariant,
+		SUI_FIELD_LABEL,
 		SUI_FIELD_TEXT,
 		SUI_INVALID_RING,
 		SUI_LABEL,
@@ -181,7 +182,7 @@
 			<label
 				for={id}
 				data-sui-label
-				class="{SUI_LABEL[size]} {SUI_FIELD_TEXT[effVariant]} leading-none font-medium {disabled
+				class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} leading-none font-medium {disabled
 					? 'opacity-50'
 					: ''}"
 			>
