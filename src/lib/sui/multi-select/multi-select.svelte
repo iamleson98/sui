@@ -754,7 +754,7 @@
 				</Popover.Trigger>
 				<Popover.Content
 					bind:ref={contentRef}
-					class="sui-multi-select-content z-50 w-(--sui-trigger-width) gap-0 p-1.5"
+					class="sui-multi-select-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1.5 ring-0"
 					style="--sui-trigger-width: {triggerWidth}px"
 					align="start"
 					onEscapeKeydown={() => dismiss.keyboard()}
