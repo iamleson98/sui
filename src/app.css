@@ -137,6 +137,11 @@
 	}
 	html {
 		@apply font-sans;
+		/* Native scrollbars and form controls follow the app's theme, not the OS's. */
+		color-scheme: light;
+	}
+	html.dark {
+		color-scheme: dark;
 	}
 
 	/* Tailwind v4 resets buttons to the default arrow: everything clickable

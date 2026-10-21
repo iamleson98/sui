@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { mode } from 'mode-watcher';
 	import { Toaster as Sonner, type ToasterProps as SonnerProps } from 'svelte-sonner';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
@@ -7,11 +6,13 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	let { ...restProps }: SonnerProps = $props();
+	// The host app owns the theme: mode-watcher would apply its own colour
+	// scheme late and independently of it, flashing the page's scrollbars.
+	let { theme = 'system', ...restProps }: SonnerProps = $props();
 </script>
 
 <Sonner
-	theme={mode.current}
+	{theme}
 	class="toaster group"
 	style="--normal-bg: var(--color-popover); --normal-text: var(--color-popover-foreground); --normal-border: var(--color-border);"
 	toastOptions={{
