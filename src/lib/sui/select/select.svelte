@@ -637,7 +637,7 @@
 				<Select.Content
 					id={listboxId}
 					bind:ref={contentRef}
-					class="sui-select-content z-50 p-1"
+					class="sui-select-content z-50 w-(--bits-select-anchor-width) p-1"
 					onEscapeKeydown={() => dismiss.keyboard()}
 				>
 					{#if infinite && list.error}
