@@ -139,6 +139,19 @@
 		@apply font-sans;
 	}
 
+	/* Tailwind v4 resets buttons to the default arrow: everything clickable
+	   gets the pointer (copy this block into a consumer app's base layer),
+	   a disabled control keeps the default cursor. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	[role='tab'],
+	[role='radio'],
+	summary,
+	label[for],
+	select:not(:disabled) {
+		cursor: pointer;
+	}
+
 	/* ---- mobile ergonomics (applies to the demo app; sui ships the same
 	rules via its data attributes so consumers can copy this block) ---- */
 
