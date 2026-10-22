@@ -67,7 +67,9 @@
 		SUI_FIELD_LABEL,
 		SUI_FIELD_TEXT,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_CONTROL,
+		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
@@ -274,9 +276,9 @@
 		<label
 			for={id}
 			data-sui-label
-			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
-				effVariant
-			]} mb-2 flex items-center gap-0.5 font-medium"
+			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} {disabled
+				? SUI_DISABLED_LABEL
+				: ''} mb-2 flex items-center gap-0.5 font-medium"
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
@@ -295,7 +297,8 @@
 		class={cn(
 			'relative flex w-full items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-within:ring-3 dark:bg-input/30 dark:focus-within:bg-input/50',
 			SUI_CONTROL[size],
-			SUI_FIELD_CONTROL[effVariant]
+			SUI_FIELD_CONTROL[effVariant],
+			disabled && SUI_DISABLED_CONTROL
 		)}
 	>
 		{#if startIcon}

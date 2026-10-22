@@ -96,7 +96,9 @@
 		SUI_FIELD_TRIGGER,
 		SUI_ICON,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_LABEL,
+		SUI_DISABLED_TRIGGER
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -140,6 +142,8 @@
 		onblur,
 		...rest
 	}: SuiComboboxProps<V> = $props();
+	// `disabled` reaches the trigger with the rest; the label fades with it.
+	const disabled = $derived(!!(rest as { disabled?: boolean }).disabled);
 
 	// `fieldState` backs standalone usage; a `field` handle from
 	// createSuiForm takes over values, timing and error display
@@ -363,9 +367,9 @@
 		<label
 			for={id}
 			data-sui-label
-			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
-				effVariant
-			]} mb-2 flex items-center gap-0.5 font-medium"
+			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} {disabled
+				? SUI_DISABLED_LABEL
+				: ''} mb-2 flex items-center gap-0.5 font-medium"
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
@@ -404,6 +408,7 @@
 					'relative flex w-full cursor-pointer items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
 					SUI_CONTROL[size],
 					SUI_FIELD_TRIGGER[effVariant],
+					SUI_DISABLED_TRIGGER,
 					// reserve the ✕ zone and pin the chevron far-right inside it
 					clearable && hasValue && SUI_CLEAR_PE[size],
 					clearable && hasValue && SUI_CHEVRON_PIN,
@@ -465,9 +470,14 @@
 			<!-- Selection is handled by each Command.Item's onSelect; a controlled
                                      `value` on Command.Root makes bits-ui reconcile on mount, which
                                      immediately re-selects and closes the popover. -->
-			<Command.Root data-sui-combobox-command shouldFilter={infinite ? false : searchable}>
+			<!-- The popover pads the list, as the select's does: no second gutter. -->
+			<Command.Root
+				class="p-0"
+				data-sui-combobox-command
+				shouldFilter={infinite ? false : searchable}
+			>
 				{#if searchable}
-					<div class="mb-1 border-b border-border px-0.5 pb-2.5">
+					<div class="mb-1 border-b border-border pb-1">
 						<Command.Input
 							bind:value={query}
 							placeholder={searchPlaceholder ?? strings.searchPlaceholder}
@@ -478,7 +488,7 @@
 						/>
 					</div>
 				{/if}
-				<Command.List id={listboxId} data-sui-combobox-list class="{listHeightClass} px-0.5">
+				<Command.List id={listboxId} data-sui-combobox-list class={listHeightClass}>
 					{#if infinite && list.error}
 						<div
 							class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-destructive"
@@ -591,7 +601,7 @@
 				</Popover.Trigger>
 				<Popover.Content
 					bind:ref={contentRef}
-					class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1.5 ring-0"
+					class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1 ring-0"
 					style="--sui-trigger-width: {triggerWidth}px"
 					align="start"
 					onEscapeKeydown={() => dismiss.keyboard()}

@@ -100,7 +100,9 @@
 		SUI_FIELD_TRIGGER,
 		SUI_INVALID_TRIGGER,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_LABEL,
+		SUI_DISABLED_TRIGGER
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -141,6 +143,8 @@
 		onblur,
 		...rest
 	}: SuiSelectProps<V> = $props();
+	// `disabled` reaches the trigger with the rest; the label fades with it.
+	const disabled = $derived(!!(rest as { disabled?: boolean }).disabled);
 
 	// `fieldState` backs standalone usage; a `field` handle from
 	// createSuiForm takes over values, timing and error display
@@ -350,9 +354,9 @@
 		<label
 			for={id}
 			data-sui-label
-			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
-				effVariant
-			]} mb-2 flex items-center gap-0.5 font-medium"
+			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} {disabled
+				? SUI_DISABLED_LABEL
+				: ''} mb-2 flex items-center gap-0.5 font-medium"
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
@@ -452,6 +456,7 @@
 								'relative flex w-full cursor-pointer items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
 								SUI_CONTROL[size],
 								SUI_FIELD_TRIGGER[effVariant],
+								SUI_DISABLED_TRIGGER,
 								clearable && hasValue && SUI_CLEAR_PE[size],
 								clearable && hasValue && SUI_CHEVRON_PIN,
 								className
@@ -579,6 +584,7 @@
 						'relative flex w-full items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
 						SUI_CONTROL[size],
 						SUI_FIELD_TRIGGER[effVariant],
+						SUI_DISABLED_TRIGGER,
 						// the shadcn trigger rings every aria-invalid control — keep it for focus only
 						SUI_INVALID_TRIGGER,
 						// reserve the ✕ zone and pin the chevron far-right inside it

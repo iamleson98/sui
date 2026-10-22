@@ -96,7 +96,9 @@
 		SUI_FIELD_TRIGGER,
 		SUI_ICON,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_CONTROL,
+		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -140,6 +142,8 @@
 		onblur,
 		...rest
 	}: SuiMultiSelectProps<V> = $props();
+	// `disabled` reaches the trigger with the rest; the label fades with it.
+	const disabled = $derived(!!(rest as { disabled?: boolean }).disabled);
 
 	// `fieldState` backs standalone usage; a `field` handle from
 	// createSuiForm takes over values, timing and error display
@@ -319,6 +323,11 @@
 
 	/** Shared by the popover and the mobile bottom sheet. */
 	function handleOpenChange(next: boolean) {
+		// The trigger is a div: nothing native stops a disabled one opening.
+		if (disabled && next) {
+			open = false;
+			return;
+		}
 		open = next;
 		if (next) {
 			dismiss.open();
@@ -401,12 +410,14 @@
 	}
 
 	function remove(v: V) {
+		if (disabled) return;
 		const next = current.filter((x) => x !== v);
 		commit(next);
 		onSelect?.(next, next.map(itemFor));
 	}
 
 	function clearAll() {
+		if (disabled) return;
 		commit([]);
 		onSelect?.([], []);
 	}
@@ -434,9 +445,9 @@
 			for={id}
 			id="{id}-label"
 			data-sui-label
-			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
-				effVariant
-			]} mb-2 flex items-center gap-0.5 font-medium"
+			class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} {disabled
+				? SUI_DISABLED_LABEL
+				: ''} mb-2 flex items-center gap-0.5 font-medium"
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 			{#if required}
@@ -456,7 +467,9 @@
 				{...divProps}
 				{id}
 				role="combobox"
-				tabindex="0"
+				tabindex={disabled ? -1 : 0}
+				aria-disabled={disabled || undefined}
+				data-disabled={disabled || undefined}
 				aria-labelledby={label ? `${id}-label` : undefined}
 				data-sui-multi-select
 				data-sui-trigger
@@ -471,6 +484,8 @@
 					'relative flex w-full cursor-pointer items-start rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
 					SUI_CONTROL_MIN[size],
 					SUI_FIELD_TRIGGER[effVariant],
+					// a div, not a button: `disabled` is not a state CSS can see
+					disabled && SUI_DISABLED_CONTROL,
 					className
 				)}
 				{...rest as Record<string, unknown>}
@@ -478,6 +493,7 @@
 				onkeydown={(event: KeyboardEvent) => {
 					// ArrowDown/ArrowUp open the menu (combobox convention);
 					// Enter/Space are delegated to bits-ui's handler below.
+					if (disabled) return;
 					if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !open) {
 						event.preventDefault();
 						open = true;
@@ -527,20 +543,22 @@
 								data-value={sel.value}
 							>
 								<span class="truncate">{sel.label}</span>
-								<button
-									type="button"
-									data-sui-badge-remove
-									class="flex size-[1.15em] shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors outline-none hover:bg-accent-foreground/15 focus-visible:ring-2"
-									aria-label={strings.removeItem(sel.label)}
-									onclick={(event) => {
-										event.preventDefault();
-										event.stopPropagation();
-										remove(sel.value);
-									}}
-									onkeydown={(event) => event.stopPropagation()}
-								>
-									<SuiIcon icon={XIcon} size="xs" />
-								</button>
+								{#if !disabled}
+									<button
+										type="button"
+										data-sui-badge-remove
+										class="flex size-[1.15em] shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors outline-none hover:bg-accent-foreground/15 focus-visible:ring-2"
+										aria-label={strings.removeItem(sel.label)}
+										onclick={(event) => {
+											event.preventDefault();
+											event.stopPropagation();
+											remove(sel.value);
+										}}
+										onkeydown={(event) => event.stopPropagation()}
+									>
+										<SuiIcon icon={XIcon} size="xs" />
+									</button>
+								{/if}
 							</span>
 						{/each}
 						{#if overflow > 0 && !expanded}
@@ -594,7 +612,7 @@
 						{@render action()}
 					</span>
 				{/if}
-				{#if clearable && selected.length > 0}
+				{#if clearable && selected.length > 0 && !disabled}
 					<button
 						type="button"
 						data-sui-clear
@@ -625,9 +643,14 @@
 
 		<!-- The option list is shared verbatim between popover and drawer. -->
 		{#snippet listbox(listHeightClass: string)}
-			<Command.Root data-sui-multi-select-command shouldFilter={infinite ? false : searchable}>
+			<!-- The popover pads the list, as the select's does: no second gutter. -->
+			<Command.Root
+				class="p-0"
+				data-sui-multi-select-command
+				shouldFilter={infinite ? false : searchable}
+			>
 				{#if searchable}
-					<div class="mb-1 border-b border-border px-0.5 pb-2.5">
+					<div class="mb-1 border-b border-border pb-1">
 						<Command.Input
 							bind:value={query}
 							placeholder={searchPlaceholder ?? strings.searchPlaceholder}
@@ -638,7 +661,7 @@
 						/>
 					</div>
 				{/if}
-				<Command.List id={listboxId} data-sui-multi-select-list class="{listHeightClass} px-0.5">
+				<Command.List id={listboxId} data-sui-multi-select-list class={listHeightClass}>
 					{#if infinite && list.error}
 						<div
 							class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-destructive"
@@ -754,7 +777,7 @@
 				</Popover.Trigger>
 				<Popover.Content
 					bind:ref={contentRef}
-					class="sui-multi-select-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1.5 ring-0"
+					class="sui-multi-select-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1 ring-0"
 					style="--sui-trigger-width: {triggerWidth}px"
 					align="start"
 					onEscapeKeydown={() => dismiss.keyboard()}

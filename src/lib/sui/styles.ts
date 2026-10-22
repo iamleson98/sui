@@ -143,6 +143,17 @@ export const SUI_INVALID_RING = 'aria-invalid:ring-0 aria-invalid:focus-visible:
  */
 export const SUI_INVALID_TRIGGER = `${SUI_INVALID_RING} aria-invalid:border-red-300 dark:aria-invalid:border-red-500/40 aria-invalid:focus-visible:border-red-500 dark:aria-invalid:focus-visible:border-red-400`;
 
+/**
+ * The one disabled look of every field: its label and its control at half
+ * strength and the pointer refused, so a disabled input reads like a
+ * disabled switch. Hints and messages keep full strength (they may say why
+ * the field is disabled).
+ */
+export const SUI_DISABLED_LABEL = 'opacity-50';
+export const SUI_DISABLED_CONTROL = 'cursor-not-allowed opacity-50';
+/** {@link SUI_DISABLED_CONTROL} for a native control that carries `disabled` itself (a trigger button). */
+export const SUI_DISABLED_TRIGGER = 'disabled:cursor-not-allowed disabled:opacity-50';
+
 /** Field variant classes applied to labels (neutral text in the normal state). */
 export const SUI_FIELD_LABEL: Record<SuiFieldVariant, string> = {
 	info: 'text-foreground',

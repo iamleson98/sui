@@ -53,7 +53,9 @@
 		SUI_FIELD_LABEL,
 		SUI_FIELD_TEXT,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_CONTROL,
+		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
@@ -165,7 +167,7 @@
 			id="{id}-label"
 			class="{SUI_FIELD_LABEL[effVariant]} mb-2 flex items-center gap-0.5 font-medium {SUI_LABEL[
 				size
-			]}"
+			]} {disabled ? SUI_DISABLED_LABEL : ''}"
 			data-sui-label
 		>
 			{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
@@ -215,7 +217,7 @@
 			<label
 				for={`${id}-option-${index}`}
 				class="flex w-full cursor-pointer items-start gap-2 {item.disabled || disabled
-					? 'cursor-not-allowed opacity-50'
+					? SUI_DISABLED_CONTROL
 					: ''}"
 			>
 				<RadioGroup.Item
@@ -223,7 +225,7 @@
 					value={item.value}
 					disabled={item.disabled}
 					data-sui-radio-item
-					class="{DOT_SIZE[size]} mt-0.5"
+					class="{DOT_SIZE[size]} mt-0.5 disabled:opacity-100"
 				/>
 				<span class="flex flex-col gap-0.5">
 					<span class="{SUI_LABEL[size]} leading-none font-medium text-foreground"

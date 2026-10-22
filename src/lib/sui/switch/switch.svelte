@@ -47,7 +47,8 @@
 		SUI_FIELD_TEXT,
 		SUI_INVALID_RING,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
 
@@ -153,7 +154,7 @@
 				for={id}
 				data-sui-label
 				class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} leading-none font-medium {disabled
-					? 'opacity-50'
+					? SUI_DISABLED_LABEL
 					: ''}"
 			>
 				{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
