@@ -470,9 +470,14 @@
 			<!-- Selection is handled by each Command.Item's onSelect; a controlled
                                      `value` on Command.Root makes bits-ui reconcile on mount, which
                                      immediately re-selects and closes the popover. -->
-			<Command.Root data-sui-combobox-command shouldFilter={infinite ? false : searchable}>
+			<!-- The popover pads the list, as the select's does: no second gutter. -->
+			<Command.Root
+				class="p-0"
+				data-sui-combobox-command
+				shouldFilter={infinite ? false : searchable}
+			>
 				{#if searchable}
-					<div class="mb-1 border-b border-border px-0.5 pb-2.5">
+					<div class="mb-1 border-b border-border pb-1">
 						<Command.Input
 							bind:value={query}
 							placeholder={searchPlaceholder ?? strings.searchPlaceholder}
@@ -483,7 +488,7 @@
 						/>
 					</div>
 				{/if}
-				<Command.List id={listboxId} data-sui-combobox-list class="{listHeightClass} px-0.5">
+				<Command.List id={listboxId} data-sui-combobox-list class={listHeightClass}>
 					{#if infinite && list.error}
 						<div
 							class="flex items-center justify-center gap-2 px-2.5 py-3 text-sm text-destructive"
@@ -596,7 +601,7 @@
 				</Popover.Trigger>
 				<Popover.Content
 					bind:ref={contentRef}
-					class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1.5 ring-0"
+					class="sui-combobox-content z-50 w-(--sui-trigger-width) gap-0 border border-border p-1 ring-0"
 					style="--sui-trigger-width: {triggerWidth}px"
 					align="start"
 					onEscapeKeydown={() => dismiss.keyboard()}
