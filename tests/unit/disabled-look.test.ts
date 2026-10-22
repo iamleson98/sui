@@ -37,17 +37,17 @@ const faded = (el: Element | null) =>
 describe('the disabled look is one look', () => {
 	for (const [name, Field, props] of fields) {
 		it(`${name}: the label fades only when disabled`, () => {
-			const { unmount } = render(Field as never, { label: 'Field', ...props });
+			const { unmount } = render(Field as never, { label: 'Field', ...props } as never);
 			expect(faded(document.querySelector('[data-sui-label]'))).toBe(false);
 			unmount();
-			render(Field as never, { label: 'Field', disabled: true, ...props });
+			render(Field as never, { label: 'Field', disabled: true, ...props } as never);
 			expect(faded(document.querySelector('[data-sui-label]'))).toBe(true);
 		});
 	}
 
 	it('text fields fade their control box too', () => {
 		for (const Field of [SuiInput, SuiTextarea]) {
-			const { unmount } = render(Field as never, { label: 'Field', disabled: true });
+			const { unmount } = render(Field as never, { label: 'Field', disabled: true } as never);
 			const box = document.querySelector('[data-sui-control]');
 			expect(SUI_DISABLED_CONTROL.split(' ').every((c) => box?.classList.contains(c))).toBe(true);
 			unmount();
