@@ -80,7 +80,9 @@
 		SUI_FIELD_TEXT,
 		SUI_ICON,
 		SUI_LABEL,
-		SUI_SUBTEXT
+		SUI_SUBTEXT,
+		SUI_DISABLED_CONTROL,
+		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { cn } from '$lib/utils.js';
 	import CalendarIcon from '@lucide/svelte/icons/calendar-range';
@@ -285,9 +287,9 @@
 			<DateRangePicker.Label
 				id={labelId}
 				data-sui-label
-				class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[
-					effVariant
-				]} mb-2 flex items-center gap-0.5 font-medium"
+				class="{SUI_LABEL[size]} {SUI_FIELD_LABEL[effVariant]} {disabled
+					? SUI_DISABLED_LABEL
+					: ''} mb-2 flex items-center gap-0.5 font-medium"
 			>
 				{#if typeof label === 'string'}{label}{:else}{@render label()}{/if}
 				{#if required}
@@ -306,7 +308,7 @@
 				'relative flex w-full items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-within:ring-3 dark:bg-input/30 dark:focus-within:bg-input/50',
 				SUI_CONTROL[size],
 				SUI_FIELD_CONTROL[effVariant],
-				disabled && 'cursor-not-allowed opacity-50'
+				disabled && SUI_DISABLED_CONTROL
 			)}
 			onfocusout={onFocusOut}
 		>
