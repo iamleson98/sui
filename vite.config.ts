@@ -1,4 +1,3 @@
-import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
@@ -6,25 +5,10 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
-		sveltekit({
-			// Kit options inline — SvelteKit ignores svelte.config.js when
-			// options are passed here (since 2.62).
-			//
-			// Node adapter: prerendered pages are served as static HTML (fast,
-			// SEO friendly) while the /api mock endpoints stay dynamic. Deploys
-			// to any Node host (`node build/index.js`), Fly.io, Railway,
-			// Render, Docker…
-			adapter: adapter(),
-			prerender: {
-				// crawl every page so all demos land in the static output
-				entries: ['*']
-			},
-			compilerOptions: {
-				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) =>
-					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
-			}
-		})
+		// Kit config (adapter, prerender, compilerOptions) lives in
+		// svelte.config.js — the canonical location that Vercel's SvelteKit
+		// detection and `svelte-kit sync` expect.
+		sveltekit()
 	],
 	build: {
 		rollupOptions: {
