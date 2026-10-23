@@ -9,6 +9,7 @@ export default ts.config(
 		// build output is generated
 		ignores: [
 			'.svelte-kit/**',
+			'.vercel/**',
 			'build/**',
 			'node_modules/**',
 			'dist/**',
