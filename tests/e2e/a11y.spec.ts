@@ -68,6 +68,17 @@ test('a11y: open select, combobox and multi-select popovers', async ({ page }) =
 	await audit(page);
 });
 
+test('a11y: open tree select, browsing and searching', async ({ page }) => {
+	await page.goto('/selection');
+	await page.getByRole('combobox', { name: 'Filter by subject' }).click();
+	await expect(page.getByRole('treeitem').first()).toBeVisible();
+	await audit(page);
+
+	await page.getByRole('combobox', { name: 'Search…' }).fill('lop');
+	await expect(page.getByRole('option').first()).toBeVisible();
+	await audit(page);
+});
+
 test('a11y: date calendar and time slot popovers', async ({ page }) => {
 	await page.goto('/date-time');
 	await page.getByRole('button', { name: 'Open calendar' }).first().click();

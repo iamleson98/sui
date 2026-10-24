@@ -38,6 +38,10 @@ export type SuiStrings = {
 	clearSelection: string;
 	/** Clear (✕) button of multi-select. */
 	clearAll: string;
+	/** Tree select: button that opens a branch (label of the branch). */
+	expandNode: (label: string) => string;
+	/** Tree select: button that closes a branch (label of the branch). */
+	collapseNode: (label: string) => string;
 	/** Screen-reader description of a mobile single-choice sheet. */
 	chooseOption: string;
 	/** Screen-reader description of a mobile multi-choice sheet. */
@@ -96,6 +100,8 @@ export const SUI_STRINGS: Readonly<SuiStrings> = Object.freeze({
 	searchPlaceholder: 'Search…',
 	noOptions: 'No options',
 	noResults: 'No results',
+	expandNode: (label) => `Show what is under ${label}`,
+	collapseNode: (label) => `Hide what is under ${label}`,
 	loadError: 'Failed to load options',
 	retry: 'Try again',
 	loading: 'Loading…',

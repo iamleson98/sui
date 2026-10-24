@@ -67,6 +67,13 @@
 		 * remembered automatically, across searches.
 		 */
 		selectedItem?: SuiItem<V>;
+		/**
+		 * Looks up the item behind a `value` that no loaded page contains and
+		 * that `selectedItem` does not cover (a value from a URL or a saved
+		 * record) — the trigger shows its label instead of the raw value.
+		 * Asked once per value.
+		 */
+		resolve?: (value: V) => Promise<SuiItem<V> | undefined>;
 		onSelect?: (value: V | undefined, item: SuiItem<V> | undefined) => void;
 	};
 </script>
@@ -80,6 +87,8 @@
 	import { registerSuiField } from '../form/field-registry.js';
 	import { SuiPopupDismiss } from '../popup-blur.js';
 	import { SuiInfiniteList } from '../infinite-list.svelte.js';
+	import { SuiItemResolver } from '../resolve-items.svelte.js';
+	import { suiFilter } from '../search.js';
 	import { observeSentinel } from '../intersection.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
 	import { getSuiStrings } from '../strings.js';
@@ -138,6 +147,7 @@
 		id = `sui-combobox-${uid}`,
 		value = $bindable<V | undefined>(undefined),
 		selectedItem,
+		resolve,
 		onSelect,
 		onblur,
 		...rest
@@ -196,13 +206,19 @@
 		const item = resolvedItems.find((candidate) => candidate.value === current);
 		if (item && remembered.get(current) !== item) remembered.set(current, item);
 	});
+	const resolver = new SuiItemResolver<V>();
 	const selected = $derived(
 		current === undefined
 			? undefined
 			: (resolvedItems.find((item) => item.value === current) ??
 					remembered.get(current) ??
-					(selectedItem?.value === current ? selectedItem : undefined))
+					(selectedItem?.value === current ? selectedItem : undefined) ??
+					resolver.found.get(current))
 	);
+	$effect(() => {
+		if (current === undefined) return;
+		resolver.request([current], () => selected !== undefined, resolve);
+	});
 	const hasValue = $derived(current !== undefined && current !== '');
 	// the form wins the `name` by default (native form data)
 	const formName = $derived(name ?? f?.name);
@@ -231,6 +247,16 @@
 
 	let open = $state(false);
 	let query = $state('');
+	// A selection the loaded pages do not hold (picked from a search, or set
+	// from outside) is pinned on top of the unfiltered list, so reopening shows
+	// what is chosen instead of hiding it behind page one.
+	const pinned = $derived(
+		selected !== undefined &&
+			query === '' &&
+			!resolvedItems.some((item) => item.value === selected.value)
+			? selected
+			: undefined
+	);
 	let sentinel: HTMLElement | null = $state(null);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let triggerWidth = $state(0);
@@ -465,6 +491,35 @@
 			</button>
 		{/snippet}
 
+		<!-- One option row; the pinned selection and the list share it. -->
+		{#snippet option(item: SuiItem<V>)}
+			<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui never
+                                                             sets its data-checked) — sui renders its own leading check. -->
+			<Command.Item
+				value={item.value}
+				keywords={[item.label, item.description ?? '']}
+				data-sui-option
+				data-disabled={item.disabled || undefined}
+				disabled={item.disabled || undefined}
+				onSelect={() => select(item.value)}
+				class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
+			>
+				<CheckIcon
+					class="{SUI_ICON[size]} shrink-0 transition-opacity {item.value === current
+						? 'opacity-100'
+						: 'opacity-0'}"
+				/>
+				<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
+					<span class="truncate">{item.label}</span>
+					{#if item.description}
+						<span class="w-full truncate text-xs leading-snug text-muted-foreground">
+							{item.description}
+						</span>
+					{/if}
+				</span>
+			</Command.Item>
+		{/snippet}
+
 		<!-- The option list is shared verbatim between popover and drawer. -->
 		{#snippet listbox(listHeightClass: string)}
 			<!-- Selection is handled by each Command.Item's onSelect; a controlled
@@ -475,6 +530,7 @@
 				class="p-0"
 				data-sui-combobox-command
 				shouldFilter={infinite ? false : searchable}
+				filter={suiFilter}
 			>
 				{#if searchable}
 					<div class="mb-1 border-b border-border pb-1">
@@ -511,32 +567,11 @@
 							>{emptyText ?? strings.noResults}</Command.Empty
 						>
 					{/if}
+					{#if pinned}
+						{@render option(pinned)}
+					{/if}
 					{#each resolvedItems as item (item.value)}
-						<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui never
-                                                             sets its data-checked) — sui renders its own leading check. -->
-						<Command.Item
-							value={item.value}
-							keywords={[item.label, item.description ?? '']}
-							data-sui-option
-							data-disabled={item.disabled || undefined}
-							disabled={item.disabled || undefined}
-							onSelect={() => select(item.value)}
-							class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
-						>
-							<CheckIcon
-								class="{SUI_ICON[size]} shrink-0 transition-opacity {item.value === current
-									? 'opacity-100'
-									: 'opacity-0'}"
-							/>
-							<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
-								<span class="truncate">{item.label}</span>
-								{#if item.description}
-									<span class="w-full truncate text-xs leading-snug text-muted-foreground">
-										{item.description}
-									</span>
-								{/if}
-							</span>
-						</Command.Item>
+						{@render option(item)}
 					{/each}
 					{#if infinite && (list.loading || list.loadingMore)}
 						<div

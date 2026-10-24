@@ -935,3 +935,38 @@ test.describe('SvelteKit form action', () => {
 		await context.close();
 	});
 });
+
+test.describe('tree select', () => {
+	test('keys open branches, search ignores accents, Enter chooses', async ({ page }) => {
+		await page.goto('/selection');
+		const trigger = page.getByRole('combobox', { name: 'Filter by subject' });
+		await trigger.click();
+		const search = page.getByRole('combobox', { name: 'Search…' });
+		await expect(search).toBeFocused();
+
+		await page.keyboard.press('ArrowRight');
+		await expect(page.getByRole('treeitem', { name: /Lớp 1/ })).toBeVisible();
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('ArrowDown');
+		await page.keyboard.press('ArrowRight');
+		await expect(page.getByRole('treeitem', { name: /Hình học/ })).toBeVisible();
+
+		await search.fill('hinh hoc');
+		await expect(page.getByRole('option')).toHaveCount(1);
+		await expect(page.getByRole('option')).toContainText('Toán học › Lớp 2');
+		await page.keyboard.press('Enter');
+		await expect(trigger).toContainText('Toán học › Lớp 2 › Hình học');
+	});
+
+	test('a leaf-only field opens branches instead of choosing them', async ({ page }) => {
+		await page.goto('/selection');
+		const trigger = page.getByRole('combobox', { name: 'File under' });
+		await expect(trigger).toContainText('Phân số');
+		await trigger.click();
+		await page.getByRole('treeitem', { name: /Tiếng Anh/ }).click();
+		await expect(page.getByRole('treeitem', { name: /IELTS/ })).toBeVisible();
+		await expect(trigger).toContainText('Phân số');
+		await page.getByRole('treeitem', { name: /IELTS/ }).click();
+		await expect(trigger).toContainText('Tiếng Anh › IELTS');
+	});
+});
