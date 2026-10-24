@@ -69,6 +69,13 @@
 		 * automatically, across searches.
 		 */
 		selectedItems?: SuiItem<V>[];
+		/**
+		 * Looks up the item behind a selected value that no loaded page
+		 * contains and `selectedItems` does not cover (values from a URL or a
+		 * saved record) — its chip shows the label instead of the raw value.
+		 * Asked once per value.
+		 */
+		resolve?: (value: V) => Promise<SuiItem<V> | undefined>;
 		onSelect?: (value: V[], items: SuiItem<V>[]) => void;
 	};
 </script>
@@ -82,6 +89,8 @@
 	import { registerSuiField } from '../form/field-registry.js';
 	import { SuiPopupDismiss } from '../popup-blur.js';
 	import { SuiInfiniteList } from '../infinite-list.svelte.js';
+	import { SuiItemResolver } from '../resolve-items.svelte.js';
+	import { suiFilter } from '../search.js';
 	import { fitChipCount } from '../chip-fit.js';
 	import { observeSentinel } from '../intersection.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
@@ -138,6 +147,7 @@
 		id = `sui-multi-select-${uid}`,
 		value = $bindable<V[]>([]),
 		selectedItems,
+		resolve,
 		onSelect,
 		onblur,
 		...rest
@@ -198,15 +208,14 @@
 			if (item && remembered.get(v) !== item) remembered.set(v, item);
 		}
 	});
-	const selected = $derived(
-		current.map((v) => {
-			const item =
-				resolvedItems.find((candidate) => candidate.value === v) ??
-				remembered.get(v) ??
-				selectedItems?.find((candidate) => candidate.value === v);
-			return { value: v, label: item?.label ?? v };
-		})
-	);
+	const resolver = new SuiItemResolver<V>();
+	const known = (v: V) =>
+		resolvedItems.find((candidate) => candidate.value === v) ??
+		remembered.get(v) ??
+		selectedItems?.find((candidate) => candidate.value === v) ??
+		resolver.found.get(v);
+	$effect(() => resolver.request(current, (v) => known(v) !== undefined, resolve));
+	const selected = $derived(current.map((v) => ({ value: v, label: known(v)?.label ?? v })));
 	// the form wins the `name` by default (native form data)
 	const formName = $derived(name ?? f?.name);
 
@@ -289,6 +298,17 @@
 
 	let open = $state(false);
 	let query = $state('');
+	// Selections the loaded pages do not hold (picked from a search, or set
+	// from outside) are pinned on top of the unfiltered list, so reopening shows
+	// what is chosen instead of hiding it behind page one.
+	const pinned = $derived(
+		query === ''
+			? current.flatMap((v) => {
+					const item = known(v);
+					return item && !resolvedItems.some((candidate) => candidate.value === v) ? [item] : [];
+				})
+			: []
+	);
 	let sentinel: HTMLElement | null = $state(null);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let triggerWidth = $state(0);
@@ -392,11 +412,7 @@
 
 	/** The full item for a selected value (label fallbacks as for the chips). */
 	function itemFor(v: V): SuiItem<V> {
-		return (
-			resolvedItems.find((candidate) => candidate.value === v) ??
-			remembered.get(v) ??
-			selectedItems?.find((candidate) => candidate.value === v) ?? { value: v, label: v }
-		);
+		return known(v) ?? { value: v, label: v };
 	}
 
 	function toggle(item: SuiItem<V>) {
@@ -641,6 +657,39 @@
 			</div>
 		{/snippet}
 
+		<!-- One option row; the pinned selections and the list share it. -->
+		{#snippet option(item: SuiItem<V>)}
+			<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui
+                                                                never sets its data-checked) — sui renders its own leading check. -->
+			<!-- keywords: static search matches the label (and description),
+						     not only the value; aria-checked exposes the selection — the
+						     command list's aria-selected tracks the highlight -->
+			<Command.Item
+				value={item.value}
+				keywords={[item.label, item.description ?? '']}
+				aria-checked={isSelected(item.value)}
+				data-sui-option
+				data-disabled={item.disabled || undefined}
+				disabled={item.disabled || undefined}
+				onSelect={() => toggle(item)}
+				class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
+			>
+				<CheckIcon
+					class="{SUI_ICON[size]} shrink-0 transition-opacity {isSelected(item.value)
+						? 'opacity-100'
+						: 'opacity-0'}"
+				/>
+				<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
+					<span class="truncate">{item.label}</span>
+					{#if item.description}
+						<span class="w-full truncate text-xs leading-snug text-muted-foreground">
+							{item.description}
+						</span>
+					{/if}
+				</span>
+			</Command.Item>
+		{/snippet}
+
 		<!-- The option list is shared verbatim between popover and drawer. -->
 		{#snippet listbox(listHeightClass: string)}
 			<!-- The popover pads the list, as the select's does: no second gutter. -->
@@ -648,6 +697,7 @@
 				class="p-0"
 				data-sui-multi-select-command
 				shouldFilter={infinite ? false : searchable}
+				filter={suiFilter}
 			>
 				{#if searchable}
 					<div class="mb-1 border-b border-border pb-1">
@@ -684,36 +734,11 @@
 							>{emptyText ?? strings.noResults}</Command.Empty
 						>
 					{/if}
+					{#each pinned as item (item.value)}
+						{@render option(item)}
+					{/each}
 					{#each resolvedItems as item (item.value)}
-						<!-- `class` hides the wrapper's built-in trailing check icon (bits-ui
-                                                                never sets its data-checked) — sui renders its own leading check. -->
-						<!-- keywords: static search matches the label (and description),
-						     not only the value; aria-checked exposes the selection — the
-						     command list's aria-selected tracks the highlight -->
-						<Command.Item
-							value={item.value}
-							keywords={[item.label, item.description ?? '']}
-							aria-checked={isSelected(item.value)}
-							data-sui-option
-							data-disabled={item.disabled || undefined}
-							disabled={item.disabled || undefined}
-							onSelect={() => toggle(item)}
-							class="gap-2.5 rounded-md px-2.5 py-2 [&>svg:last-of-type]:hidden"
-						>
-							<CheckIcon
-								class="{SUI_ICON[size]} shrink-0 transition-opacity {isSelected(item.value)
-									? 'opacity-100'
-									: 'opacity-0'}"
-							/>
-							<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
-								<span class="truncate">{item.label}</span>
-								{#if item.description}
-									<span class="w-full truncate text-xs leading-snug text-muted-foreground">
-										{item.description}
-									</span>
-								{/if}
-							</span>
-						</Command.Item>
+						{@render option(item)}
 					{/each}
 					{#if infinite && (list.loading || list.loadingMore)}
 						<div

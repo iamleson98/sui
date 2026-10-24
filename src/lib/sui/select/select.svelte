@@ -69,6 +69,13 @@
 		 * remembered automatically.
 		 */
 		selectedItem?: SuiItem<V>;
+		/**
+		 * Looks up the item behind a `value` that no loaded page contains and
+		 * that `selectedItem` does not cover (a value from a URL or a saved
+		 * record) — the trigger shows its label instead of the raw value.
+		 * Asked once per value.
+		 */
+		resolve?: (value: V) => Promise<SuiItem<V> | undefined>;
 		/** Fires whenever the selection changes. */
 		onSelect?: (value: V | undefined, item: SuiItem<V> | undefined) => void;
 	};
@@ -83,6 +90,7 @@
 	import { registerSuiField } from '../form/field-registry.js';
 	import { SuiPopupDismiss } from '../popup-blur.js';
 	import { SuiInfiniteList } from '../infinite-list.svelte.js';
+	import { SuiItemResolver } from '../resolve-items.svelte.js';
 	import { observeSentinel } from '../intersection.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
 	import { getSuiStrings } from '../strings.js';
@@ -139,6 +147,7 @@
 		id = `sui-select-${uid}`,
 		value = $bindable<V | undefined>(undefined),
 		selectedItem,
+		resolve,
 		onSelect,
 		onblur,
 		...rest
@@ -206,13 +215,19 @@
 		const item = resolvedItems.find((candidate) => candidate.value === current);
 		if (item && remembered.get(current) !== item) remembered.set(current, item);
 	});
+	const resolver = new SuiItemResolver<V>();
 	const selected = $derived(
 		current === undefined
 			? undefined
 			: (resolvedItems.find((item) => item.value === current) ??
 					remembered.get(current) ??
-					(selectedItem?.value === current ? selectedItem : undefined))
+					(selectedItem?.value === current ? selectedItem : undefined) ??
+					resolver.found.get(current))
 	);
+	$effect(() => {
+		if (current === undefined) return;
+		resolver.request([current], () => selected !== undefined, resolve);
+	});
 	const hasValue = $derived(current !== undefined && current !== '');
 	// the form wins the `name` by default (native form data)
 	const formName = $derived(name ?? f?.name);

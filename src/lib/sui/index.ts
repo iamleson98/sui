@@ -53,6 +53,9 @@ export { SuiFieldState } from './field.svelte.js';
 // schema-driven forms (createSuiForm + <SuiForm/> + field handles)
 export * from './form/index.js';
 
+// accent-insensitive local search (the select family's filter)
+export { suiFold, suiFilter } from './search.js';
+
 // pagination / infinite scroll
 export {
 	offsetSource,
