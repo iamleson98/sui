@@ -21,6 +21,7 @@
 	let products = $state<string[]>(['sku-1000']);
 	let subjectFilter = $state<string | undefined>(undefined);
 	let subjectFiled = $state<string | undefined>('fractions');
+	let subjectInline = $state<string | undefined>(undefined);
 	let tags = $state<string[]>([]);
 
 	const countries: SuiItem[] = [
@@ -244,7 +245,7 @@
 
 <Section
 	title="TreeSelect — a choice from a tree"
-	description="Options that nest, to any depth: open a branch with its chevron (or Right), search across every level without typing accents, and choose either any node (a filter: a branch stands for all below it) or only leaves (filing something under the most specific level)."
+	description="Options that nest: hover a branch and its children fly out (Right opens one from the keyboard), search across every level without typing accents, and choose either any node (a filter: a branch stands for all below it, through its “All of …” item) or only leaves (filing something under the most specific level). Phones, which cannot hover, get the same options as an inline tree in a bottom sheet."
 >
 	<div class="grid max-w-lg gap-6">
 		<SuiTreeSelect
@@ -260,6 +261,15 @@
 			items={subjects}
 			subText="Only the most specific level can be chosen."
 			bind:value={subjectFiled}
+		/>
+		<SuiTreeSelect
+			label="Inline tree"
+			display="inline"
+			placeholder="Everywhere"
+			items={subjects}
+			clearable
+			subText="display='inline': chevrons open branches in place."
+			bind:value={subjectInline}
 		/>
 		<SuiTreeSelectSkeleton label />
 		<p class="text-sm text-muted-foreground">

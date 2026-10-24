@@ -937,36 +937,71 @@ test.describe('SvelteKit form action', () => {
 });
 
 test.describe('tree select', () => {
-	test('keys open branches, search ignores accents, Enter chooses', async ({ page }) => {
+	test('hover flies out children, three levels deep, and the keyboard follows', async ({
+		page
+	}) => {
 		await page.goto('/selection');
 		const trigger = page.getByRole('combobox', { name: 'Filter by subject' });
 		await trigger.click();
-		const search = page.getByRole('combobox', { name: 'Search…' });
-		await expect(search).toBeFocused();
 
-		await page.keyboard.press('ArrowRight');
-		await expect(page.getByRole('treeitem', { name: /Lớp 1/ })).toBeVisible();
-		await page.keyboard.press('ArrowDown');
-		await page.keyboard.press('ArrowDown');
-		await page.keyboard.press('ArrowRight');
-		await expect(page.getByRole('treeitem', { name: /Hình học/ })).toBeVisible();
-
-		await search.fill('hinh hoc');
-		await expect(page.getByRole('option')).toHaveCount(1);
-		await expect(page.getByRole('option')).toContainText('Toán học › Lớp 2');
-		await page.keyboard.press('Enter');
+		// hovering a branch shows its children, and a third level beside that
+		await page.getByRole('menuitem', { name: /Toán học/ }).hover();
+		await expect(page.getByRole('menuitem', { name: /Lớp 1/ })).toBeVisible();
+		await page.getByRole('menuitem', { name: /Lớp 2/ }).hover();
+		await page.getByRole('menuitem', { name: /Hình học/ }).click();
 		await expect(trigger).toContainText('Toán học › Lớp 2 › Hình học');
+
+		// the keyboard: Down enters the menu, Right opens a branch, Enter chooses its "All of …"
+		await trigger.click();
+		await page.keyboard.press('ArrowDown');
+		await expect(page.getByRole('menuitem', { name: /Toán học/ }).first()).toBeFocused();
+		await page.keyboard.press('ArrowRight');
+		await expect(page.getByRole('menuitem', { name: /All of Toán học/ })).toBeFocused();
+		await page.keyboard.press('Enter');
+		await expect(trigger).toContainText('Toán học');
+		await expect(trigger).not.toContainText('›');
+
+		// type-ahead: typing the start of a name moves to it
+		await trigger.click();
+		await expect(page.getByRole('menu')).toBeFocused();
+		await page.keyboard.type('Ti');
+		await expect(page.getByRole('menuitem', { name: /Tiếng Anh/ })).toBeFocused();
 	});
 
-	test('a leaf-only field opens branches instead of choosing them', async ({ page }) => {
+	test('a leaf-only field cannot choose a branch', async ({ page }) => {
 		await page.goto('/selection');
 		const trigger = page.getByRole('combobox', { name: 'File under' });
 		await expect(trigger).toContainText('Phân số');
 		await trigger.click();
-		await page.getByRole('treeitem', { name: /Tiếng Anh/ }).click();
+		await page.getByRole('menuitem', { name: /Tiếng Anh/ }).hover();
+		await expect(page.getByRole('menuitem', { name: /IELTS/ })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: /All of Tiếng Anh/ })).toHaveCount(0);
+		await page.getByRole('menuitem', { name: /IELTS/ }).click();
+		await expect(trigger).toContainText('Tiếng Anh › IELTS');
+	});
+
+	test('the inline tree opens branches with chevrons and the Right key, and searches', async ({
+		page
+	}) => {
+		await page.goto('/selection');
+		const trigger = page.getByRole('combobox', { name: 'Inline tree' });
+		await trigger.click();
+		const search = page.getByRole('combobox', { name: 'Search…' });
+		await expect(search).toBeFocused();
+		await page.keyboard.press('ArrowRight');
+		await expect(page.getByRole('treeitem', { name: /Lớp 1/ })).toBeVisible();
+		await page.getByRole('button', { name: /Show what is under Tiếng Anh/ }).click();
 		await expect(page.getByRole('treeitem', { name: /IELTS/ })).toBeVisible();
-		await expect(trigger).toContainText('Phân số');
 		await page.getByRole('treeitem', { name: /IELTS/ }).click();
 		await expect(trigger).toContainText('Tiếng Anh › IELTS');
+
+		// search ignores accents and lists where each result sits
+		await trigger.click();
+		await expect(search).toBeFocused();
+		await page.keyboard.type('hinh hoc');
+		await expect(page.getByRole('option')).toHaveCount(1);
+		await expect(page.getByRole('option')).toContainText('Toán học › Lớp 2');
+		await page.keyboard.press('Enter');
+		await expect(trigger).toContainText('Toán học › Lớp 2 › Hình học');
 	});
 });
