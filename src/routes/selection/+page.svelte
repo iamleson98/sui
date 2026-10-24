@@ -3,6 +3,8 @@
 	import { SuiSelect, SuiSelectSkeleton } from '$lib/sui/select/index.js';
 	import { SuiCombobox, SuiComboboxSkeleton } from '$lib/sui/combobox/index.js';
 	import { SuiMultiSelect, SuiMultiSelectSkeleton } from '$lib/sui/multi-select/index.js';
+	import { SuiTreeSelect, SuiTreeSelectSkeleton } from '$lib/sui/tree-select/index.js';
+	import type { SuiTreeItem } from '$lib/sui/tree.js';
 	import { cursorSource, offsetSource, type SuiSource } from '$lib/sui/pagination.js';
 	import type { SuiItem } from '$lib/sui/types.js';
 	import CodeBlock from '$lib/demo/code-block.svelte';
@@ -17,6 +19,8 @@
 	let assignee = $state<string | undefined>(undefined);
 	let region = $state<string | undefined>(undefined);
 	let products = $state<string[]>(['sku-1000']);
+	let subjectFilter = $state<string | undefined>(undefined);
+	let subjectFiled = $state<string | undefined>('fractions');
 	let tags = $state<string[]>([]);
 
 	const countries: SuiItem[] = [
@@ -25,6 +29,38 @@
 		{ value: 'de', label: 'Germany', description: 'Europe' },
 		{ value: 'us', label: 'United States', description: 'Americas' },
 		{ value: 'jp', label: 'Japan', description: 'Asia' }
+	];
+
+	/** A tree: nodes may hold nodes, to any depth. */
+	const subjects: SuiTreeItem[] = [
+		{
+			value: 'math',
+			label: 'Toán học',
+			badge: 14,
+			children: [
+				{ value: 'grade-1', label: 'Lớp 1', badge: 5 },
+				{
+					value: 'grade-2',
+					label: 'Lớp 2',
+					badge: 6,
+					children: [
+						{ value: 'fractions', label: 'Phân số', badge: 4 },
+						{ value: 'geometry', label: 'Hình học', badge: 2 }
+					]
+				},
+				{ value: 'university', label: 'Đại học', badge: 3 }
+			]
+		},
+		{
+			value: 'english',
+			label: 'Tiếng Anh',
+			badge: 9,
+			children: [
+				{ value: 'ielts', label: 'IELTS', badge: 6 },
+				{ value: 'kids', label: 'Tiếng Anh thiếu nhi', badge: 3 }
+			]
+		},
+		{ value: 'music', label: 'Âm nhạc', badge: 2 }
 	];
 
 	const countrySchema = z.string().min(1, 'Pick a country');
@@ -203,6 +239,33 @@
 	</div>
 	<div class="mt-8">
 		<CodeBlock code={multiCode} />
+	</div>
+</Section>
+
+<Section
+	title="TreeSelect — a choice from a tree"
+	description="Options that nest, to any depth: open a branch with its chevron (or Right), search across every level without typing accents, and choose either any node (a filter: a branch stands for all below it) or only leaves (filing something under the most specific level)."
+>
+	<div class="grid max-w-lg gap-6">
+		<SuiTreeSelect
+			label="Filter by subject"
+			placeholder="All subjects"
+			items={subjects}
+			clearable
+			bind:value={subjectFilter}
+		/>
+		<SuiTreeSelect
+			label="File under"
+			selectable="leaf"
+			items={subjects}
+			subText="Only the most specific level can be chosen."
+			bind:value={subjectFiled}
+		/>
+		<SuiTreeSelectSkeleton label />
+		<p class="text-sm text-muted-foreground">
+			Chosen: <code class="rounded bg-muted px-1 py-0.5">{subjectFilter ?? '—'}</code> ·
+			<code class="rounded bg-muted px-1 py-0.5">{subjectFiled ?? '—'}</code>
+		</p>
 	</div>
 </Section>
 

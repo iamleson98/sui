@@ -81,6 +81,15 @@ export * from './checkbox/index.js';
 export * from './radio-group/index.js';
 export * from './switch/index.js';
 export * from './select/index.js';
+export * from './tree-select/index.js';
+export {
+	SuiTreeIndex,
+	treeKey,
+	type SuiTreeItem,
+	type SuiTreeNode,
+	type SuiTreeRow,
+	type SuiTreeSelectable
+} from './tree.js';
 export * from './combobox/index.js';
 export * from './multi-select/index.js';
 export * from './date/index.js';
