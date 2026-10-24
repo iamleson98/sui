@@ -22,7 +22,15 @@
 		selectable?: SuiTreeSelectable;
 		/** Show the chosen node with the names above it, "Math › Grade 1". Default `true`. */
 		showPath?: boolean;
-		/** Open every branch when the list opens. Default: only the way to the chosen node. */
+		/**
+		 * How the options open. `cascade` (default): a menu whose branches fly out
+		 * their children when hovered (or opened with Right / Enter), as in
+		 * desktop menus; phones get the inline tree in a bottom sheet, since touch
+		 * cannot hover. `inline`: the tree with chevrons, everywhere, with a search
+		 * box (a menu cannot hold one: it owns items only).
+		 */
+		display?: 'cascade' | 'inline';
+		/** Inline tree: open every branch when the list opens. Default: only the way to the chosen node. */
 		expandAll?: boolean;
 		label?: string | Snippet;
 		subText?: string;
@@ -34,7 +42,7 @@
 		/** Search input placeholder. Default `"Search…"`. */
 		searchPlaceholder?: string;
 		placeholder?: string;
-		/** Enable the search input. Default `true`. */
+		/** Inline tree: show the search input. Default `true`. A cascade menu has none; its type-ahead finds items by typing. */
 		searchable?: boolean;
 		schema?: SuiSchemaLike;
 		/** When to run `schema`. Default `both` (every selection + blur). */
@@ -63,6 +71,7 @@
 <script lang="ts" generics="V extends string = string">
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import * as Drawer from '$lib/components/ui/drawer/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { containedScrollDelta } from '$lib/components/ui/command/contained-scroll-into-view.js';
 	import SuiIcon from '../sui-icon.svelte';
@@ -71,7 +80,13 @@
 	import { SuiPopupDismiss } from '../popup-blur.js';
 	import { suiMobileQuery } from '../mobile.svelte.js';
 	import { getSuiStrings } from '../strings.js';
-	import { SUI_TREE_SEPARATOR, SuiTreeIndex, treeKey, type SuiTreeRow } from '../tree.js';
+	import {
+		SUI_TREE_SEPARATOR,
+		SuiTreeIndex,
+		treeKey,
+		type SuiTreeNode,
+		type SuiTreeRow
+	} from '../tree.js';
 	import { SvelteSet } from 'svelte/reactivity';
 	import {
 		suiEffectiveVariant,
@@ -104,6 +119,7 @@
 		items,
 		selectable = 'any',
 		showPath = true,
+		display = 'cascade',
 		expandAll = false,
 		label,
 		subText,
@@ -148,6 +164,8 @@
 	});
 	// mobile: the list renders in a drag-to-dismiss bottom sheet
 	const isMobile = suiMobileQuery();
+	// Hovering needs a pointer: phones get the inline tree whatever `display` says.
+	const cascade = $derived(display === 'cascade' && !isMobile.current);
 
 	$effect(() => fieldState.syncExternal(externalErrors));
 	$effect(() => f?.registerControl(id));
@@ -401,7 +419,7 @@
 				data-invalid={invalid || undefined}
 				aria-invalid={invalid || undefined}
 				aria-required={required || undefined}
-				aria-haspopup="tree"
+				aria-haspopup={cascade ? 'menu' : 'tree'}
 				aria-controls={treeId}
 				class={cn(
 					'relative flex w-full cursor-pointer items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 dark:bg-input/30 dark:focus-visible:bg-input/50',
@@ -593,7 +611,115 @@
 			</div>
 		{/snippet}
 
-		{#if isMobile.current}
+		<!-- One line of the cascade: a name, what sits under it, a count and a check. -->
+		{#snippet entry(item: SuiTreeItem<V>, trail = '')}
+			<span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+				<span class="truncate">{item.label}</span>
+				{#if trail}
+					<span class="w-full truncate text-xs leading-snug text-muted-foreground">{trail}</span>
+				{:else if item.description}
+					<span class="w-full truncate text-xs leading-snug text-muted-foreground">
+						{item.description}
+					</span>
+				{/if}
+			</span>
+			{#if item.badge !== undefined}
+				<span class="shrink-0 text-xs text-muted-foreground tabular-nums">{item.badge}</span>
+			{/if}
+		{/snippet}
+
+		<!-- The branches of the cascade: a leaf is an item, a branch a submenu that
+		     flies out on hover. When a branch can be chosen itself, its submenu opens
+		     with an "All of …" item for it. -->
+		{#snippet cascadeNodes(nodes: SuiTreeNode<V>[])}
+			{#each nodes as node (node.seq)}
+				{@const item = node.item}
+				{#if index.isLeaf(node)}
+					<DropdownMenu.Item
+						data-sui-option
+						data-sui-tree-row
+						disabled={item.disabled}
+						onSelect={() => select(item.value)}
+						class="gap-2"
+					>
+						{@render entry(item)}
+						<CheckIcon
+							class="{SUI_ICON[size]} shrink-0 {item.value === current
+								? 'opacity-100'
+								: 'opacity-0'}"
+						/>
+					</DropdownMenu.Item>
+				{:else}
+					<DropdownMenu.Sub>
+						<DropdownMenu.SubTrigger
+							data-sui-tree-row
+							disabled={item.disabled}
+							class="gap-2 {index.ancestors(current).includes(item.value) || item.value === current
+								? 'font-medium'
+								: ''}"
+						>
+							{@render entry(item)}
+						</DropdownMenu.SubTrigger>
+						<DropdownMenu.SubContent
+							data-sui-tree-select-sub
+							class="max-h-(--bits-dropdown-menu-content-available-height) min-w-56 overflow-y-auto"
+						>
+							{#if selectable === 'any' && !item.disabled}
+								<DropdownMenu.Item
+									data-sui-option
+									data-sui-tree-all
+									onSelect={() => select(item.value)}
+									class="gap-2 font-medium"
+								>
+									<span class="min-w-0 flex-1 truncate">{strings.treeAll(item.label)}</span>
+									<CheckIcon
+										class="{SUI_ICON[size]} shrink-0 {item.value === current
+											? 'opacity-100'
+											: 'opacity-0'}"
+									/>
+								</DropdownMenu.Item>
+								<DropdownMenu.Separator />
+							{/if}
+							{@render cascadeNodes(index.children(node))}
+						</DropdownMenu.SubContent>
+					</DropdownMenu.Sub>
+				{/if}
+			{/each}
+		{/snippet}
+
+		{#if cascade}
+			<DropdownMenu.Root bind:open onOpenChange={handleOpenChange}>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						{@render triggerButton(props as Record<string, unknown>)}
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content
+					bind:ref={contentRef}
+					class="sui-tree-select-content max-h-80 w-(--sui-trigger-width) gap-0"
+					style="--sui-trigger-width: {triggerWidth}px"
+					align="start"
+					data-sui-tree-select-content
+					onEscapeKeydown={() => dismiss.keyboard()}
+					onCloseAutoFocus={(event) => {
+						if (dismiss.cause() === 'pointer') event.preventDefault();
+					}}
+				>
+					{@render cascadeNodes(index.roots)}
+					{#if index.roots.length === 0}
+						<div role="group" aria-label={emptyText ?? strings.noOptions}>
+							<div
+								class="px-2.5 py-8 text-center text-sm text-muted-foreground"
+								data-sui-tree-select-empty
+								role="status"
+							>
+								{emptyText ?? strings.noOptions}
+							</div>
+						</div>
+					{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{:else if isMobile.current}
 			<!-- Mobile: platform-native picker pattern — full-width bottom sheet
                         with drag-to-dismiss, body scroll lock and safe-area padding. -->
 			<Drawer.Root bind:open onOpenChange={handleOpenChange}>

@@ -38,7 +38,12 @@ const typeSearch = (text: string) => fireEvent.input(searchBox(), { target: { va
 const press = (key: string) => fireEvent.keyDown(searchBox(), { key });
 
 async function open(props: Record<string, unknown> = {}) {
-	const view = render(SuiTreeSelect, { label: 'Subject', items: subjects, ...props });
+	const view = render(SuiTreeSelect, {
+		label: 'Subject',
+		items: subjects,
+		display: 'inline',
+		...props
+	});
 	await user.click(trigger());
 	await waitFor(() => expect(rows().length).toBeGreaterThan(0));
 	return view;
@@ -52,9 +57,14 @@ afterEach(async () => {
 	await waitFor(() => expect(document.querySelector('[data-sui-tree-select-panel]')).toBeNull());
 });
 
-describe('SuiTreeSelect', () => {
+describe('SuiTreeSelect (inline tree)', () => {
 	it('renders a labelled trigger with its placeholder', () => {
-		render(SuiTreeSelect, { label: 'Subject', placeholder: 'Any subject', items: subjects });
+		render(SuiTreeSelect, {
+			label: 'Subject',
+			placeholder: 'Any subject',
+			items: subjects,
+			display: 'inline'
+		});
 		expect(trigger()).toHaveTextContent('Any subject');
 		expect(trigger()).toHaveAttribute('aria-haspopup', 'tree');
 	});
@@ -248,5 +258,118 @@ describe('SuiTreeSelect', () => {
 			'data-sui-size',
 			'sm'
 		);
+	});
+});
+
+describe('SuiTreeSelect (cascade)', () => {
+	const menuItems = (): HTMLElement[] =>
+		Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+	const itemLabels = () =>
+		menuItems().map((item) => item.querySelector('span.truncate')?.textContent);
+	const menuItem = (text: RegExp): HTMLElement => {
+		const found = menuItems().find((item) => text.test(item.textContent ?? ''));
+		if (!found) throw new Error(`no menu item matching ${text}`);
+		return found;
+	};
+	/** Opens a branch the way the keyboard does (a hover is a pointer's way to the same). */
+	const openBranch = async (text: RegExp) => {
+		await fireEvent.keyDown(menuItem(text), { key: 'ArrowRight' });
+	};
+	const choose = async (text: RegExp) => {
+		await waitFor(() => menuItem(text));
+		await fireEvent.click(menuItem(text));
+	};
+
+	async function openMenu(props: Record<string, unknown> = {}) {
+		const view = render(SuiTreeSelect, { label: 'Subject', items: subjects, ...props });
+		await user.click(trigger());
+		await waitFor(() => expect(menuItems().length).toBeGreaterThan(0));
+		return view;
+	}
+
+	// A popup still animating out keeps its items: close it while the field is mounted.
+	afterEach(async () => {
+		if (!document.querySelector('[data-sui-tree-select-content]')) return;
+		await user.keyboard('{Escape}');
+		await waitFor(() =>
+			expect(document.querySelector('[data-sui-tree-select-content]')).toBeNull()
+		);
+	});
+
+	it('is a menu, and a branch says it has a submenu', async () => {
+		await openMenu();
+		expect(itemLabels()).toEqual(['Toán học', 'Tiếng Anh']);
+		expect(trigger()).toHaveAttribute('aria-haspopup', 'menu');
+		expect(menuItem(/Toán học/)).toHaveAttribute('aria-haspopup', 'menu');
+		expect(menuItem(/Tiếng Anh/)).not.toHaveAttribute('aria-haspopup');
+		expect(menuItem(/Toán học/)).toHaveTextContent('12');
+	});
+
+	it('flies out a branch’s children when it is hovered', async () => {
+		await openMenu();
+		await user.hover(menuItem(/Toán học/));
+		await waitFor(() => expect(menuItem(/Lớp 1/)).toBeInTheDocument());
+		expect(itemLabels()).toContain('Lớp 2');
+	});
+
+	it('offers a branch itself as the first item of its submenu', async () => {
+		const onSelect = vi.fn();
+		await openMenu({ onSelect });
+		await openBranch(/Toán học/);
+		await choose(/All of Toán học/);
+		expect(onSelect).toHaveBeenCalledWith('math', expect.objectContaining({ value: 'math' }), [
+			expect.objectContaining({ value: 'math' })
+		]);
+		expect(trigger()).toHaveTextContent('Toán học');
+	});
+
+	it('reaches a deeper level and reports the whole path', async () => {
+		const onSelect = vi.fn();
+		await openMenu({ onSelect });
+		await openBranch(/Toán học/);
+		await waitFor(() => menuItem(/Lớp 2/));
+		await openBranch(/Lớp 2/);
+		await choose(/Phân số/);
+		expect(onSelect.mock.calls[0][2].map((item: SuiTreeItem) => item.value)).toEqual([
+			'math',
+			'g2',
+			'frac'
+		]);
+		expect(trigger()).toHaveTextContent('Toán học › Lớp 2 › Phân số');
+	});
+
+	it('has no "all of" item when just leaves can be chosen', async () => {
+		const onSelect = vi.fn();
+		await openMenu({ selectable: 'leaf', onSelect });
+		await openBranch(/Toán học/);
+		await waitFor(() => expect(menuItem(/Lớp 1/)).toBeInTheDocument());
+		expect(itemLabels().some((label) => /All of/.test(label ?? ''))).toBe(false);
+		await choose(/Lớp 1/);
+		expect(onSelect).toHaveBeenCalledWith('g1', expect.anything(), expect.anything());
+	});
+
+	it('marks the branches above the chosen node', async () => {
+		await openMenu({ value: 'frac' });
+		expect(menuItem(/Toán học/)).toHaveClass('font-medium');
+		expect(menuItem(/Tiếng Anh/)).not.toHaveClass('font-medium');
+	});
+
+	it('shows the way from a hidden item: a disabled leaf cannot be chosen', async () => {
+		const onSelect = vi.fn();
+		await openMenu({
+			onSelect,
+			items: [
+				{ value: 'a', label: 'Alpha', disabled: true },
+				{ value: 'b', label: 'Beta' }
+			]
+		});
+		expect(menuItem(/Alpha/)).toHaveAttribute('data-disabled');
+		await fireEvent.click(menuItem(/Alpha/));
+		expect(onSelect).not.toHaveBeenCalled();
+	});
+
+	it('has no search box: a menu owns items only, and its type-ahead finds them', async () => {
+		await openMenu();
+		expect(document.querySelector('[data-sui-tree-select-input]')).toBeNull();
 	});
 });

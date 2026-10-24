@@ -68,9 +68,20 @@ test('a11y: open select, combobox and multi-select popovers', async ({ page }) =
 	await audit(page);
 });
 
-test('a11y: open tree select, browsing and searching', async ({ page }) => {
+test('a11y: open tree select, cascade and inline tree with search', async ({ page }) => {
 	await page.goto('/selection');
 	await page.getByRole('combobox', { name: 'Filter by subject' }).click();
+	await expect(page.getByRole('menuitem').first()).toBeVisible();
+	await audit(page);
+
+	// a branch flies out its children
+	await page.getByRole('menuitem', { name: /Toán học/ }).hover();
+	await expect(page.getByRole('menuitem', { name: /Lớp 1/ })).toBeVisible();
+	await audit(page);
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('menuitem').first()).toBeHidden();
+
+	await page.getByRole('combobox', { name: 'Inline tree' }).click();
 	await expect(page.getByRole('treeitem').first()).toBeVisible();
 	await audit(page);
 

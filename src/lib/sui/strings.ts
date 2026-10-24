@@ -42,6 +42,8 @@ export type SuiStrings = {
 	expandNode: (label: string) => string;
 	/** Tree select: button that closes a branch (label of the branch). */
 	collapseNode: (label: string) => string;
+	/** Tree select (cascading menu): the item that chooses a whole branch (label of the branch). */
+	treeAll: (label: string) => string;
 	/** Screen-reader description of a mobile single-choice sheet. */
 	chooseOption: string;
 	/** Screen-reader description of a mobile multi-choice sheet. */
@@ -102,6 +104,7 @@ export const SUI_STRINGS: Readonly<SuiStrings> = Object.freeze({
 	noResults: 'No results',
 	expandNode: (label) => `Show what is under ${label}`,
 	collapseNode: (label) => `Hide what is under ${label}`,
+	treeAll: (label) => `All of ${label}`,
 	loadError: 'Failed to load options',
 	retry: 'Try again',
 	loading: 'Loading…',
