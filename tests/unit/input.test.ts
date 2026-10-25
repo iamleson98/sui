@@ -8,6 +8,56 @@ import MailIcon from '@lucide/svelte/icons/mail';
 import LockIcon from '@lucide/svelte/icons/lock';
 
 describe('SuiInput', () => {
+	describe('clear button', () => {
+		it('a search field clears with the same ✕ a select has, and hands the focus back', async () => {
+			const onInput = vi.fn();
+			render(SuiInput, { type: 'search', label: 'Find', value: 'math', oninput: onInput });
+			const input = screen.getByLabelText('Find');
+			const clear = screen.getByRole('button', { name: 'Clear' });
+			expect(clear).toHaveAttribute('data-sui-clear');
+
+			await userEvent.click(clear);
+			expect(input).toHaveValue('');
+			expect(input).toHaveFocus();
+			expect(onInput).toHaveBeenCalledTimes(1);
+			// nothing left to clear
+			expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+		});
+
+		it('appears as text is typed', async () => {
+			render(SuiInput, { type: 'search', label: 'Find' });
+			expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+			await userEvent.type(screen.getByLabelText('Find'), 'x');
+			expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+		});
+
+		it('is opt-in for other types and opt-out for search', () => {
+			const plain = render(SuiInput, { label: 'Name', value: 'ann' });
+			expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+			plain.unmount();
+
+			const optedIn = render(SuiInput, { label: 'Name', value: 'ann', clearable: true });
+			expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+			optedIn.unmount();
+
+			render(SuiInput, { type: 'search', label: 'Find', value: 'x', clearable: false });
+			expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+		});
+
+		it('is not offered on a disabled or read-only field', () => {
+			const disabled = render(SuiInput, {
+				type: 'search',
+				label: 'Find',
+				value: 'x',
+				disabled: true
+			});
+			expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+			disabled.unmount();
+			render(SuiInput, { type: 'search', label: 'Find', value: 'x', readonly: true });
+			expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+		});
+	});
+
 	it('renders a label connected to the input', () => {
 		render(SuiInput, { label: 'Email', placeholder: 'you@example.com' });
 		const input = screen.getByLabelText('Email');

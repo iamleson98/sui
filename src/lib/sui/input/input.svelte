@@ -21,6 +21,13 @@
 		endIcon?: SuiIconComponent;
 		/** Interactive snippet rendered at the end (buttons, toggles…). */
 		action?: SuiActionSnippet;
+		/**
+		 * Show a clear (✕) button, styled like the select's, while the field
+		 * holds text. Default `true` for `type="search"` (it replaces the
+		 * browser's own, which looks different in every browser), `false`
+		 * otherwise.
+		 */
+		clearable?: boolean;
 		/** zod v4 schema or any Standard Schema v1 schema — validated on blur (then on change once touched), errors render below. Ignored when `field` is set. */
 		schema?: SuiSchemaLike;
 		/** When to run `schema`. Default `auto` (blur first, then every change). */
@@ -62,6 +69,7 @@
 	import { registerSuiField } from '../form/field-registry.js';
 	import {
 		suiEffectiveVariant,
+		SUI_CLEAR_SIZE,
 		SUI_CONTROL,
 		SUI_FIELD_CONTROL,
 		SUI_FIELD_LABEL,
@@ -74,6 +82,7 @@
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '$lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	const uid = $props.id();
 	const strings = getSuiStrings();
@@ -86,6 +95,7 @@
 		startIcon,
 		endIcon,
 		action,
+		clearable,
 		schema,
 		validateOn = 'auto',
 		errors: externalErrors = [],
@@ -221,6 +231,19 @@
 		}
 	}
 
+	const hasText = $derived(String(readValue() ?? '') !== '');
+	const showClear = $derived(
+		(clearable ?? type === 'search') && hasText && !disabled && !rest.readonly
+	);
+
+	/** Empties the field through the input's own event, so bindings, `oninput` and form handles all see it. */
+	function clear() {
+		if (!ref) return;
+		ref.value = '';
+		ref.dispatchEvent(new Event('input', { bubbles: true }));
+		ref.focus();
+	}
+
 	// the form wins the `name` by default (autofill + native form data)
 	const inputName = $derived(name ?? f?.name);
 
@@ -318,7 +341,7 @@
 			{placeholder}
 			{required}
 			data-sui-input
-			class="w-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+			class="w-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed [&::-webkit-search-cancel-button]:appearance-none"
 			aria-invalid={invalid || undefined}
 			{...rest}
 			aria-describedby={describedBy}
@@ -341,6 +364,19 @@
 			}}
 		/>
 
+		{#if showClear}
+			<button
+				type="button"
+				data-sui-clear
+				class="{SUI_CLEAR_SIZE[
+					size
+				]} flex shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+				aria-label={strings.clearInput}
+				onclick={clear}
+			>
+				<SuiIcon icon={XIcon} size="xs" />
+			</button>
+		{/if}
 		{#if endIcon}
 			<span class="pointer-events-none shrink-0 text-muted-foreground">
 				<SuiIcon icon={endIcon} {size} />
