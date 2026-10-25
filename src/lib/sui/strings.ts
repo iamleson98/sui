@@ -38,6 +38,8 @@ export type SuiStrings = {
 	clearSelection: string;
 	/** Clear (✕) button of multi-select. */
 	clearAll: string;
+	/** Clear (✕) button of a text input. */
+	clearInput: string;
 	/** Tree select: button that opens a branch (label of the branch). */
 	expandNode: (label: string) => string;
 	/** Tree select: button that closes a branch (label of the branch). */
@@ -111,6 +113,7 @@ export const SUI_STRINGS: Readonly<SuiStrings> = Object.freeze({
 	loadingMore: 'Loading more…',
 	clearSelection: 'Clear selection',
 	clearAll: 'Clear all',
+	clearInput: 'Clear',
 	chooseOption: 'Choose an option',
 	chooseOptions: 'Choose options',
 	removeItem: (label) => `Remove ${label}`,

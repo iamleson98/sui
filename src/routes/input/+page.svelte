@@ -16,12 +16,14 @@
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import SearchIcon from '@lucide/svelte/icons/search';
 
 	let email = $state('');
 	let username = $state('minh');
 	let bio = $state('');
 	let password = $state('');
 	let showPassword = $state(false);
+	let query = $state('react');
 	let usernameAvailable = $state<'idle' | 'checking' | 'taken' | 'free'>('idle');
 
 	const emailSchema = z.email('Enter a valid email address');
@@ -158,6 +160,22 @@
 	</div>
 	<div class="mt-8">
 		<CodeBlock code={actionCode} />
+	</div>
+</Section>
+
+<Section
+	title="Search & clear"
+	description="A search field shows the same ✕ as a select while it holds text (it replaces the browser's own). Any input can opt in with clearable."
+>
+	<div class="grid max-w-lg gap-5">
+		<SuiInput
+			type="search"
+			label="Search"
+			placeholder="Search components…"
+			startIcon={SearchIcon}
+			bind:value={query}
+		/>
+		<SuiInput label="Nickname" clearable value="minh" />
 	</div>
 </Section>
 
