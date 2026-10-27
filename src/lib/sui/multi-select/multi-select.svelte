@@ -680,7 +680,7 @@
 						: 'opacity-0'}"
 				/>
 				<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
-					<span class="w-full line-clamp-2 break-words" title={item.label}>{item.label}</span>
+					<span class="line-clamp-2 w-full break-words" title={item.label}>{item.label}</span>
 					{#if item.description}
 						<span class="w-full truncate text-xs leading-snug text-muted-foreground">
 							{item.description}

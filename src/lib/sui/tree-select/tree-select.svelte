@@ -451,7 +451,8 @@
 					</span>
 				{/if}
 				{#if hasValue}
-					<span class="flex-1 truncate text-left" title={triggerText}>{triggerText ?? current}</span>
+					<span class="flex-1 truncate text-left" title={triggerText}>{triggerText ?? current}</span
+					>
 				{:else}
 					<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
 				{/if}
@@ -530,7 +531,7 @@
 					{/if}
 				{/if}
 				<span class="flex min-w-0 flex-1 flex-col items-start gap-0.5 py-0.5">
-					<span class="w-full line-clamp-2 break-words" title={item.label}>{item.label}</span>
+					<span class="line-clamp-2 w-full break-words" title={item.label}>{item.label}</span>
 					{#if searching && row.trail}
 						<span class="w-full truncate text-xs leading-snug text-muted-foreground">
 							{row.trail}
@@ -614,7 +615,7 @@
 		<!-- One line of the cascade: a name, what sits under it, a count and a check. -->
 		{#snippet entry(item: SuiTreeItem<V>, trail = '')}
 			<span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-				<span class="w-full line-clamp-2 break-words" title={item.label}>{item.label}</span>
+				<span class="line-clamp-2 w-full break-words" title={item.label}>{item.label}</span>
 				{#if trail}
 					<span class="w-full truncate text-xs leading-snug text-muted-foreground">{trail}</span>
 				{:else if item.description}
@@ -671,7 +672,9 @@
 									onSelect={() => select(item.value)}
 									class="gap-2 font-medium"
 								>
-									<span class="min-w-0 flex-1 line-clamp-2 break-words">{strings.treeAll(item.label)}</span>
+									<span class="line-clamp-2 min-w-0 flex-1 break-words"
+										>{strings.treeAll(item.label)}</span
+									>
 									<CheckIcon
 										class="{SUI_ICON[size]} shrink-0 {item.value === current
 											? 'opacity-100'
