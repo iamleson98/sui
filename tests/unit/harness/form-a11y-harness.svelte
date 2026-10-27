@@ -9,17 +9,19 @@
 		form,
 		showFormErrors = false,
 		showSummary = false,
-		summaryId = 'a11y-error-summary'
+		summaryId = 'a11y-error-summary',
+		disableWhileSubmitting
 	}: {
 		// intentionally `any` — the harness is shared across schemas
 		form: SuiFormInstance<any>;
 		showFormErrors?: boolean;
 		showSummary?: boolean;
 		summaryId?: string;
+		disableWhileSubmitting?: boolean;
 	} = $props();
 </script>
 
-<SuiForm {form} {showFormErrors}>
+<SuiForm {form} {showFormErrors} {disableWhileSubmitting}>
 	{#if showSummary && form.errorSummary.length > 0}
 		<SuiErrorSummary errors={form.errorSummary} id={summaryId} />
 	{/if}

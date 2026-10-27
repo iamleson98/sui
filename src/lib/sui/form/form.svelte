@@ -22,6 +22,13 @@
 		showFormErrors?: boolean;
 		/** Banner title. Default `'There is a problem:'` (see `setSuiStrings`). */
 		formErrorTitle?: string;
+		/**
+		 * Disable every control while the form is submitting (default `true`):
+		 * what is being saved must not change under the request, and a second
+		 * click must not send it again.
+		 */
+		disableWhileSubmitting?: boolean;
+		/** Classes of the fields' container (the `<fieldset>` inside the form). */
 		class?: string;
 	};
 </script>
@@ -36,6 +43,7 @@
 		form,
 		showFormErrors = false,
 		formErrorTitle,
+		disableWhileSubmitting = true,
 		class: className = '',
 		children,
 		...rest
@@ -59,7 +67,7 @@
 </script>
 
 <!-- novalidate: the schema owns validation, not the Constraint Validation API -->
-<form novalidate class={className} onsubmit={submit} data-sui-form {...rest}>
+<form novalidate onsubmit={submit} data-sui-form {...rest}>
 	{#if showBanner}
 		<!-- Focusable alert banner: receives focus on failed submits that
 		     produced form-level errors (when no error summary is rendered).
@@ -87,5 +95,12 @@
 			{/if}
 		</div>
 	{/if}
-	{@render children()}
+	<!-- A disabled fieldset disables every control inside it; the layout classes sit
+	     on it (not on the form) so the form's own children keep their spacing. -->
+	<fieldset
+		disabled={disableWhileSubmitting && form.isSubmitting}
+		class={cn('m-0 min-w-0 border-0 p-0', className)}
+	>
+		{@render children()}
+	</fieldset>
 </form>
