@@ -460,7 +460,7 @@
 					</span>
 				{/if}
 				{#if hasValue}
-					<span class="flex-1 truncate text-left">{selected?.label ?? current}</span>
+					<span class="flex-1 truncate text-left" title={selected?.label}>{selected?.label ?? current}</span>
 				{:else}
 					<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
 				{/if}
@@ -510,7 +510,7 @@
 						: 'opacity-0'}"
 				/>
 				<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
-					<span class="truncate">{item.label}</span>
+					<span class="w-full line-clamp-2 break-words" title={item.label}>{item.label}</span>
 					{#if item.description}
 						<span class="w-full truncate text-xs leading-snug text-muted-foreground">
 							{item.description}

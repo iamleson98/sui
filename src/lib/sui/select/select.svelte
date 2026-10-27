@@ -420,7 +420,7 @@
 			{/if}
 			{#if hasValue}
 				<span class="flex min-w-0 flex-1 items-center gap-2 text-left">
-					<span class="truncate">{selected?.label ?? current}</span>
+					<span class="truncate" title={selected?.label}>{selected?.label ?? current}</span>
 				</span>
 			{:else}
 				<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
@@ -533,7 +533,7 @@
 											: 'opacity-0'}"
 									/>
 									<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
-										<span class="truncate">{item.label}</span>
+										<span class="w-full line-clamp-2 break-words" title={item.label}>{item.label}</span>
 										{#if item.description}
 											<span class="w-full truncate text-xs leading-snug text-muted-foreground">
 												{item.description}
@@ -626,7 +626,7 @@
 					{/if}
 					{#if hasValue}
 						<span class="flex min-w-0 flex-1 items-center gap-2 text-left">
-							<span class="truncate">{selected?.label ?? current}</span>
+							<span class="truncate" title={selected?.label}>{selected?.label ?? current}</span>
 						</span>
 					{:else}
 						<span class="flex-1 truncate text-left text-muted-foreground">{placeholderText}</span>
@@ -674,7 +674,7 @@
 							class="gap-2.5 rounded-md py-2 pr-9 pl-2.5"
 						>
 							<span class="flex min-w-0 flex-1 flex-col items-start gap-1">
-								<span class="truncate">{item.label}</span>
+								<span class="w-full line-clamp-2 break-words" title={item.label}>{item.label}</span>
 								{#if item.description}
 									<span class="w-full truncate text-xs leading-snug text-muted-foreground">
 										{item.description}
