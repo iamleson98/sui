@@ -25,7 +25,7 @@ const trigger = () => screen.getByRole('combobox', { name: /subject/i });
 const panel = (): ParentNode =>
 	Array.from(document.querySelectorAll('[data-sui-tree-select-panel]')).at(-1) ?? document;
 const rows = (): HTMLElement[] => Array.from(panel().querySelectorAll('[data-sui-tree-row]'));
-const rowLabels = () => rows().map((r) => r.querySelector('span.truncate')?.textContent);
+const rowLabels = () => rows().map((r) => r.querySelector('span[title]')?.textContent);
 const row = (text: RegExp): HTMLElement => {
 	const found = rows().find((r) => text.test(r.textContent ?? ''));
 	if (!found) throw new Error(`no row matching ${text}`);
@@ -265,7 +265,7 @@ describe('SuiTreeSelect (cascade)', () => {
 	const menuItems = (): HTMLElement[] =>
 		Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'));
 	const itemLabels = () =>
-		menuItems().map((item) => item.querySelector('span.truncate')?.textContent);
+		menuItems().map((item) => item.querySelector('span[title]')?.textContent);
 	const menuItem = (text: RegExp): HTMLElement => {
 		const found = menuItems().find((item) => text.test(item.textContent ?? ''));
 		if (!found) throw new Error(`no menu item matching ${text}`);
