@@ -35,9 +35,12 @@
 		 * `none` hides the footer.
 		 */
 		pagination?: 'client' | 'server' | 'none';
-		/** Default page size (client mode). Default `10`. */
+		/** Initial page size. Default `10`. */
 		pageSize?: number;
-		/** Selectable page sizes. */
+		/**
+		 * Selectable page sizes. In `server` mode picking one fires
+		 * `onPageChange` with the new size (the first row stays in view).
+		 */
 		pageSizeOptions?: number[];
 		/** Server mode: total row count across all pages. */
 		rowCount?: number;
@@ -49,7 +52,7 @@
 		defaultSorting?: SortingState;
 		/** Virtualize long lists for fast rendering. Default `true`. */
 		virtual?: boolean;
-		/** Scroll container max height (px). Default `480`. */
+		/** Scroll container max height (px). Default `720`. */
 		maxHeight?: number;
 		/** Show a loading indicator / skeleton. */
 		loading?: boolean;
@@ -76,6 +79,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import SuiInput from '../input/input.svelte';
+	import DataTablePager from './data-table-pager.svelte';
 	import { suiDownloadCsv, type SuiCsvColumn } from './csv.js';
 	import { SUI_TABLE_FEATURES, type SuiColumnMeta, type SuiTableFeatures } from './columns.js';
 	import { getSuiStrings } from '../strings.js';
@@ -85,8 +89,6 @@
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Columns3Icon from '@lucide/svelte/icons/columns-3';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
@@ -110,7 +112,7 @@
 		onSortChange,
 		defaultSorting = [],
 		virtual = true,
-		maxHeight = 480,
+		maxHeight = 720,
 		loading = false,
 		emptyText,
 		/** Show a CSV download button in the toolbar (exports the filtered rows). */
@@ -400,13 +402,20 @@
 	const pageCount = $derived(table.getPageCount());
 	const pageIndex = $derived(paginationState.pageIndex);
 	const currentPageSize = $derived(paginationState.pageSize);
-	const canPrevious = $derived(table.getCanPreviousPage());
-	const canNext = $derived(table.getCanNextPage());
 	const selectedCount = $derived(Object.keys(rowSelection).length);
 	// rows matching the current search (client) / the server's total
 	const totalRows = $derived(
 		manual ? (rowCount ?? 0) : table.getPrePaginatedRowModel().rows.length
 	);
+	// what the footer says: the selection, else the rows this page shows
+	const footerSummary = $derived.by(() => {
+		if (enableSelection && selectedCount > 0) {
+			return strings.tableSelectedCount(selectedCount, totalRows);
+		}
+		if (pagination === 'none' || totalRows === 0) return strings.tableRowCount(totalRows);
+		const from = pageIndex * currentPageSize + 1;
+		return strings.tableRange(from, Math.min(totalRows, from + currentPageSize - 1), totalRows);
+	});
 	const showBody = $derived(!loading && rows.length > 0);
 	const gridMode = $derived(virtual && showBody);
 
@@ -799,69 +808,25 @@
 
 	<!-- footer: always present with selection (the count matters even
 	     without pagination); the pager itself needs a pagination mode -->
-	{#if pagination !== 'none' || enableSelection}
+	{#if pagination !== 'none'}
+		<DataTablePager
+			summary={footerSummary}
+			{pageIndex}
+			{pageCount}
+			pageSize={currentPageSize}
+			{pageSizeOptions}
+			pickSize={(pagination === 'client' && rows.length !== 0) || (manual && totalRows !== 0)}
+			onPage={(index) => table.setPageIndex(index)}
+			onPageSize={(size) => table.setPageSize(size)}
+		/>
+	{:else if enableSelection}
 		<div
-			class="flex flex-wrap items-center gap-3 border-t px-3 py-2 text-xs"
+			class="flex flex-wrap items-center gap-3 border-t bg-muted/30 px-4 py-3 text-sm"
 			data-sui-data-table-footer
 		>
-			{#if enableSelection}
-				<span class="text-muted-foreground" data-sui-data-table-count>
-					{selectedCount > 0
-						? strings.tableSelectedCount(selectedCount, totalRows)
-						: strings.tableRowCount(totalRows)}
-				</span>
-			{:else}
-				<span class="text-muted-foreground" data-sui-data-table-count
-					>{strings.tableRowCount(totalRows)}</span
-				>
-			{/if}
-			{#if pagination !== 'none'}
-				{#if pagination === 'client' && rows.length !== 0}
-					<label
-						class="ml-auto flex items-center gap-1.5 text-muted-foreground"
-						data-sui-data-table-page-size
-					>
-						{strings.tableRowsCaption}
-						<select
-							class="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none hover:bg-accent focus-visible:ring-ring/50"
-							value={currentPageSize}
-							onchange={(e) => table.setPageSize(Number(e.currentTarget.value))}
-							aria-label={strings.tableRowsPerPage}
-						>
-							{#each pageSizeOptions as opt (opt)}
-								<option value={opt}>{opt}</option>
-							{/each}
-						</select>
-					</label>
-				{:else}
-					<span class="ml-auto"></span>
-				{/if}
-				<span class="flex items-center gap-1 text-muted-foreground">
-					<button
-						type="button"
-						class="inline-flex size-7 items-center justify-center rounded-md border outline-none hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
-						onclick={() => table.previousPage()}
-						disabled={!canPrevious}
-						aria-label={strings.tablePreviousPage}
-					>
-						<ChevronLeftIcon class="size-3.5" aria-hidden="true" />
-					</button>
-					<span class="px-1 tabular-nums" data-sui-data-table-page>
-						{pageCount === 0 ? 0 : pageIndex + 1} / {pageCount === -1 ? '…' : pageCount}
-					</span>
-					<button
-						type="button"
-						class="inline-flex size-7 items-center justify-center rounded-md border outline-none hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
-						onclick={() => table.nextPage()}
-						disabled={!canNext}
-						aria-label={strings.tableNextPage}
-					>
-						<ChevronRightIcon class="size-3.5" aria-hidden="true" />
-					</button>
-				</span>
-			{:else}
-				<span class="ml-auto"></span>
-			{/if}
+			<span class="text-muted-foreground tabular-nums" data-sui-data-table-count
+				>{footerSummary}</span
+			>
 		</div>
 	{/if}
 </div>

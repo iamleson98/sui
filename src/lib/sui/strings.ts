@@ -76,12 +76,18 @@ export type SuiStrings = {
 	tableEmpty: string;
 	/** Data table: row count. */
 	tableRowCount: (count: number) => string;
+	/** Data table: the rows a page shows, e.g. "21–40 of 245" (1-based, inclusive). */
+	tableRange: (from: number, to: number, total: number) => string;
 	/** Data table: selection count. */
 	tableSelectedCount: (selected: number, total: number) => string;
 	/** Data table: page-size picker label. */
 	tableRowsPerPage: string;
 	/** Data table: page-size picker visible caption. */
 	tableRowsCaption: string;
+	/** Data table: the pager's accessible name. */
+	tablePagination: string;
+	/** Data table: a numbered page button's accessible name (1-based). */
+	tablePage: (page: number) => string;
 	/** Data table: previous page button. */
 	tablePreviousPage: string;
 	/** Data table: next page button. */
@@ -129,9 +135,12 @@ export const SUI_STRINGS: Readonly<SuiStrings> = Object.freeze({
 	tableVisibleColumns: 'Visible columns',
 	tableEmpty: 'No data',
 	tableRowCount: (count) => `${count} rows`,
+	tableRange: (from, to, total) => `${from}–${to} of ${total}`,
 	tableSelectedCount: (selected, total) => `${selected} of ${total} selected`,
 	tableRowsPerPage: 'Rows per page',
 	tableRowsCaption: 'Rows',
+	tablePagination: 'Pagination',
+	tablePage: (page) => `Page ${page}`,
 	tablePreviousPage: 'Previous page',
 	tableNextPage: 'Next page',
 	tableSelectAll: 'Select all rows',
