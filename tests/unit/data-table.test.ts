@@ -403,6 +403,33 @@ describe('SuiDataTable — hardening', () => {
 		expect(rows().length).toBe(4);
 	});
 
+	it('server mode lets the user pick how many rows a page shows, and tells the server', async () => {
+		const onPageChange = vi.fn();
+		render(SuiDataTable, {
+			data,
+			columns,
+			pagination: 'server',
+			rowCount: 400,
+			pageSize: 20,
+			pageSizeOptions: [10, 20, 50],
+			onPageChange,
+			virtual: false
+		});
+		const sizeSelect = screen.getByLabelText('Rows per page') as HTMLSelectElement;
+		expect(sizeSelect.value).toBe('20');
+		await user.selectOptions(sizeSelect, '50');
+		await waitFor(() =>
+			expect(onPageChange).toHaveBeenLastCalledWith({ pageIndex: 0, pageSize: 50 })
+		);
+		// the table asks the server again; it never slices the page it holds
+		expect(rows().length).toBe(4);
+	});
+
+	it('server mode offers no page size when there is nothing to page', () => {
+		render(SuiDataTable, { data: [], columns, pagination: 'server', rowCount: 0, virtual: false });
+		expect(screen.queryByLabelText('Rows per page')).toBeNull();
+	});
+
 	it('keeps the sticky header opaque so scrolled rows never show through it', () => {
 		const { container } = render(SuiDataTable, { data: many, columns, pagination: 'none' });
 		const head = container.querySelector('[data-sui-data-table-head]')!;

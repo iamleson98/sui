@@ -35,9 +35,12 @@
 		 * `none` hides the footer.
 		 */
 		pagination?: 'client' | 'server' | 'none';
-		/** Default page size (client mode). Default `10`. */
+		/** Initial page size. Default `10`. */
 		pageSize?: number;
-		/** Selectable page sizes. */
+		/**
+		 * Selectable page sizes. In `server` mode picking one fires
+		 * `onPageChange` with the new size (the first row stays in view).
+		 */
 		pageSizeOptions?: number[];
 		/** Server mode: total row count across all pages. */
 		rowCount?: number;
@@ -816,7 +819,7 @@
 				>
 			{/if}
 			{#if pagination !== 'none'}
-				{#if pagination === 'client' && rows.length !== 0}
+				{#if (pagination === 'client' && rows.length !== 0) || (manual && totalRows !== 0)}
 					<label
 						class="ml-auto flex items-center gap-1.5 text-muted-foreground"
 						data-sui-data-table-page-size
