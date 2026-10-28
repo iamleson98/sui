@@ -86,8 +86,8 @@ describe('SuiDataTable', () => {
 		await user.click(screen.getByRole('button', { name: 'Previous page' }));
 		expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument();
 
-		const sizeSelect = screen.getByLabelText('Rows per page') as HTMLSelectElement;
-		await user.selectOptions(sizeSelect, '10');
+		await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
+		await user.click(screen.getByRole('option', { name: '10' }));
 		expect(document.querySelectorAll('[data-sui-data-table-body] tr').length).toBe(8);
 	});
 
@@ -318,7 +318,7 @@ describe('SuiDataTable — hardening', () => {
 		// not "3 / 3" over an empty page, not "1 / 3" with a live Next button
 		expect(screen.getByText('1 / 1')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
-		expect(screen.getByText('2 rows')).toBeInTheDocument();
+		expect(screen.getByText('1–2 of 2')).toBeInTheDocument();
 	});
 
 	it('sortable headers are keyboard operable (a real button inside the header)', async () => {
@@ -415,9 +415,10 @@ describe('SuiDataTable — hardening', () => {
 			onPageChange,
 			virtual: false
 		});
-		const sizeSelect = screen.getByLabelText('Rows per page') as HTMLSelectElement;
-		expect(sizeSelect.value).toBe('20');
-		await user.selectOptions(sizeSelect, '50');
+		const sizeSelect = screen.getByRole('combobox', { name: 'Rows per page' });
+		expect(sizeSelect).toHaveTextContent('20');
+		await user.click(sizeSelect);
+		await user.click(screen.getByRole('option', { name: '50' }));
 		await waitFor(() =>
 			expect(onPageChange).toHaveBeenLastCalledWith({ pageIndex: 0, pageSize: 50 })
 		);
@@ -427,7 +428,7 @@ describe('SuiDataTable — hardening', () => {
 
 	it('server mode offers no page size when there is nothing to page', () => {
 		render(SuiDataTable, { data: [], columns, pagination: 'server', rowCount: 0, virtual: false });
-		expect(screen.queryByLabelText('Rows per page')).toBeNull();
+		expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
 	});
 
 	it('keeps the sticky header opaque so scrolled rows never show through it', () => {
@@ -493,6 +494,62 @@ describe('SuiDataTable — hardening', () => {
 		row.focus();
 		await user.keyboard('{Enter}');
 		expect(onRowClick).toHaveBeenCalledWith(expect.objectContaining({ name: 'Grace' }), 1);
+	});
+});
+
+describe('SuiDataTable — pager', () => {
+	const many = Array.from({ length: 45 }, (_, i) => ({
+		id: String(i),
+		name: `Person ${i}`,
+		age: i,
+		city: 'London'
+	}));
+
+	it('says which rows are shown and numbers the pages', async () => {
+		render(SuiDataTable, { data: many, columns, pageSize: 10, virtual: false });
+		expect(document.querySelector('[data-sui-data-table-count]')?.textContent).toBe('1–10 of 45');
+		expect(screen.getByRole('button', { name: 'Page 5' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page');
+
+		await user.click(screen.getByRole('button', { name: 'Page 5' }));
+		expect(document.querySelector('[data-sui-data-table-count]')?.textContent).toBe('41–45 of 45');
+		expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Page 5' })).toHaveAttribute('aria-current', 'page');
+	});
+
+	it('in server mode a number asks the server for that page', async () => {
+		const onPageChange = vi.fn();
+		render(SuiDataTable, {
+			data,
+			columns,
+			pagination: 'server',
+			rowCount: 90,
+			pageSize: 10,
+			onPageChange,
+			virtual: false
+		});
+		await user.click(screen.getByRole('button', { name: 'Page 3' }));
+		await waitFor(() =>
+			expect(onPageChange).toHaveBeenLastCalledWith({ pageIndex: 2, pageSize: 10 })
+		);
+	});
+
+	it('keeps a page size the options do not list choosable', async () => {
+		render(SuiDataTable, {
+			data: many,
+			columns,
+			pageSize: 25,
+			pageSizeOptions: [10, 50],
+			virtual: false
+		});
+		const select = screen.getByRole('combobox', { name: 'Rows per page' });
+		expect(select).toHaveTextContent('25');
+		await user.click(select);
+		expect(screen.getAllByRole('option').map((o) => o.textContent?.trim())).toEqual([
+			'10',
+			'25',
+			'50'
+		]);
 	});
 });
 
