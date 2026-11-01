@@ -104,6 +104,11 @@
 					"target": "sui/data-table/csv.ts"
 				},
 				{
+					"path": "src/lib/sui/data-table/data-table-pager.svelte",
+					"type": "registry:lib",
+					"target": "sui/data-table/data-table-pager.svelte"
+				},
+				{
 					"path": "src/lib/sui/data-table/data-table-skeleton.svelte",
 					"type": "registry:lib",
 					"target": "sui/data-table/data-table-skeleton.svelte"
@@ -117,6 +122,11 @@
 					"path": "src/lib/sui/data-table/index.ts",
 					"type": "registry:lib",
 					"target": "sui/data-table/index.ts"
+				},
+				{
+					"path": "src/lib/sui/data-table/page-window.ts",
+					"type": "registry:lib",
+					"target": "sui/data-table/page-window.ts"
 				},
 				{
 					"path": "src/lib/sui/date/date-calendar.svelte",
@@ -304,6 +314,16 @@
 					"target": "sui/radio-group/radio-skeleton.svelte"
 				},
 				{
+					"path": "src/lib/sui/resolve-items.svelte.ts",
+					"type": "registry:lib",
+					"target": "sui/resolve-items.svelte.ts"
+				},
+				{
+					"path": "src/lib/sui/search.ts",
+					"type": "registry:lib",
+					"target": "sui/search.ts"
+				},
+				{
 					"path": "src/lib/sui/select/index.ts",
 					"type": "registry:lib",
 					"target": "sui/select/index.ts"
@@ -362,6 +382,31 @@
 					"path": "src/lib/sui/switch/switch.svelte",
 					"type": "registry:lib",
 					"target": "sui/switch/switch.svelte"
+				},
+				{
+					"path": "src/lib/sui/theme.css",
+					"type": "registry:lib",
+					"target": "sui/theme.css"
+				},
+				{
+					"path": "src/lib/sui/tree-select/index.ts",
+					"type": "registry:lib",
+					"target": "sui/tree-select/index.ts"
+				},
+				{
+					"path": "src/lib/sui/tree-select/tree-select-skeleton.svelte",
+					"type": "registry:lib",
+					"target": "sui/tree-select/tree-select-skeleton.svelte"
+				},
+				{
+					"path": "src/lib/sui/tree-select/tree-select.svelte",
+					"type": "registry:lib",
+					"target": "sui/tree-select/tree-select.svelte"
+				},
+				{
+					"path": "src/lib/sui/tree.ts",
+					"type": "registry:lib",
+					"target": "sui/tree.ts"
 				},
 				{
 					"path": "src/lib/sui/types.ts",
