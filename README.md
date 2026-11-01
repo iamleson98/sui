@@ -67,7 +67,7 @@ sui ships as source — like shadcn-svelte itself — through a shadcn-svelte **
 npx shadcn-svelte@latest add https://<your-host>/r/sui.json
 ```
 
-That copies `src/lib/sui`, the shadcn components it builds on (button, calendar, command, drawer, popover, select…) and sui's patched `command` wrappers, and installs the npm dependencies (`zod`, `bits-ui`, `@internationalized/date`, `@tanstack/svelte-table`, …). Merge the theme tokens from this repo's `src/app.css` into yours (notably `--muted-foreground`, darkened so secondary text keeps AA contrast on muted surfaces).
+That copies `src/lib/sui`, the shadcn components it builds on (button, calendar, command, drawer, popover, select…) and sui's patched `command` wrappers, and installs the npm dependencies (`zod`, `bits-ui`, `@internationalized/date`, `@tanstack/svelte-table`, …). Then import sui's theme in your `app.css`, after Tailwind: `@import './lib/sui/theme.css';` (relative to the stylesheet). It holds the colour, radius and font tokens: neutral zinc surfaces, a bright blue primary (blue-600 in light, blue-400 with navy text in dark, the `info` button colour), and a `--muted-foreground` darkened so secondary text keeps AA contrast on muted surfaces. Override a token after the import to brand your app.
 
 Serving the registry yourself is one command — `npm run registry:build` writes `static/r/sui.json`, which this demo app then serves at `/r/sui.json`. Prefer manual? Copy `src/lib/sui` and the shadcn components listed in `registry.json`.
 
