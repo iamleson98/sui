@@ -4,10 +4,10 @@
 		SuiIconButton,
 		SuiButtonSkeleton,
 		SuiIconButtonSkeleton
-	} from '$lib/sui/button/index.js';
-	import Seo from '$lib/demo/seo.svelte';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Section from '$lib/demo/section.svelte';
+	} from '#lib/sui/button/index.js';
+	import Seo from '#lib/demo/seo.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Section from '#lib/demo/section.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import DownloadIcon from '@lucide/svelte/icons/download';

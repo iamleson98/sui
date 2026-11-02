@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createSuiForm } from '$lib/sui/form/index.js';
+import { createSuiForm } from '#lib/sui/form/index.js';
 
 const schema = z.object({
 	title: z.string().min(1, 'Add a title'),

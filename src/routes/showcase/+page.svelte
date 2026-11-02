@@ -1,25 +1,25 @@
 <script lang="ts">
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
-	import * as Separator from '$lib/components/ui/separator/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as Popover from '$lib/components/ui/popover/index.js';
-	import * as ScrollArea from '$lib/components/ui/scroll-area/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Toaster } from '$lib/components/ui/sonner/index.js';
+	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
+	import * as Breadcrumb from '#lib/components/ui/breadcrumb/index.js';
+	import * as Separator from '#lib/components/ui/separator/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import * as ScrollArea from '#lib/components/ui/scroll-area/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Toaster } from '#lib/components/ui/sonner/index.js';
 	import { toast } from 'svelte-sonner';
 
-	import Seo from '$lib/demo/seo.svelte';
-	import { theme } from '$lib/demo/theme.svelte';
-	import { SuiButton, SuiIconButton } from '$lib/sui/button/index.js';
+	import Seo from '#lib/demo/seo.svelte';
+	import { theme } from '#lib/demo/theme.svelte.js';
+	import { SuiButton, SuiIconButton } from '#lib/sui/button/index.js';
 
 	import CommandPalette from './-command.svelte';
 	import Overview from './-overview.svelte';
 	import PersonAvatar from './-person-avatar.svelte';
 	import Chips from './-chips.svelte';
 	import Kbd from './-kbd.svelte';
-	import { SuiSkeleton, SuiSkeletonContainer } from '$lib/sui/skeleton/index.js';
+	import { SuiSkeleton, SuiSkeletonContainer } from '#lib/sui/skeleton/index.js';
 	import { showcase, type ViewKey } from './-state.svelte';
 	import { ACTIVITY, person } from './-data.svelte';
 	import type { Component } from 'svelte';

@@ -258,10 +258,12 @@ test.describe('data table', () => {
 		await firstName.click();
 		await expect(firstName).toHaveAttribute('aria-sort', 'descending');
 
-		// pagination: 23 rows, 10 per page → 3 pages
-		await expect(table.getByText(/1 \/ 3/)).toBeVisible();
+		// pagination: 23 rows, 10 per page → 3 pages, numbered on a desktop
+		const current = table.locator('[aria-current="page"]');
+		await expect(current).toHaveText('1');
+		await expect(table.getByRole('button', { name: 'Page 3' })).toBeVisible();
 		await table.getByRole('button', { name: 'Next page' }).click();
-		await expect(table.getByText(/2 \/ 3/)).toBeVisible();
+		await expect(current).toHaveText('2');
 
 		// column visibility menu — it portals to body level, so it is NOT a
 		// child of the table element; items are labelled by lowercase column id

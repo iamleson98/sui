@@ -1,17 +1,17 @@
 <script lang="ts">
-	import * as Menubar from '$lib/components/ui/menubar/index.js';
-	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
-	import * as Sheet from '$lib/components/ui/sheet/index.js';
-	import * as Separator from '$lib/components/ui/separator/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { SuiButton, SuiIconButton } from '$lib/sui/button/index.js';
-	import { SuiInput } from '$lib/sui/input/index.js';
-	import { SuiSelect } from '$lib/sui/select/index.js';
-	import { SuiCombobox } from '$lib/sui/combobox/index.js';
-	import { SuiMultiSelect } from '$lib/sui/multi-select/index.js';
-	import { SuiCheckbox } from '$lib/sui/checkbox/index.js';
+	import * as Menubar from '#lib/components/ui/menubar/index.js';
+	import * as ContextMenu from '#lib/components/ui/context-menu/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import * as Sheet from '#lib/components/ui/sheet/index.js';
+	import * as Separator from '#lib/components/ui/separator/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { SuiButton, SuiIconButton } from '#lib/sui/button/index.js';
+	import { SuiInput } from '#lib/sui/input/index.js';
+	import { SuiSelect } from '#lib/sui/select/index.js';
+	import { SuiCombobox } from '#lib/sui/combobox/index.js';
+	import { SuiMultiSelect } from '#lib/sui/multi-select/index.js';
+	import { SuiCheckbox } from '#lib/sui/checkbox/index.js';
 	import { toast } from 'svelte-sonner';
 
 	import ViewHeader from './-view-header.svelte';

@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { suiParseFormData } from '$lib/sui/index.js';
+import { suiParseFormData } from '#lib/sui/index.js';
 import { signupSchema } from './schema.js';
 import type { Actions } from './$types';
 

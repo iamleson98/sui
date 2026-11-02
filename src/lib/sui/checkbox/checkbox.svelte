@@ -40,7 +40,7 @@
 </script>
 
 <script lang="ts">
-	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
+	import Checkbox from '#lib/components/ui/checkbox/checkbox.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
 	import {
@@ -52,7 +52,7 @@
 		SUI_SUBTEXT,
 		SUI_DISABLED_LABEL
 	} from '../styles.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	const uid = $props.id();
 

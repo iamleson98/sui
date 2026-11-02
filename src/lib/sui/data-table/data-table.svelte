@@ -76,14 +76,14 @@
 	import { createVirtualizer } from '@tanstack/svelte-virtual';
 	import { get } from 'svelte/store';
 	import { untrack } from 'svelte';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import SuiInput from '../input/input.svelte';
 	import DataTablePager from './data-table-pager.svelte';
 	import { suiDownloadCsv, type SuiCsvColumn } from './csv.js';
 	import { SUI_TABLE_FEATURES, type SuiColumnMeta, type SuiTableFeatures } from './columns.js';
 	import { getSuiStrings } from '../strings.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';

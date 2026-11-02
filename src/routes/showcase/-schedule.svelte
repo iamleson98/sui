@@ -1,16 +1,16 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Popover from '$lib/components/ui/popover/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as Calendar from '$lib/components/ui/calendar/index.js';
-	import { RangeCalendar } from '$lib/components/ui/range-calendar/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { SuiInput } from '$lib/sui/input/index.js';
-	import { SuiSelect } from '$lib/sui/select/index.js';
-	import { SuiButton, SuiIconButton } from '$lib/sui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as Calendar from '#lib/components/ui/calendar/index.js';
+	import { RangeCalendar } from '#lib/components/ui/range-calendar/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { SuiInput } from '#lib/sui/input/index.js';
+	import { SuiSelect } from '#lib/sui/select/index.js';
+	import { SuiButton, SuiIconButton } from '#lib/sui/button/index.js';
 	import { toast } from 'svelte-sonner';
 	import { TODAY, EVENT_KINDS, type CalEvent, type EventKind } from './-data.svelte';
 	import { getLocalTimeZone, type DateValue } from '@internationalized/date';

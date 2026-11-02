@@ -4,10 +4,10 @@
 		SuiTextarea,
 		SuiInputSkeleton,
 		SuiTextareaSkeleton
-	} from '$lib/sui/input/index.js';
-	import Seo from '$lib/demo/seo.svelte';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Section from '$lib/demo/section.svelte';
+	} from '#lib/sui/input/index.js';
+	import Seo from '#lib/demo/seo.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Section from '#lib/demo/section.svelte';
 	import { z } from 'zod';
 	import MailIcon from '@lucide/svelte/icons/mail';
 	import UserIcon from '@lucide/svelte/icons/user';

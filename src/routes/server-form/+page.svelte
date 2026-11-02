@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Seo from '$lib/demo/seo.svelte';
-	import Section from '$lib/demo/section.svelte';
-	import CodeBlock from '$lib/demo/code-block.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import Section from '#lib/demo/section.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
 	import {
 		SuiForm,
 		SuiInput,
@@ -12,7 +12,7 @@
 		SuiButton,
 		createSuiForm,
 		suiEnhance
-	} from '$lib/sui/index.js';
+	} from '#lib/sui/index.js';
 	import { signupSchema } from './schema.js';
 	import type { ActionData } from './$types';
 

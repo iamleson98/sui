@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SuiInput from '$lib/sui/input/input.svelte';
-	import SuiSelect from '$lib/sui/select/select.svelte';
-	import SuiCheckbox from '$lib/sui/checkbox/checkbox.svelte';
-	import SuiMultiSelect from '$lib/sui/multi-select/multi-select.svelte';
-	import type { SuiSubmitter } from '$lib/sui/form/submit.svelte.js';
+	import SuiInput from '#lib/sui/input/input.svelte';
+	import SuiSelect from '#lib/sui/select/select.svelte';
+	import SuiCheckbox from '#lib/sui/checkbox/checkbox.svelte';
+	import SuiMultiSelect from '#lib/sui/multi-select/multi-select.svelte';
+	import type { SuiSubmitter } from '#lib/sui/form/submit.svelte.js';
 	import type { ZodType } from 'zod';
 
 	let {

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiMultiSelect, SuiMultiSelectSkeleton } from '$lib/sui';
-import { offsetSource, type SuiItem, type SuiSource } from '$lib/sui';
+import { SuiMultiSelect, SuiMultiSelectSkeleton } from '#lib/sui/index.js';
+import { offsetSource, type SuiItem, type SuiSource } from '#lib/sui/index.js';
 import { z } from 'zod';
 
 const tags: SuiItem[] = [

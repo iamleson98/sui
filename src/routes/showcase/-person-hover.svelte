@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
+	import * as HoverCard from '#lib/components/ui/hover-card/index.js';
 	import PersonAvatar from './-person-avatar.svelte';
 	import { person } from './-data.svelte';
 	import type { Snippet } from 'svelte';

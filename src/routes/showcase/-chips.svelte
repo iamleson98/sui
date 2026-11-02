@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 	import {
 		LABELS,
 		EVENT_KINDS,

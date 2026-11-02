@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { z } from 'zod';
-	import Seo from '$lib/demo/seo.svelte';
-	import Section from '$lib/demo/section.svelte';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import { SuiForm, createSuiForm } from '$lib/sui/form/index.js';
-	import { SuiInput } from '$lib/sui/input/index.js';
-	import { SuiButton, SuiIconButton } from '$lib/sui/button/index.js';
+	import Seo from '#lib/demo/seo.svelte';
+	import Section from '#lib/demo/section.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import { SuiForm, createSuiForm } from '#lib/sui/form/index.js';
+	import { SuiInput } from '#lib/sui/input/index.js';
+	import { SuiButton, SuiIconButton } from '#lib/sui/button/index.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';

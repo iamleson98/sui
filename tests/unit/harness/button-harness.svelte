@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SuiButton from '$lib/sui/button/button.svelte';
-	import type { SuiSize } from '$lib/sui/types';
-	import type { SuiIconComponent } from '$lib/sui/types';
+	import SuiButton from '#lib/sui/button/button.svelte';
+	import type { SuiSize } from '#lib/sui/types.js';
+	import type { SuiIconComponent } from '#lib/sui/types.js';
 
 	let {
 		label = 'Click me',

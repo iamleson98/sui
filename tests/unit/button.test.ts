@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiButton, SuiIconButton, SuiButtonSkeleton } from '$lib/sui';
+import { SuiButton, SuiIconButton, SuiButtonSkeleton } from '#lib/sui/index.js';
 import ButtonHarness from './harness/button-harness.svelte';
 import SearchIcon from '@lucide/svelte/icons/search';
 import TrashIcon from '@lucide/svelte/icons/trash';

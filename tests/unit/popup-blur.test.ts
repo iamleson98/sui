@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SuiPopupDismiss } from '$lib/sui/popup-blur.js';
+import { SuiPopupDismiss } from '#lib/sui/popup-blur.js';
 
 function blurEvent(relatedTarget: Node | null): FocusEvent {
 	return new FocusEvent('blur', { relatedTarget, bubbles: false });

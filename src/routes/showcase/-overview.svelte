@@ -1,29 +1,29 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as Alert from '$lib/components/ui/alert/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as Progress from '$lib/components/ui/progress/index.js';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import * as ScrollArea from '$lib/components/ui/scroll-area/index.js';
-	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
-	import * as Carousel from '$lib/components/ui/carousel/index.js';
-	import * as AspectRatio from '$lib/components/ui/aspect-ratio/index.js';
-	import * as Separator from '$lib/components/ui/separator/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Alert from '#lib/components/ui/alert/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as Progress from '#lib/components/ui/progress/index.js';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
+	import * as ScrollArea from '#lib/components/ui/scroll-area/index.js';
+	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
+	import * as Carousel from '#lib/components/ui/carousel/index.js';
+	import * as AspectRatio from '#lib/components/ui/aspect-ratio/index.js';
+	import * as Separator from '#lib/components/ui/separator/index.js';
 	import {
 		ChartContainer,
 		ChartTooltip,
 		type ChartConfig
-	} from '$lib/components/ui/chart/index.js';
+	} from '#lib/components/ui/chart/index.js';
 	import { AreaChart } from 'layerchart';
-	import { SuiButton } from '$lib/sui/button/index.js';
-	import { SuiSkeleton, SuiSkeletonContainer } from '$lib/sui/skeleton/index.js';
+	import { SuiButton } from '#lib/sui/button/index.js';
+	import { SuiSkeleton, SuiSkeletonContainer } from '#lib/sui/skeleton/index.js';
 	import { toast } from 'svelte-sonner';
 
 	import ViewHeader from './-view-header.svelte';
 	import Chips from './-chips.svelte';
 	import PersonAvatar from './-person-avatar.svelte';
 	import PersonHover from './-person-hover.svelte';
-	import { SuiIconButton } from '$lib/sui/button/index.js';
+	import { SuiIconButton } from '#lib/sui/button/index.js';
 	import { showcase } from './-state.svelte';
 	import {
 		ACTIVITY,

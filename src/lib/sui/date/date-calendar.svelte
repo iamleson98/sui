@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { DatePicker } from 'bits-ui';
 	import type { DateValue } from '@internationalized/date';
-	import * as Calendar from '$lib/components/ui/calendar/index.js';
-	import { cn } from '$lib/utils.js';
+	import * as Calendar from '#lib/components/ui/calendar/index.js';
+	import { cn } from '#lib/utils.js';
 
 	/**
 	 * The calendar panel inside a sui date / date-time picker popover: the

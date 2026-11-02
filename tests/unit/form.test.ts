@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import { focusFirstInvalid } from '$lib/sui/form/utils';
-import { SuiSelect } from '$lib/sui';
+import { focusFirstInvalid } from '#lib/sui/form/utils.js';
+import { SuiSelect } from '#lib/sui/index.js';
 import InputHarness from './harness/input-harness.svelte';
 
 describe('focusFirstInvalid', () => {

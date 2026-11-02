@@ -1,15 +1,15 @@
 <script lang="ts">
-	import Seo from '$lib/demo/seo.svelte';
-	import { SuiButtonSkeleton, SuiIconButtonSkeleton } from '$lib/sui/button/index.js';
-	import { SuiInputSkeleton, SuiTextareaSkeleton } from '$lib/sui/input/index.js';
-	import { SuiSelectSkeleton } from '$lib/sui/select/index.js';
-	import { SuiComboboxSkeleton } from '$lib/sui/combobox/index.js';
-	import { SuiMultiSelectSkeleton } from '$lib/sui/multi-select/index.js';
-	import { SuiCheckboxSkeleton } from '$lib/sui/checkbox/index.js';
-	import { SuiRadioSkeleton } from '$lib/sui/radio-group/index.js';
-	import { SuiSwitchSkeleton } from '$lib/sui/switch/index.js';
-	import { SuiDataTableSkeleton } from '$lib/sui/data-table/index.js';
-	import Section from '$lib/demo/section.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import { SuiButtonSkeleton, SuiIconButtonSkeleton } from '#lib/sui/button/index.js';
+	import { SuiInputSkeleton, SuiTextareaSkeleton } from '#lib/sui/input/index.js';
+	import { SuiSelectSkeleton } from '#lib/sui/select/index.js';
+	import { SuiComboboxSkeleton } from '#lib/sui/combobox/index.js';
+	import { SuiMultiSelectSkeleton } from '#lib/sui/multi-select/index.js';
+	import { SuiCheckboxSkeleton } from '#lib/sui/checkbox/index.js';
+	import { SuiRadioSkeleton } from '#lib/sui/radio-group/index.js';
+	import { SuiSwitchSkeleton } from '#lib/sui/switch/index.js';
+	import { SuiDataTableSkeleton } from '#lib/sui/data-table/index.js';
+	import Section from '#lib/demo/section.svelte';
 </script>
 
 <Seo path="/skeletons" />

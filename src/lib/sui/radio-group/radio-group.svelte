@@ -45,7 +45,7 @@
 </script>
 
 <script lang="ts">
-	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
+	import * as RadioGroup from '#lib/components/ui/radio-group/index.js';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
 	import {
@@ -58,7 +58,7 @@
 		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { getSuiStrings } from '../strings.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	const uid = $props.id();

@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -23,7 +24,6 @@ export default defineConfig({
 			// generous enough for font rasterization variance across runs,
 			// tight enough to catch real layout regressions
 			maxDiffPixelRatio: 0.01,
-			fullPage: true,
 			caret: 'hide',
 			animations: 'disabled'
 		}
@@ -34,7 +34,7 @@ export default defineConfig({
 	use: {
 		baseURL: BASE_URL,
 		deviceScaleFactor: 1,
-		reduceMotion: 'reduce'
+		reducedMotion: 'reduce'
 	},
 	projects: [
 		{

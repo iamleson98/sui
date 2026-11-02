@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import path from 'node:path';
 
 export default defineConfig({
 	plugins: [
@@ -12,13 +11,14 @@ export default defineConfig({
 			}
 		})
 	],
+	// The dependency scan bundles node_modules only, which needs no tsconfig;
+	// left to find one, rolldown cannot follow `"extends": "$app/tsconfig"`.
+	optimizeDeps: { rolldownOptions: { tsconfig: false } },
 	resolve: {
 		// pick the browser (client) build of svelte — otherwise $state /
 		// mount() resolve to the SSR runtime and tests explode
-		conditions: ['browser'],
-		alias: {
-			$lib: path.resolve(import.meta.dirname, 'src/lib')
-		}
+		// (#lib resolves through package.json "imports")
+		conditions: ['browser']
 	},
 	test: {
 		environment: 'jsdom',

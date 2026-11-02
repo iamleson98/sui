@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { SuiInput, SuiTextarea } from '$lib/sui/input/index.js';
-	import { SuiSelect } from '$lib/sui/select/index.js';
-	import { SuiMultiSelect } from '$lib/sui/multi-select/index.js';
-	import { SuiRadioGroup } from '$lib/sui/radio-group/index.js';
-	import { SuiCheckbox } from '$lib/sui/checkbox/index.js';
-	import { SuiSwitch } from '$lib/sui/switch/index.js';
-	import { SuiButton } from '$lib/sui/button/index.js';
-	import { SuiErrorSummary, focusFirstInvalid } from '$lib/sui/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { SuiInput, SuiTextarea } from '#lib/sui/input/index.js';
+	import { SuiSelect } from '#lib/sui/select/index.js';
+	import { SuiMultiSelect } from '#lib/sui/multi-select/index.js';
+	import { SuiRadioGroup } from '#lib/sui/radio-group/index.js';
+	import { SuiCheckbox } from '#lib/sui/checkbox/index.js';
+	import { SuiSwitch } from '#lib/sui/switch/index.js';
+	import { SuiButton } from '#lib/sui/button/index.js';
+	import { SuiErrorSummary, focusFirstInvalid } from '#lib/sui/index.js';
 	import { z } from 'zod';
 	import { tick } from 'svelte';
 	import { toast } from 'svelte-sonner';

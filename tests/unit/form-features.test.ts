@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSuiForm } from '$lib/sui/form/index.js';
-import { suiErrors } from '$lib/sui/form/schema.js';
+import { createSuiForm } from '#lib/sui/form/index.js';
+import { suiErrors } from '#lib/sui/form/schema.js';
 import { z } from 'zod';
 import { testSchema, type TestSchema } from './harness/form-schema.js';
 

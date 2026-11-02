@@ -69,11 +69,11 @@
 </script>
 
 <script lang="ts" generics="V extends string = string">
-	import * as Popover from '$lib/components/ui/popover/index.js';
-	import * as Drawer from '$lib/components/ui/drawer/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as InputGroup from '$lib/components/ui/input-group/index.js';
-	import { containedScrollDelta } from '$lib/components/ui/command/contained-scroll-into-view.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import * as Drawer from '#lib/components/ui/drawer/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import * as InputGroup from '#lib/components/ui/input-group/index.js';
+	import { containedScrollDelta } from '#lib/components/ui/command/contained-scroll-into-view.js';
 	import SuiIcon from '../sui-icon.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
@@ -104,7 +104,7 @@
 		SUI_DISABLED_LABEL,
 		SUI_DISABLED_TRIGGER
 	} from '../styles.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import XIcon from '@lucide/svelte/icons/x';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import SearchIcon from '@lucide/svelte/icons/search';

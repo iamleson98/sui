@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { z, ZodError } from 'zod';
-import { createSuiSubmitter } from '$lib/sui/form/submit.svelte.js';
+import { createSuiSubmitter } from '#lib/sui/form/submit.svelte.js';
 import SubmitterHarness from './harness/submitter-harness.svelte';
 
 const user = userEvent.setup({ pointerEventsCheck: 0 });

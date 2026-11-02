@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { SuiForm } from '$lib/sui/form/index.js';
-	import SuiInput from '$lib/sui/input/input.svelte';
-	import SuiCheckbox from '$lib/sui/checkbox/checkbox.svelte';
-	import SuiSelect from '$lib/sui/select/select.svelte';
-	import type { SuiFormInstance } from '$lib/sui/form/create-form.svelte.js';
+	import { SuiForm } from '#lib/sui/form/index.js';
+	import SuiInput from '#lib/sui/input/input.svelte';
+	import SuiCheckbox from '#lib/sui/checkbox/checkbox.svelte';
+	import SuiSelect from '#lib/sui/select/select.svelte';
+	import type { SuiFormInstance } from '#lib/sui/form/create-form.svelte.js';
 	import type { TestSchema } from './form-schema.js';
 
 	let { form }: { form: SuiFormInstance<TestSchema> } = $props();

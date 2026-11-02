@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pageWindow } from '$lib/sui/data-table/page-window';
+import { pageWindow } from '#lib/sui/data-table/page-window.js';
 
 describe('pageWindow', () => {
 	it('lists every page while there are few', () => {

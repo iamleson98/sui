@@ -52,7 +52,7 @@
 		SUI_DISABLED_LABEL
 	} from '../styles.js';
 	import { getSuiStrings } from '../strings.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	const uid = $props.id();

@@ -1,4 +1,3 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 // Dynamic endpoint (query-param driven) — opted out of the root layout's
@@ -50,7 +49,7 @@ export const GET: RequestHandler = ({ url }) => {
 		: all;
 	const items = filtered.slice(page * size, (page + 1) * size);
 
-	return json(
+	return Response.json(
 		{ items, page, size, total: filtered.length },
 		{ headers: { 'cache-control': 'no-store' } }
 	);

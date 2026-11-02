@@ -13,8 +13,8 @@ import {
 	type SuiIn,
 	type SuiOut,
 	type StandardSchemaV1
-} from '$lib/sui/form/schema.js';
-import { createSuiForm } from '$lib/sui/form/index.js';
+} from '#lib/sui/form/schema.js';
+import { createSuiForm } from '#lib/sui/form/index.js';
 import { testSchema, type TestSchema } from './harness/form-schema.js';
 
 /** Minimal Standard Schema v1 fake — the whole interop contract sui relies on. */

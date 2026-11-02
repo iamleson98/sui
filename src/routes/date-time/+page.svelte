@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { z } from 'zod';
 	import { getLocalTimeZone, today } from '@internationalized/date';
-	import Seo from '$lib/demo/seo.svelte';
-	import Section from '$lib/demo/section.svelte';
-	import CodeBlock from '$lib/demo/code-block.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import Section from '#lib/demo/section.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
 	import {
 		SuiDateRangePicker,
 		SuiDatePicker,
 		SuiDateTimePicker,
 		SuiTimePicker,
 		SuiDatePickerSkeleton
-	} from '$lib/sui/date/index.js';
-	import { SuiForm, createSuiForm } from '$lib/sui/form/index.js';
-	import { SuiButton } from '$lib/sui/button/index.js';
+	} from '#lib/sui/date/index.js';
+	import { SuiForm, createSuiForm } from '#lib/sui/form/index.js';
+	import { SuiButton } from '#lib/sui/button/index.js';
 	import PlaneIcon from '@lucide/svelte/icons/plane';
 
 	const todayIso = today(getLocalTimeZone()).toString();

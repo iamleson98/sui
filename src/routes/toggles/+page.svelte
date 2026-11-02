@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { SuiCheckbox, SuiCheckboxSkeleton } from '$lib/sui/checkbox/index.js';
-	import { SuiSwitch, SuiSwitchSkeleton } from '$lib/sui/switch/index.js';
-	import { SuiRadioGroup, SuiRadioSkeleton } from '$lib/sui/radio-group/index.js';
-	import Seo from '$lib/demo/seo.svelte';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Section from '$lib/demo/section.svelte';
+	import { SuiCheckbox, SuiCheckboxSkeleton } from '#lib/sui/checkbox/index.js';
+	import { SuiSwitch, SuiSwitchSkeleton } from '#lib/sui/switch/index.js';
+	import { SuiRadioGroup, SuiRadioSkeleton } from '#lib/sui/radio-group/index.js';
+	import Seo from '#lib/demo/seo.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Section from '#lib/demo/section.svelte';
 	import { z } from 'zod';
 
 	let marketing = $state(true);

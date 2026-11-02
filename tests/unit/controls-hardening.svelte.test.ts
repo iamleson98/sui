@@ -15,7 +15,7 @@ import {
 	cursorSource,
 	type SuiItem,
 	type SuiSource
-} from '$lib/sui';
+} from '#lib/sui/index.js';
 import NativeFormHarness from './harness/native-form-harness.svelte';
 import StringsHarness from './harness/strings-harness.svelte';
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import * as Command from '$lib/components/ui/command/index.js';
+	import * as Command from '#lib/components/ui/command/index.js';
 	import { toast } from 'svelte-sonner';
 	import { showcase, type ViewKey } from './-state.svelte';
-	import { theme } from '$lib/demo/theme.svelte';
+	import { theme } from '#lib/demo/theme.svelte.js';
 	import { PEOPLE, SERVICES, type Person, type Issue } from './-data.svelte';
 	import Kbd from './-kbd.svelte';
 	import PersonAvatar from './-person-avatar.svelte';

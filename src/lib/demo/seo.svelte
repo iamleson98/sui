@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SITE_ORIGIN, SITE_NAME, routeMeta } from '$lib/demo/site';
+	import { SITE_ORIGIN, SITE_NAME, routeMeta } from '#lib/demo/site.js';
 
 	// Optional overrides; defaults come from the shared route table.
 	let {

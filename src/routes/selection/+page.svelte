@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Seo from '$lib/demo/seo.svelte';
-	import { SuiSelect, SuiSelectSkeleton } from '$lib/sui/select/index.js';
-	import { SuiCombobox, SuiComboboxSkeleton } from '$lib/sui/combobox/index.js';
-	import { SuiMultiSelect, SuiMultiSelectSkeleton } from '$lib/sui/multi-select/index.js';
-	import { SuiTreeSelect, SuiTreeSelectSkeleton } from '$lib/sui/tree-select/index.js';
-	import type { SuiTreeItem } from '$lib/sui/tree.js';
-	import { cursorSource, offsetSource, type SuiSource } from '$lib/sui/pagination.js';
-	import type { SuiItem } from '$lib/sui/types.js';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Section from '$lib/demo/section.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import { SuiSelect, SuiSelectSkeleton } from '#lib/sui/select/index.js';
+	import { SuiCombobox, SuiComboboxSkeleton } from '#lib/sui/combobox/index.js';
+	import { SuiMultiSelect, SuiMultiSelectSkeleton } from '#lib/sui/multi-select/index.js';
+	import { SuiTreeSelect, SuiTreeSelectSkeleton } from '#lib/sui/tree-select/index.js';
+	import type { SuiTreeItem } from '#lib/sui/tree.js';
+	import { cursorSource, offsetSource, type SuiSource } from '#lib/sui/pagination.js';
+	import type { SuiItem } from '#lib/sui/types.js';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Section from '#lib/demo/section.svelte';
 	import { z } from 'zod';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import PackageIcon from '@lucide/svelte/icons/package';
