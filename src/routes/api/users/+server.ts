@@ -1,4 +1,3 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 // Dynamic endpoint (query-param driven) — opted out of the root layout's
@@ -116,7 +115,7 @@ export const GET: RequestHandler = ({ url }) => {
 	}
 
 	const nextCursor = index < TOTAL ? encodeCursor(index) : null;
-	return json(
+	return Response.json(
 		{ items, nextCursor, hasMore: nextCursor !== null },
 		{ headers: { 'cache-control': 'no-store' } }
 	);

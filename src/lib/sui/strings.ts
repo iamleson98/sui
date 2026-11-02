@@ -160,8 +160,8 @@ const KEY = Symbol('sui-strings');
  *
  * ```svelte
  * <script lang="ts">
- *   import { setSuiStrings } from '$lib/sui';
- *   import * as m from '$lib/paraglide/messages';
+ *   import { setSuiStrings } from '#lib/sui/index.js';
+ *   import * as m from '#lib/paraglide/messages';
  *
  *   setSuiStrings(() => ({ loading: m.loading(), noResults: m.no_results() }));
  * </script>

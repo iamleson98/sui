@@ -1,13 +1,13 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card/index.js';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import * as Resizable from '$lib/components/ui/resizable/index.js';
-	import * as ScrollArea from '$lib/components/ui/scroll-area/index.js';
-	import * as Sheet from '$lib/components/ui/sheet/index.js';
-	import * as Drawer from '$lib/components/ui/drawer/index.js';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
+	import * as Resizable from '#lib/components/ui/resizable/index.js';
+	import * as ScrollArea from '#lib/components/ui/scroll-area/index.js';
+	import * as Sheet from '#lib/components/ui/sheet/index.js';
+	import * as Drawer from '#lib/components/ui/drawer/index.js';
+	import * as AlertDialog from '#lib/components/ui/alert-dialog/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 	import {
 		SuiDataTable,
 		suiColumn,
@@ -15,12 +15,12 @@
 		suiDownloadCsv,
 		type SuiDataTableSize,
 		type SuiDataTableColumn
-	} from '$lib/sui/data-table/index.js';
-	import { SuiButton } from '$lib/sui/button/index.js';
-	import { SuiSelect } from '$lib/sui/select/index.js';
-	import { SuiSwitch } from '$lib/sui/switch/index.js';
+	} from '#lib/sui/data-table/index.js';
+	import { SuiButton } from '#lib/sui/button/index.js';
+	import { SuiSelect } from '#lib/sui/select/index.js';
+	import { SuiSwitch } from '#lib/sui/switch/index.js';
 	import { toast } from 'svelte-sonner';
-	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
+	import { IsMobile } from '#lib/hooks/is-mobile.svelte.js';
 
 	import ViewHeader from './-view-header.svelte';
 	import Chips from './-chips.svelte';

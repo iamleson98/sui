@@ -38,7 +38,7 @@
 </script>
 
 <script lang="ts">
-	import Switch from '$lib/components/ui/switch/switch.svelte';
+	import Switch from '#lib/components/ui/switch/switch.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
 	import {
@@ -50,7 +50,7 @@
 		SUI_SUBTEXT,
 		SUI_DISABLED_LABEL
 	} from '../styles.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	const uid = $props.id();
 

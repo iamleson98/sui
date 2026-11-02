@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SuiInput from '$lib/sui/input/input.svelte';
+	import SuiInput from '#lib/sui/input/input.svelte';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import type { ZodType } from 'zod';
-	import type { SuiFieldVariant, SuiSize } from '$lib/sui/types';
-	import type { SuiValidateOn } from '$lib/sui/zod.js';
+	import type { SuiFieldVariant, SuiSize } from '#lib/sui/types.js';
+	import type { SuiValidateOn } from '#lib/sui/zod.js';
 
 	let {
 		label = 'Email',

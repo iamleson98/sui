@@ -12,7 +12,7 @@
 
 <script lang="ts">
 	import { getSuiStrings } from '../strings.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
 
 	const uid = $props.id();

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { z } from 'zod';
-	import { createSuiForm } from '$lib/sui/form/index.js';
-	import SuiInput from '$lib/sui/input/input.svelte';
-	import SuiTextarea from '$lib/sui/input/textarea.svelte';
-	import SuiCheckbox from '$lib/sui/checkbox/checkbox.svelte';
-	import SuiSwitch from '$lib/sui/switch/switch.svelte';
-	import SuiRadioGroup from '$lib/sui/radio-group/radio-group.svelte';
-	import SuiSelect from '$lib/sui/select/select.svelte';
-	import SuiCombobox from '$lib/sui/combobox/combobox.svelte';
-	import SuiMultiSelect from '$lib/sui/multi-select/multi-select.svelte';
+	import { createSuiForm } from '#lib/sui/form/index.js';
+	import SuiInput from '#lib/sui/input/input.svelte';
+	import SuiTextarea from '#lib/sui/input/textarea.svelte';
+	import SuiCheckbox from '#lib/sui/checkbox/checkbox.svelte';
+	import SuiSwitch from '#lib/sui/switch/switch.svelte';
+	import SuiRadioGroup from '#lib/sui/radio-group/radio-group.svelte';
+	import SuiSelect from '#lib/sui/select/select.svelte';
+	import SuiCombobox from '#lib/sui/combobox/combobox.svelte';
+	import SuiMultiSelect from '#lib/sui/multi-select/multi-select.svelte';
 
 	// every control driven by createSuiForm — no explicit `name` anywhere
 	const form = createSuiForm(

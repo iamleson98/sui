@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiErrorSummary } from '$lib/sui';
+import { SuiErrorSummary } from '#lib/sui/index.js';
 
 const user = userEvent.setup({ pointerEventsCheck: 0 });
 

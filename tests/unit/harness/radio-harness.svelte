@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SuiRadioGroup from '$lib/sui/radio-group/radio-group.svelte';
+	import SuiRadioGroup from '#lib/sui/radio-group/radio-group.svelte';
 	import type { ZodType } from 'zod';
-	import type { SuiRadioItem } from '$lib/sui/radio-group/radio-group.svelte';
+	import type { SuiRadioItem } from '#lib/sui/radio-group/radio-group.svelte';
 
 	let {
 		label = 'Plan',

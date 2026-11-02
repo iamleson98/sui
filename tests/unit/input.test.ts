@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiInput, SuiInputSkeleton, SuiTextarea, SuiTextareaSkeleton } from '$lib/sui';
+import { SuiInput, SuiInputSkeleton, SuiTextarea, SuiTextareaSkeleton } from '#lib/sui/index.js';
 import InputHarness from './harness/input-harness.svelte';
 import { z } from 'zod';
 import MailIcon from '@lucide/svelte/icons/mail';

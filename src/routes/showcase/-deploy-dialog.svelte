@@ -1,10 +1,10 @@
 <script lang="ts">
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
-	import { SuiInput, SuiTextarea } from '$lib/sui/input/index.js';
-	import { SuiSelect } from '$lib/sui/select/index.js';
-	import { SuiRadioGroup } from '$lib/sui/radio-group/index.js';
-	import { SuiCheckbox } from '$lib/sui/checkbox/index.js';
-	import { SuiButton } from '$lib/sui/button/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { SuiInput, SuiTextarea } from '#lib/sui/input/index.js';
+	import { SuiSelect } from '#lib/sui/select/index.js';
+	import { SuiRadioGroup } from '#lib/sui/radio-group/index.js';
+	import { SuiCheckbox } from '#lib/sui/checkbox/index.js';
+	import { SuiButton } from '#lib/sui/button/index.js';
 	import { z } from 'zod';
 	import { toast } from 'svelte-sonner';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getSuiStrings } from '../strings.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { suiValidate, shouldValidate } from '$lib/sui/zod';
-import { SuiFieldState } from '$lib/sui/field.svelte';
+import { suiValidate, shouldValidate } from '#lib/sui/zod.js';
+import { SuiFieldState } from '#lib/sui/field.svelte.js';
 
 describe('suiValidate', () => {
 	it('returns no messages without a schema', () => {

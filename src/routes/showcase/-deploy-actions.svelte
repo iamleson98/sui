@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { SuiIconButton } from '$lib/sui/button/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
+	import { SuiIconButton } from '#lib/sui/button/index.js';
 	import type { Deployment } from './-data.svelte';
 
 	import MoreHorizontalIcon from '@lucide/svelte/icons/more-horizontal';

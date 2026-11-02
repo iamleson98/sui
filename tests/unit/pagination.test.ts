@@ -4,8 +4,8 @@ import {
 	offsetSource,
 	type SuiPageRequest,
 	type SuiSource
-} from '$lib/sui/pagination';
-import { SuiInfiniteList } from '$lib/sui/infinite-list.svelte';
+} from '#lib/sui/pagination.js';
+import { SuiInfiniteList } from '#lib/sui/infinite-list.svelte.js';
 
 function pageRequest(overrides: Partial<SuiPageRequest> = {}): SuiPageRequest {
 	return { size: 25, page: 0, cursor: null, query: '', signal: undefined, ...overrides };

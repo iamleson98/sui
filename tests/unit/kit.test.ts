@@ -5,7 +5,7 @@ import {
 	suiEnhance,
 	suiFormDataToObject,
 	suiParseFormData
-} from '$lib/sui/form/index.js';
+} from '#lib/sui/form/index.js';
 
 function formData(entries: [string, string][]): FormData {
 	const data = new FormData();

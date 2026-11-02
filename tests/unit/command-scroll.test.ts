@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import {
 	containedScrollDelta,
 	containedScrollIntoView
-} from '$lib/components/ui/command/contained-scroll-into-view';
+} from '#lib/components/ui/command/contained-scroll-into-view.js';
 
 describe('containedScrollDelta (pure math)', () => {
 	// container viewport: top 100, bottom 300 (height 200)

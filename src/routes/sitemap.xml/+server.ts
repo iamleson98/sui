@@ -1,4 +1,4 @@
-import { SITE_ORIGIN, SITE_ROUTES } from '$lib/demo/site';
+import { SITE_ORIGIN, SITE_ROUTES } from '#lib/demo/site.js';
 import type { RequestHandler } from './$types';
 
 // Prerendered at build time from the shared route table.

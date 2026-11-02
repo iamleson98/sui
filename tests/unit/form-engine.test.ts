@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z, ZodError } from 'zod';
-import { createSuiForm, SuiAsyncSchemaError, suiErrors, suiParse } from '$lib/sui/form/index.js';
+import { createSuiForm, SuiAsyncSchemaError, suiErrors, suiParse } from '#lib/sui/form/index.js';
 
 /**
  * Production-hardening regressions for the schema-driven form engine:

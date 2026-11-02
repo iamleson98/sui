@@ -14,8 +14,8 @@ import {
 	SUI_CLEAR_SIZE,
 	SUI_CHEVRON_PIN,
 	suiEffectiveVariant
-} from '$lib/sui/styles';
-import type { SuiFieldVariant, SuiSize } from '$lib/sui/types';
+} from '#lib/sui/styles.js';
+import type { SuiFieldVariant, SuiSize } from '#lib/sui/types.js';
 
 const SIZES: SuiSize[] = ['xs', 'sm', 'md', 'lg', 'xl'];
 const VARIANTS: SuiFieldVariant[] = ['info', 'success', 'warning', 'error'];

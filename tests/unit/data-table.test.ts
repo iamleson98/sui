@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiDataTable, SuiDataTableSkeleton, suiColumn, renderComponent } from '$lib/sui';
-import type { SuiDataTableColumn } from '$lib/sui';
+import { SuiDataTable, SuiDataTableSkeleton, suiColumn, renderComponent } from '#lib/sui/index.js';
+import type { SuiDataTableColumn } from '#lib/sui/index.js';
 import StatusBadge from './harness/status-badge.svelte';
 
 type Person = { id: string; name: string; age: number; city: string };

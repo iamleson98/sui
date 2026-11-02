@@ -5,12 +5,12 @@
 		renderComponent,
 		type SuiDataTableSize,
 		type SuiDataTableColumn
-	} from '$lib/sui/data-table/index.js';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Section from '$lib/demo/section.svelte';
-	import StatusBadge from '$lib/demo/status-badge.svelte';
-	import ProgressBar from '$lib/demo/progress-bar.svelte';
-	import ActionButtons from '$lib/demo/action-buttons.svelte';
+	} from '#lib/sui/data-table/index.js';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Section from '#lib/demo/section.svelte';
+	import StatusBadge from '#lib/demo/status-badge.svelte';
+	import ProgressBar from '#lib/demo/progress-bar.svelte';
+	import ActionButtons from '#lib/demo/action-buttons.svelte';
 
 	type Person = {
 		id: string;

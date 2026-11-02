@@ -2,8 +2,8 @@
 	import '../app.css';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
-	import SuiIconButton from '$lib/sui/button/icon-button.svelte';
-	import { theme } from '$lib/demo/theme.svelte';
+	import SuiIconButton from '#lib/sui/button/icon-button.svelte';
+	import { theme } from '#lib/demo/theme.svelte.js';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';

@@ -36,7 +36,7 @@
 <script lang="ts" generics="Schema extends SuiSchemaLike">
 	import { focusFailedSubmit } from './utils.js';
 	import { getSuiStrings } from '../strings.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
 
 	let {

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { DateRangePicker } from 'bits-ui';
 	import type { DateValue } from '@internationalized/date';
-	import * as Calendar from '$lib/components/ui/range-calendar/index.js';
-	import { cn } from '$lib/utils.js';
+	import * as Calendar from '#lib/components/ui/range-calendar/index.js';
+	import { cn } from '#lib/utils.js';
 
 	/**
 	 * The range-calendar panel of `SuiDateRangePicker`: bits-ui's connected

@@ -18,7 +18,7 @@ import {
 	isoToTime,
 	timeSlots,
 	timeToIso
-} from '$lib/sui';
+} from '#lib/sui/index.js';
 
 const user = userEvent.setup({ pointerEventsCheck: 0 });
 

@@ -29,14 +29,15 @@
 		"@internationalized/date": "^3.12.4",
 		"@lucide/svelte": "^1.51.0",
 		"@playwright/test": "^1.63.0",
-		"@sveltejs/adapter-node": "^5.5.7",
-		"@sveltejs/adapter-vercel": "^6.3.4",
-		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/adapter-node": "^6.0.1",
+		"@sveltejs/adapter-vercel": "^7.0.2",
+		"@sveltejs/kit": "^3.1.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@testing-library/jest-dom": "^7.0.1",
 		"@testing-library/svelte": "^5.4.2",
 		"@testing-library/user-event": "^14.6.7",
+		"@types/node": "^26.6.4",
 		"bits-ui": "^2.19.5",
 		"cn": "^0.4.0",
 		"embla-carousel-svelte": "^8.6.0",
@@ -51,7 +52,7 @@
 		"prettier-plugin-svelte": "^4.1.1",
 		"prettier-plugin-tailwindcss": "^0.8.1",
 		"shadcn-svelte": "^1.7.0",
-		"svelte": "^5.57.1",
+		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.6",
 		"svelte-sonner": "^1.2.1",
 		"tailwind-variants": "^3.3.1",
@@ -67,5 +68,9 @@
 		"@tanstack/svelte-table": "^9.2.4",
 		"@tanstack/svelte-virtual": "^3.13.39",
 		"zod": "^4.6.5"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
 	}
 }

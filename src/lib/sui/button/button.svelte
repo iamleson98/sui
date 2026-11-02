@@ -2,7 +2,7 @@
 	import {
 		Button as UiButton,
 		type ButtonSize as UiButtonSize
-	} from '$lib/components/ui/button/index.js';
+	} from '#lib/components/ui/button/index.js';
 	import SuiIcon from '../sui-icon.svelte';
 	import { SUI_CONTROL, SUI_ICON, suiButtonColor } from '../styles.js';
 	import type { SuiButtonColor, SuiIconComponent, SuiSize } from '../types.js';

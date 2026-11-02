@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SUI_MOBILE_QUERY, suiMobileQuery } from '$lib/sui';
+import { SUI_MOBILE_QUERY, suiMobileQuery } from '#lib/sui/index.js';
 
 describe('suiMobileQuery', () => {
 	it('targets phones but not tablets/desktop (below the sm breakpoint)', () => {

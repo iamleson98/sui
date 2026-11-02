@@ -1,15 +1,15 @@
 <script lang="ts">
-	import Seo from '$lib/demo/seo.svelte';
-	import { SuiInput, SuiTextarea } from '$lib/sui/input/index.js';
-	import { SuiCheckbox } from '$lib/sui/checkbox/index.js';
-	import { SuiRadioGroup } from '$lib/sui/radio-group/index.js';
-	import { SuiSelect } from '$lib/sui/select/index.js';
-	import { SuiButton } from '$lib/sui/button/index.js';
-	import { SuiMultiSelect } from '$lib/sui/multi-select/index.js';
-	import { SuiForm, createSuiForm, createSuiSubmitter } from '$lib/sui/form/index.js';
-	import { SuiErrorSummary } from '$lib/sui/error-summary/index.js';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Section from '$lib/demo/section.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import { SuiInput, SuiTextarea } from '#lib/sui/input/index.js';
+	import { SuiCheckbox } from '#lib/sui/checkbox/index.js';
+	import { SuiRadioGroup } from '#lib/sui/radio-group/index.js';
+	import { SuiSelect } from '#lib/sui/select/index.js';
+	import { SuiButton } from '#lib/sui/button/index.js';
+	import { SuiMultiSelect } from '#lib/sui/multi-select/index.js';
+	import { SuiForm, createSuiForm, createSuiSubmitter } from '#lib/sui/form/index.js';
+	import { SuiErrorSummary } from '#lib/sui/error-summary/index.js';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Section from '#lib/demo/section.svelte';
 	import { z, ZodError } from 'zod';
 
 	// --- form state ---

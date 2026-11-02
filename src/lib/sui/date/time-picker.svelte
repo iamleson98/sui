@@ -53,7 +53,7 @@
 <script lang="ts">
 	import { TimeField } from 'bits-ui';
 	import type { Time } from '@internationalized/date';
-	import * as Popover from '$lib/components/ui/popover/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
 	import SuiIcon from '../sui-icon.svelte';
 	import { SuiFieldState } from '../field.svelte.js';
 	import { registerSuiField } from '../form/field-registry.js';
@@ -73,7 +73,7 @@
 		SUI_DISABLED_CONTROL,
 		SUI_DISABLED_LABEL
 	} from '../styles.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import XIcon from '@lucide/svelte/icons/x';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';

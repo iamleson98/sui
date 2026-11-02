@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiCombobox, SuiMultiSelect, suiFilter, suiFold } from '$lib/sui';
-import type { SuiItem, SuiSource } from '$lib/sui';
+import { SuiCombobox, SuiMultiSelect, suiFilter, suiFold } from '#lib/sui/index.js';
+import type { SuiItem, SuiSource } from '#lib/sui/index.js';
 
 const user = userEvent.setup({ pointerEventsCheck: 0 });
 

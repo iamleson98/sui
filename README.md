@@ -84,7 +84,7 @@ import {
 	offsetSource,
 	type SuiItem,
 	type SuiSource
-} from '$lib/sui';
+} from '#lib/sui/index.js';
 ```
 
 ## Schema-driven forms — createSuiForm
@@ -95,7 +95,7 @@ One schema drives the whole form — zod v4 is the blessed path (smart defaults 
 
 ```svelte
 <script lang="ts">
-	import { createSuiForm, SuiForm } from '$lib/sui';
+	import { createSuiForm, SuiForm } from '#lib/sui/index.js';
 	import { z, ZodError } from 'zod';
 
 	const schema = z
@@ -198,7 +198,7 @@ form.reset(user); // …or make a loaded record the new pristine baseline (edit 
 form.handleSubmit(event); // manual submit handler for plain <form> elements
 
 // server payloads → setErrors shape, one line:
-import { suiErrors } from '$lib/sui';
+import { suiErrors } from '#lib/sui/index.js';
 form.setErrors(suiErrors.fromResponse(await response.json()));
 // or .fromIssues(issues) / .fromZodError(error)
 ```
@@ -292,7 +292,7 @@ Keep your own `bind:value` state and still delete the whole hand-rolled submit h
 
 ```svelte
 <script lang="ts">
-	import { createSuiSubmitter } from '$lib/sui';
+	import { createSuiSubmitter } from '#lib/sui/index.js';
 
 	const submit = createSuiSubmitter(schema, {
 		onvalid: async (data) => await api.save(data) // zod-parsed + typed
@@ -430,7 +430,7 @@ The colour becomes a `--sui-btn` token; the secondary tint, outline border, ghos
 The `source` pattern is sui's answer to "load options from the API without writing scroll code":
 
 ```ts
-import { offsetSource, cursorSource, type SuiSource } from '$lib/sui';
+import { offsetSource, cursorSource, type SuiSource } from '#lib/sui/index.js';
 
 // ── offset pagination: ?page=1&size=25 ──────────────────────────────
 type OffsetPage<T> = { items: T[]; total: number };
@@ -467,8 +467,8 @@ Both adapters give the component everything it needs and nothing more: pages are
 
 ```svelte
 <script lang="ts">
-	import { SuiDataTable, suiColumn, renderComponent } from '$lib/sui';
-	import type { SuiDataTableColumn } from '$lib/sui';
+	import { SuiDataTable, suiColumn, renderComponent } from '#lib/sui/index.js';
+	import type { SuiDataTableColumn } from '#lib/sui/index.js';
 
 	type Person = { id: string; name: string; age: number };
 
@@ -539,8 +539,8 @@ Every string sui renders by itself — placeholders, loading/empty/error states,
 ```svelte
 <!-- +layout.svelte -->
 <script lang="ts">
-	import { setSuiStrings } from '$lib/sui';
-	import * as m from '$lib/paraglide/messages';
+	import { setSuiStrings } from '#lib/sui/index.js';
+	import * as m from '#lib/paraglide/messages';
 
 	// a function stays reactive: switching locale re-renders the copy
 	setSuiStrings(() => ({
@@ -602,7 +602,7 @@ The repo's routes are a live showcase of every component — run `npm run dev` a
 | `/skeletons`    | every skeleton, every size                                                                                                                                                                                                                                        |
 | `/showcase`     | **Nimbus** — a full mission-control app (sidebar shell, ⌘K command palette, charts, kanban board, virtualized deployments table + live logs, scheduling, settings, toasts) assembled from the entire toolkit                                                      |
 
-The demo app itself doubles as the deployment reference: it prerenders every page to static HTML (the Kit config in `svelte.config.js` picks `adapter-vercel` when the `VERCEL=1` build env var is set — prerendered pages served statically, `/api` mock endpoints as serverless functions — and `adapter-node` everywhere else: `node build/index.js`, Fly.io, Railway, Render, Docker), ships per-route code splitting via rolldown `codeSplitting` groups (the table engine only downloads on `/data-table`; icons and the sui root helpers live in one cached chunk each), self-hosts the latin subset of Inter (48 KB woff2, preloaded — not the 232 KB all-subsets bundle), and wires the full SEO set per route: meta description, canonical, Open Graph/Twitter cards, `robots.txt` and a generated `sitemap.xml`. Copy any of it from `src/lib/demo/seo.svelte`, `src/lib/demo/site.ts` and `vite.config.ts`.
+The demo app itself doubles as the deployment reference: it prerenders every page to static HTML (the Kit config in `vite.config.ts` picks `adapter-vercel` when the `VERCEL=1` build env var is set — prerendered pages served statically, `/api` mock endpoints as serverless functions — and `adapter-node` everywhere else: `node build/index.js`, Fly.io, Railway, Render, Docker), ships per-route code splitting via rolldown `codeSplitting` groups (the table engine only downloads on `/data-table`; icons and the sui root helpers live in one cached chunk each), self-hosts the latin subset of Inter (48 KB woff2, preloaded — not the 232 KB all-subsets bundle), and wires the full SEO set per route: meta description, canonical, Open Graph/Twitter cards, `robots.txt` and a generated `sitemap.xml`. Copy any of it from `src/lib/demo/seo.svelte`, `src/lib/demo/site.ts` and `vite.config.ts`.
 
 ## Code style
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiCheckbox, SuiSwitch, SuiRadioGroup } from '$lib/sui';
-import { SuiCheckboxSkeleton, SuiRadioSkeleton, SuiSwitchSkeleton } from '$lib/sui';
+import { SuiCheckbox, SuiSwitch, SuiRadioGroup } from '#lib/sui/index.js';
+import { SuiCheckboxSkeleton, SuiRadioSkeleton, SuiSwitchSkeleton } from '#lib/sui/index.js';
 import { z } from 'zod';
 import RadioHarness from './harness/radio-harness.svelte';
 

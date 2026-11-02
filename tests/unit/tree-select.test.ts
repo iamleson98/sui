@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
-import { SuiTreeSelect, SuiTreeSelectSkeleton, type SuiTreeItem } from '$lib/sui';
+import { SuiTreeSelect, SuiTreeSelectSkeleton, type SuiTreeItem } from '#lib/sui/index.js';
 
 // bits-ui modals lock the body; disable the pointer-events check.
 const user = userEvent.setup({ pointerEventsCheck: 0 });

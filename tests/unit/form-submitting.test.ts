@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { createSuiForm } from '$lib/sui/form/index.js';
+import { createSuiForm } from '#lib/sui/form/index.js';
 import FormA11yHarness from './harness/form-a11y-harness.svelte';
 import { testSchema } from './harness/form-schema.js';
 

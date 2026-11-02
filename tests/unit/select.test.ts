@@ -15,8 +15,8 @@ async function findOption(match: RegExp): Promise<HTMLElement> {
 		return option as HTMLElement;
 	});
 }
-import { SuiSelect, SuiSelectSkeleton } from '$lib/sui';
-import { cursorSource, type SuiItem, type SuiSource } from '$lib/sui';
+import { SuiSelect, SuiSelectSkeleton } from '#lib/sui/index.js';
+import { cursorSource, type SuiItem, type SuiSource } from '#lib/sui/index.js';
 import { z } from 'zod';
 import UserIcon from '@lucide/svelte/icons/user';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Seo from '$lib/demo/seo.svelte';
-	import Section from '$lib/demo/section.svelte';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import Section from '#lib/demo/section.svelte';
 
 	const cursorServer = `// GET /api/users?cursor=<opaque>&size=25&q=<query>   (cursor / keyset)
 // The cursor is OPAQUE — encode the last row's sort key and never let
@@ -43,8 +43,8 @@ app.get('/api/products', async (req, res) => {
   res.json({ items, page, size, total, hasMore: (page + 1) * size < total });
 });`;
 
-	const clientCursor = `import { SuiCombobox } from '$lib/sui/combobox/index.js';
-	import { cursorSource } from '$lib/sui/pagination.js';
+	const clientCursor = `import { SuiCombobox } from '#lib/sui/combobox/index.js';
+	import { cursorSource } from '#lib/sui/pagination.js';
 
 // adapts YOUR response envelope into a SuiSource
 const users = cursorSource(async ({ cursor, size, query, signal }) => {
@@ -55,8 +55,8 @@ const users = cursorSource(async ({ cursor, size, query, signal }) => {
 
 <SuiCombobox label="Owner" source={users} pageSize={25} bind:value={owner} />`;
 
-	const clientOffset = `import { SuiMultiSelect } from '$lib/sui/multi-select/index.js';
-	import { offsetSource } from '$lib/sui/pagination.js';
+	const clientOffset = `import { SuiMultiSelect } from '#lib/sui/multi-select/index.js';
+	import { offsetSource } from '#lib/sui/pagination.js';
 
 const products = offsetSource(async ({ page, size, query, signal }) => {
   const res = await fetch(\`/api/products?page=\${page}&size=\${size}\`, { signal });

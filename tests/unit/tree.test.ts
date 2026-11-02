@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SuiTreeIndex, treeKey, type SuiTreeItem } from '$lib/sui/tree';
+import { SuiTreeIndex, treeKey, type SuiTreeItem } from '#lib/sui/tree.js';
 
 const items: SuiTreeItem[] = [
 	{

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Seo from '$lib/demo/seo.svelte';
+	import Seo from '#lib/demo/seo.svelte';
 
 	const basicCode = `const col = suiColumn<Person>();
 

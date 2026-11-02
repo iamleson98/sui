@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { z } from 'zod';
-import { SuiInput } from '$lib/sui';
-import { SuiCheckbox } from '$lib/sui/checkbox/index.js';
-import { SuiSwitch } from '$lib/sui/switch/index.js';
-import { SuiErrorSummary } from '$lib/sui/error-summary/index.js';
-import { createSuiForm, type SuiFormInstance } from '$lib/sui/form/index.js';
+import { SuiInput } from '#lib/sui/index.js';
+import { SuiCheckbox } from '#lib/sui/checkbox/index.js';
+import { SuiSwitch } from '#lib/sui/switch/index.js';
+import { SuiErrorSummary } from '#lib/sui/error-summary/index.js';
+import { createSuiForm, type SuiFormInstance } from '#lib/sui/form/index.js';
 import FormA11yHarness from './harness/form-a11y-harness.svelte';
 import { testSchema, type TestSchema } from './harness/form-schema.js';
 

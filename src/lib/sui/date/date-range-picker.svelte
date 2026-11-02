@@ -84,7 +84,7 @@
 		SUI_DISABLED_CONTROL,
 		SUI_DISABLED_LABEL
 	} from '../styles.js';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import CalendarIcon from '@lucide/svelte/icons/calendar-range';
 	import XIcon from '@lucide/svelte/icons/x';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';

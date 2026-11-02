@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitChipCount } from '$lib/sui';
+import { fitChipCount } from '#lib/sui/index.js';
 
 describe('fitChipCount', () => {
 	it('returns 0 for an empty chip list', () => {

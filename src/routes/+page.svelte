@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { SuiButton } from '$lib/sui/button/index.js';
-	import CodeBlock from '$lib/demo/code-block.svelte';
-	import Seo from '$lib/demo/seo.svelte';
-	import { SITE_DESCRIPTION } from '$lib/demo/site';
+	import { SuiButton } from '#lib/sui/button/index.js';
+	import CodeBlock from '#lib/demo/code-block.svelte';
+	import Seo from '#lib/demo/seo.svelte';
+	import { SITE_DESCRIPTION } from '#lib/demo/site.js';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';

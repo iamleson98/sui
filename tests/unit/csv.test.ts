@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { suiCsvCell, suiRowsToCsv, suiDownloadCsv } from '$lib/sui';
+import { suiCsvCell, suiRowsToCsv, suiDownloadCsv } from '#lib/sui/index.js';
 
 // jsdom ships no URL.createObjectURL — capture the blob instead so the CSV
 // payload itself can be asserted.

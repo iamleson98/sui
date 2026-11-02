@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { SuiCombobox, SuiComboboxSkeleton } from '$lib/sui';
-import { cursorSource, type SuiItem, type SuiSource } from '$lib/sui';
+import { SuiCombobox, SuiComboboxSkeleton } from '#lib/sui/index.js';
+import { cursorSource, type SuiItem, type SuiSource } from '#lib/sui/index.js';
 import { z } from 'zod';
 
 const countries: SuiItem[] = [

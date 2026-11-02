@@ -11,8 +11,8 @@ import {
 	SuiSwitch,
 	SuiTextarea,
 	type SuiItem
-} from '$lib/sui';
-import { SUI_DISABLED_CONTROL, SUI_DISABLED_LABEL } from '$lib/sui/styles.js';
+} from '#lib/sui/index.js';
+import { SUI_DISABLED_CONTROL, SUI_DISABLED_LABEL } from '#lib/sui/styles.js';
 
 const items: SuiItem[] = [
 	{ value: 'a', label: 'Alpha' },
