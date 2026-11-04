@@ -56,6 +56,27 @@
 	const bannerMessages = $derived([...new Set([...form.formErrors, ...form.unmappedErrors])]);
 	const showBanner = $derived(showFormErrors || form.unmappedErrors.length > 0);
 
+	/**
+	 * Pressing a submit button takes the focus from a field, whose blur would
+	 * paint its error and move the button from under the pointer before the
+	 * press ends: the click, and the submit, would be lost. The blurs wait
+	 * until the click has been dispatched (the task after the press ends).
+	 */
+	function holdBlurs(event: PointerEvent & { currentTarget: EventTarget & HTMLFormElement }) {
+		const button = (event.target as Element | null)?.closest<HTMLButtonElement | HTMLInputElement>(
+			'button, input[type="submit"]'
+		);
+		if (!button || button.type !== 'submit' || button.form !== event.currentTarget) return;
+		form.holdBlurs();
+		const release = () => {
+			window.removeEventListener('pointerup', release, true);
+			window.removeEventListener('pointercancel', release, true);
+			setTimeout(() => form.releaseBlurs());
+		};
+		window.addEventListener('pointerup', release, true);
+		window.addEventListener('pointercancel', release, true);
+	}
+
 	async function submit(event: SubmitEvent & { currentTarget: EventTarget & HTMLFormElement }) {
 		// SvelteKit's `enhance` owns this submit (see `suiEnhance`)
 		if (event.currentTarget.hasAttribute('data-sui-enhanced')) return;
@@ -67,7 +88,7 @@
 </script>
 
 <!-- novalidate: the schema owns validation, not the Constraint Validation API -->
-<form novalidate onsubmit={submit} data-sui-form {...rest}>
+<form novalidate onsubmit={submit} onpointerdowncapture={holdBlurs} data-sui-form {...rest}>
 	{#if showBanner}
 		<!-- Focusable alert banner: receives focus on failed submits that
 		     produced form-level errors (when no error summary is rendered).

@@ -769,6 +769,9 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	/** An async flush or `onsubmit` callback is currently running. */
 	isSubmitting = $state(false);
 	#submittedInvalid = $state(false);
+	// blurs held while a submit button is pressed (see holdBlurs); null when
+	// none is
+	#heldBlurs: Set<string> | null = null;
 	// async validator bookkeeping: debounce timers, run ids (cancellation),
 	// abort controllers, in-flight runs (same-value dedup) and last-checked
 	// value memos
@@ -1177,10 +1180,36 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		this.touched[path] = true;
 		clearTimeout(this.#timers.get(path));
 		this.#timers.delete(path);
+		if (this.#heldBlurs) {
+			this.#heldBlurs.add(path);
+			return;
+		}
 		const mode = this.#validateOnFor(path);
 		if (mode === 'none' || mode === 'change') return;
 		this.revealed[path] = true;
 		this.#runValidation(path);
+	}
+
+	/**
+	 * A submit button is being pressed: hold the blur of the field it took
+	 * focus from. Validating it now would paint (or clear) its error and move
+	 * the button from under the pointer before the press ends, and the click,
+	 * with the submit, would be lost. @internal — `<SuiForm>` calls it on
+	 * pointerdown
+	 */
+	holdBlurs(): void {
+		this.#heldBlurs ??= new Set();
+	}
+
+	/**
+	 * The press ended and its click went through: validate the blurs held,
+	 * unless a submit ran meanwhile (it validated and revealed everything).
+	 * @internal
+	 */
+	releaseBlurs(): void {
+		const held = this.#heldBlurs;
+		this.#heldBlurs = null;
+		for (const path of held ?? []) this.fieldBlur(path);
 	}
 
 	/** Force a single field's validation (reveals it). @internal */
@@ -1553,6 +1582,8 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 
 	async #submit(callback = true): Promise<boolean> {
 		this.submitCount += 1;
+		// the submit's own parse settles the fields it held
+		this.#heldBlurs?.clear();
 		const result = this.#parseNow();
 		if (!result.ok) {
 			this.#applyIssues(result.issues);

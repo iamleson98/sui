@@ -410,3 +410,36 @@ describe('createSuiForm — unmapped errors before controls exist', () => {
 		expect(form.unmappedErrors).toEqual(['Enter a valid email']); // email has no control
 	});
 });
+
+describe('createSuiForm — blurs held while a submit button is pressed', () => {
+	it('waits to show a blurred field until the press ends, so the button stays under the pointer', () => {
+		const form = createSuiForm(accountSchema);
+		form.fields.name.change('A', 'text');
+		form.holdBlurs();
+		form.fields.name.blur();
+		expect(form.fields.name.touched).toBe(true);
+		expect(form.fields.name.errors).toEqual([]);
+		form.releaseBlurs();
+		expect(form.fields.name.errors).toEqual(['Name must be at least 2 characters']);
+	});
+
+	it('leaves the held blurs to a submit that ran meanwhile', async () => {
+		const form = createSuiForm(accountSchema);
+		form.fields.name.change('A', 'text');
+		form.holdBlurs();
+		form.fields.name.blur();
+		expect(await form.handleSubmit()).toBe(false);
+		expect(form.fields.name.errors).toEqual(['Name must be at least 2 characters']);
+		expect(form.fields.email.errors).toEqual(['Enter a valid email']);
+		form.releaseBlurs();
+		expect(form.fields.name.errors).toEqual(['Name must be at least 2 characters']);
+	});
+
+	it('validates blurs as usual when nothing holds them', () => {
+		const form = createSuiForm(accountSchema);
+		form.releaseBlurs();
+		form.fields.name.change('A', 'text');
+		form.fields.name.blur();
+		expect(form.fields.name.errors).toEqual(['Name must be at least 2 characters']);
+	});
+});
