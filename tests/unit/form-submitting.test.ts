@@ -50,3 +50,31 @@ describe('SuiForm while it submits', () => {
 		expect(screen.getByLabelText('Name')).toBeEnabled();
 	});
 });
+
+describe('SuiForm when a submit button is pressed', () => {
+	it('holds the error of the field just left until the click is in, so the submit is not lost', async () => {
+		let sent = 0;
+		const form = createSuiForm(testSchema, {
+			initialValues: { email: 'a@b.co', role: 'admin', topics: ['x'], accept: true },
+			onsubmit: () => {
+				sent += 1;
+			}
+		});
+		render(FormA11yHarness, { form });
+		await user.type(screen.getByLabelText('Name'), 'A');
+		const button = screen.getByRole('button', { name: 'Submit' });
+
+		// The press takes the focus from Name: its error must not move the
+		// button before the press ends.
+		await user.pointer({ keys: '[MouseLeft>]', target: button });
+		expect(screen.getByLabelText('Name')).not.toHaveFocus();
+		expect(screen.queryByText('Name must be at least 2 characters')).toBeNull();
+
+		await user.pointer({ keys: '[/MouseLeft]', target: button });
+		await waitFor(() =>
+			expect(screen.getByText('Name must be at least 2 characters')).toBeInTheDocument()
+		);
+		expect(form.submitCount).toBe(1);
+		expect(sent).toBe(0);
+	});
+});
