@@ -93,10 +93,8 @@
 							{:else}
 								<SuiButton
 									size="sm"
-									variant="outline"
-									class={item === pageIndex
-										? 'min-w-8 border-foreground bg-foreground px-2 text-background tabular-nums hover:bg-foreground/90 hover:text-background'
-										: 'min-w-8 px-2 tabular-nums'}
+									variant={item === pageIndex ? 'primary' : 'outline'}
+									class="min-w-8 px-2 tabular-nums"
 									aria-label={strings.tablePage(item + 1)}
 									aria-current={item === pageIndex ? 'page' : undefined}
 									onclick={() => onPage(item)}>{item + 1}</SuiButton
