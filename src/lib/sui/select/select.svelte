@@ -97,6 +97,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		suiEffectiveVariant,
+		SUI_CHEVRON_PE,
 		SUI_CHEVRON_PIN,
 		SUI_CLEAR_END,
 		SUI_CLEAR_PE,
@@ -472,8 +473,8 @@
 								SUI_CONTROL[size],
 								SUI_FIELD_TRIGGER[effVariant],
 								SUI_DISABLED_TRIGGER,
-								clearable && hasValue && SUI_CLEAR_PE[size],
-								clearable && hasValue && SUI_CHEVRON_PIN,
+								clearable && hasValue ? SUI_CLEAR_PE[size] : SUI_CHEVRON_PE[size],
+								SUI_CHEVRON_PIN,
 								className
 							)}
 							{...rest as Record<string, unknown>}
@@ -492,7 +493,7 @@
 							<ChevronDownIcon
 								class="pointer-events-none text-muted-foreground {SUI_ICON[
 									size
-								]} shrink-0 transition-transform duration-150 {mobileOpen ? 'rotate-180' : ''}"
+								]} shrink-0 transition-[rotate] duration-150 {mobileOpen ? 'rotate-180' : ''}"
 								aria-hidden="true"
 							/>
 						</button>
@@ -604,9 +605,10 @@
 						SUI_DISABLED_TRIGGER,
 						// the shadcn trigger rings every aria-invalid control — keep it for focus only
 						SUI_INVALID_TRIGGER,
-						// reserve the ✕ zone and pin the chevron far-right inside it
-						clearable && hasValue && SUI_CLEAR_PE[size],
-						clearable && hasValue && SUI_CHEVRON_PIN,
+						// the chevron stays pinned far-right; the end padding keeps the text
+						// clear of it, and of the ✕ zone while that shows
+						clearable && hasValue ? SUI_CLEAR_PE[size] : SUI_CHEVRON_PE[size],
+						SUI_CHEVRON_PIN,
 						className
 					)}
 					{...rest as Record<string, unknown>}

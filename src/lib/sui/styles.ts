@@ -209,16 +209,29 @@ export const SUI_CLEAR_SIZE: Record<SuiSize, string> = {
 };
 
 /**
- * Pins the trigger's trailing chevron to the far end edge while the clear (✕)
- * overlay is visible. Without this, the extra end padding pushes the chevron
- * left of the ✕ and leaves a large dead gap between the ✕ and the border.
- * The trigger must be `relative` (all sui triggers are). Targets the chevron
- * as the trigger's last direct `<svg>` child (the shadcn select-trigger and
- * the sui combobox both render it there; icons passed via props are wrapped
- * in `<span>`s and never match).
+ * Pins the trigger's trailing chevron to the far end edge, always: with or
+ * without a value, with or without the clear (✕) overlay. A chevron that
+ * moved from the flow to this pin when a value appeared jumped sideways and
+ * slid into place. The trigger must be `relative` (all sui triggers are) and
+ * reserve the room with {@link SUI_CHEVRON_PE} (or {@link SUI_CLEAR_PE} while
+ * the ✕ shows). Targets the chevron as the trigger's last direct `<svg>`
+ * child (the shadcn select-trigger and the sui combobox both render it
+ * there; icons passed via props are wrapped in `<span>`s and never match).
  */
 export const SUI_CHEVRON_PIN =
 	'[&>svg:last-of-type]:absolute [&>svg:last-of-type]:end-2 [&>svg:last-of-type]:top-1/2 [&>svg:last-of-type]:-translate-y-1/2';
+
+/**
+ * End padding that keeps a trigger's text clear of the pinned chevron
+ * ({@link SUI_CHEVRON_PIN}): its 8px inset + the icon + a 4px gap.
+ */
+export const SUI_CHEVRON_PE: Record<SuiSize, string> = {
+	xs: 'pe-6',
+	sm: 'pe-[26px]',
+	md: 'pe-7',
+	lg: 'pe-[30px]',
+	xl: 'pe-8'
+};
 
 /**
  * Chip (multi-select badge) metrics per control size. Chips step down as the
