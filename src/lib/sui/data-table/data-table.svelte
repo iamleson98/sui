@@ -85,7 +85,7 @@
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '#lib/utils.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import SuiSkeleton from '../skeleton/skeleton.svelte';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
@@ -417,6 +417,16 @@
 		return strings.tableRange(from, Math.min(totalRows, from + currentPageSize - 1), totalRows);
 	});
 	const showBody = $derived(!loading && rows.length > 0);
+	/** Skeleton rows while loading: the rows on screen, or a page's worth (at most 8). */
+	const skeletonRows = $derived(rows.length || Math.min(paginationState.pageSize, 8));
+	let bodyRef = $state<HTMLTableSectionElement | null>(null);
+	/** The height of a loaded row, kept so the skeleton rows take the same room. */
+	let rowHeight = $state(0);
+	$effect(() => {
+		if (loading || !bodyRef || rows.length === 0) return;
+		const row = bodyRef.querySelector<HTMLElement>('tr[data-index], tr:not([data-sui-data-table-loading])');
+		if (row) rowHeight = row.offsetHeight;
+	});
 	const gridMode = $derived(virtual && showBody);
 
 	// ---- virtualization -------------------------------------------------------
@@ -668,20 +678,31 @@
 				<tbody
 					class="relative"
 					style={gridMode ? `display:grid; height: ${$rowVirtualizer.getTotalSize()}px;` : ''}
+					bind:this={bodyRef}
 					data-sui-data-table-body
 				>
 					{#if loading}
-						<tr>
-							<td colspan={visibleColumnCount} class="py-16 text-center">
-								<span
-									class="inline-flex items-center gap-2 text-sm text-muted-foreground"
-									role="status"
-								>
-									<LoaderCircleIcon class="size-4 animate-spin" aria-hidden="true" />
-									{strings.loading}
-								</span>
-							</td>
-						</tr>
+						<!-- Rows of skeleton where the rows will be, as many as are on
+						     screen, so the table keeps its size while the page loads. -->
+						{#each Array.from({ length: skeletonRows }) as _, r (r)}
+							<tr
+								class="border-b"
+								style={rowHeight ? `height: ${rowHeight}px` : undefined}
+								data-sui-data-table-loading
+							>
+								{#each Array.from({ length: visibleColumnCount }) as _, c (c)}
+									<td class={CELL_SIZE[size].cell}>
+										{#if r === 0 && c === 0}
+											<span class="sr-only" role="status">{strings.loading}</span>
+										{/if}
+										<SuiSkeleton
+											class="h-4"
+											style="width: {55 + ((r * 7 + c * 13) % 40)}%"
+										/>
+									</td>
+								{/each}
+							</tr>
+						{/each}
 					{:else if rows.length === 0}
 						<tr>
 							<td colspan={visibleColumnCount} class="py-16" data-sui-data-table-empty>
