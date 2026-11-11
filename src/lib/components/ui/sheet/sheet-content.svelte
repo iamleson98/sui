@@ -8,6 +8,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
 	import { provideDismissGuard } from '#lib/hooks/dismiss-guard.svelte.js';
+	import { getSuiStrings } from '#lib/sui/strings.js';
 	import SheetOverlay from './sheet-overlay.svelte';
 	import SheetPortal from './sheet-portal.svelte';
 	import type { Snippet } from 'svelte';
@@ -33,6 +34,7 @@
 	// a form saving inside holds the guard: no dismissing by Escape, an
 	// outside click or the X until it is done
 	const guard = provideDismissGuard();
+	const strings = getSuiStrings();
 </script>
 
 <SheetPortal {...portalProps}>
@@ -72,7 +74,7 @@
 						}}
 					>
 						<XIcon />
-						<span class="sr-only">Close</span>
+						<span class="sr-only">{strings.close}</span>
 					</Button>
 				{/snippet}
 			</SheetPrimitive.Close>
