@@ -734,6 +734,12 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	#timers = new Map<string, ReturnType<typeof setTimeout>>();
 	/** The submit attempt in progress — repeated submits join it. */
 	#inflightSubmit: Promise<boolean> | null = null;
+	/**
+	 * Bumped by every `reset()`. A submit remembers the value it started
+	 * under; when it differs after an await, the form it was submitting is
+	 * gone and the attempt must not write to the form any more.
+	 */
+	#generation = 0;
 
 	/**
 	 * Live form values — a deeply reactive proxy holding the EDIT side of
@@ -766,7 +772,12 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	dirty = $state<Record<string, boolean>>({});
 	/** Completed submit attempts (success or failure). */
 	submitCount = $state(0);
-	/** An async flush or `onsubmit` callback is currently running. */
+	/**
+	 * An async flush or `onsubmit` callback is currently running. A
+	 * `reset()` does not clear it: the request is still out, so the form
+	 * stays disabled and a further submit still joins it until the server
+	 * answers.
+	 */
 	isSubmitting = $state(false);
 	#submittedInvalid = $state(false);
 	// blurs held while a submit button is pressed (see holdBlurs); null when
@@ -1520,6 +1531,15 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * const user = await api.getUser(id);
 	 * form.reset(user); // pristine form showing the loaded record
 	 * ```
+	 *
+	 * A submit that is still running is NOT cancelled and `isSubmitting`
+	 * stays `true` until it settles (the request is out; the form must not
+	 * look idle, and a new submit still joins it). That attempt is stale
+	 * from now on: when it settles it writes nothing to the form — no
+	 * errors, no reveal, no counters — and a stale async flush does not go
+	 * on to call `onsubmit`. Calling `reset()` inside `onsubmit` is fine: the
+	 * form is clean, and `isSubmitting` drops to `false` when `onsubmit`
+	 * settles.
 	 */
 	reset(values?: Partial<SuiIn<Schema>>): void {
 		if (values !== undefined) this.#defaults = this.#baseline(values);
@@ -1532,7 +1552,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		this.edited = {};
 		this.dirty = {};
 		this.submitCount = 0;
-		this.isSubmitting = false;
+		this.#generation += 1;
 		this.#submittedInvalid = false;
 		for (const timer of this.#timers.values()) clearTimeout(timer);
 		this.#timers.clear();
@@ -1557,7 +1577,9 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * the parsed output. A thrown `ZodError` (or any issue-carrying error)
 	 * maps back onto fields; other errors become form-level messages.
 	 * Returns whether the submit passed validation. A submit fired while
-	 * one is still running joins it (same promise, no second `onsubmit`).
+	 * one is still running joins it (same promise, no second `onsubmit`) —
+	 * also after a `reset()` mid-request, because the request is still out
+	 * (see {@link reset}).
 	 */
 	handleSubmit = (event?: { preventDefault(): void }): Promise<boolean> => {
 		event?.preventDefault();
@@ -1600,9 +1622,14 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		if (!onsubmit && !hasAsync) return true;
 		// the async flush is real work (network) — the button should show it
 		this.isSubmitting = true;
+		// a reset() while we wait makes this attempt stale: the form it was
+		// submitting is gone, so nothing below may write to the new one
+		const generation = this.#generation;
+		const stale = () => generation !== this.#generation;
 		try {
 			if (hasAsync) {
 				const asyncOk = await this.#flushAsync();
+				if (stale()) return false;
 				if (!asyncOk) {
 					// async failures surface exactly like failed parses:
 					// revealed, focusable, eagerly revalidated
@@ -1620,6 +1647,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 			await onsubmit(result.data as SuiOut<Schema>, this);
 			return true;
 		} catch (error) {
+			if (stale()) return false;
 			// ZodError and any issue-carrying error (Standard Schema vendors)
 			// map back onto fields AS SERVER ERRORS: per-field taint-clearing
 			// (editing one field never wipes another's message) and server

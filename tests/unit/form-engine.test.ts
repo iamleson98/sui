@@ -218,6 +218,135 @@ describe('createSuiForm — submit lifecycle', () => {
 	});
 });
 
+describe('createSuiForm — reset while a submit is running', () => {
+	/** A form whose `onsubmit` waits for the test; `fail` rejects it, `release` resolves it. */
+	function pendingSubmit() {
+		let release!: () => void;
+		let fail!: (error: unknown) => void;
+		const onsubmit = vi.fn(
+			() =>
+				new Promise<void>((resolve, reject) => {
+					release = resolve;
+					fail = reject;
+				})
+		);
+		const form = createSuiForm(accountSchema, { onsubmit });
+		fillAccount(form);
+		return { form, onsubmit, release: () => release(), fail: (error: unknown) => fail(error) };
+	}
+
+	it('keeps isSubmitting true until the request settles, with the values already clean', async () => {
+		const { form, release } = pendingSubmit();
+		const attempt = form.handleSubmit();
+		expect(form.isSubmitting).toBe(true);
+
+		form.reset();
+		expect(form.isSubmitting).toBe(true);
+		expect(form.values.name).toBe('');
+		expect(form.submitCount).toBe(0);
+		expect(form.isDirty).toBe(false);
+
+		release();
+		await attempt;
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('lets an error thrown by the stale attempt write nothing to the reset form', async () => {
+		const { form, fail } = pendingSubmit();
+		const attempt = form.handleSubmit();
+		form.reset();
+
+		fail(
+			new ZodError([{ code: 'custom', input: '', path: ['name'], message: 'Name is reserved' }])
+		);
+		expect(await attempt).toBe(false);
+		expect(form.external).toEqual({});
+		expect(form.issues).toEqual({});
+		expect(form.revealed).toEqual({});
+		expect(form.formErrors).toEqual([]);
+		expect(form.submitCount).toBe(0);
+
+		// a plain error is dropped the same way
+		const second = pendingSubmit();
+		const attempt2 = second.form.handleSubmit();
+		second.form.reset();
+		second.fail(new Error('Network error'));
+		await attempt2;
+		expect(second.form.formErrors).toEqual([]);
+		expect(second.form.isSubmitting).toBe(false);
+	});
+
+	it('joins the running request on a submit fired after the reset (onsubmit runs once)', async () => {
+		const { form, onsubmit, release } = pendingSubmit();
+		const first = form.handleSubmit();
+		form.reset();
+		fillAccount(form);
+
+		const second = form.handleSubmit();
+		expect(second).toBe(first);
+		expect(onsubmit).toHaveBeenCalledTimes(1);
+		release();
+		await first;
+		expect(onsubmit).toHaveBeenCalledTimes(1);
+	});
+
+	it('runs onsubmit again for a submit after the stale attempt has settled', async () => {
+		const { form, onsubmit, release } = pendingSubmit();
+		const first = form.handleSubmit();
+		form.reset();
+		release();
+		await first;
+
+		fillAccount(form);
+		const next = form.handleSubmit();
+		expect(form.isSubmitting).toBe(true);
+		release();
+		expect(await next).toBe(true);
+		expect(onsubmit).toHaveBeenCalledTimes(2);
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('leaves a clean, idle form when onsubmit itself resets after a successful save', async () => {
+		const form = createSuiForm(accountSchema, {
+			onsubmit: async (data, instance) => {
+				await Promise.resolve();
+				instance.reset(data);
+			}
+		});
+		fillAccount(form);
+		expect(await form.handleSubmit()).toBe(true);
+		expect(form.isSubmitting).toBe(false);
+		expect(form.submitCount).toBe(0);
+		expect(form.isDirty).toBe(false);
+		expect(form.values.name).toBe('Ada');
+		expect(form.external).toEqual({});
+	});
+
+	it('does not call onsubmit when the form was reset during the async validator flush', async () => {
+		let settle!: () => void;
+		const onsubmit = vi.fn();
+		const form = createSuiForm(accountSchema, {
+			onsubmit,
+			asyncValidators: {
+				name: () =>
+					new Promise<string | undefined>((resolve) => (settle = () => resolve(undefined)))
+			}
+		});
+		fillAccount(form);
+		const attempt = form.handleSubmit();
+		await vi.waitFor(() => expect(settle).toBeTypeOf('function'));
+		expect(form.isSubmitting).toBe(true);
+
+		form.reset();
+		expect(form.isSubmitting).toBe(true);
+		settle();
+		expect(await attempt).toBe(false);
+		expect(onsubmit).not.toHaveBeenCalled();
+		expect(form.isSubmitting).toBe(false);
+		expect(form.asyncIssues).toEqual({});
+	});
+});
+
 describe('createSuiForm — form-level refines are reveal-gated', () => {
 	const schema = z
 		.object({ phone: z.string(), email: z.string() })
