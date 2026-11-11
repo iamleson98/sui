@@ -56,7 +56,7 @@
 						onclick={(event: MouseEvent) => {
 							// not natively disabled: a disabled control drops focus while a form saves
 							if (guard.busy) return event.preventDefault();
-							props.onclick?.(event);
+							(props.onclick as ((e: MouseEvent) => void) | undefined)?.(event);
 						}}
 					>
 						<XIcon />
