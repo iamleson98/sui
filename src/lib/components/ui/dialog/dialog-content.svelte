@@ -52,8 +52,12 @@
 						class="absolute top-4 right-4"
 						size="icon-sm"
 						{...props}
-						disabled={guard.busy}
 						aria-disabled={guard.busy || undefined}
+						onclick={(event: MouseEvent) => {
+							// not natively disabled: a disabled control drops focus while a form saves
+							if (guard.busy) return event.preventDefault();
+							props.onclick?.(event);
+						}}
 					>
 						<XIcon />
 						<span class="sr-only">Close</span>

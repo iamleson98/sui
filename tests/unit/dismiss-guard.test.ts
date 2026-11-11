@@ -104,20 +104,23 @@ describe.each(['dialog', 'sheet'] as const)('the X button of a %s', (kind) => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
-	it('is disabled and does nothing while the form saves, and works again afterwards', async () => {
+	it('is aria-disabled and does nothing while the form saves, and works again afterwards', async () => {
 		const { form, release } = savingForm();
 		render(DialogFormHarness, { form, kind });
 		await startSaving(form);
 
 		const close = screen.getByRole('button', { name: 'Close' });
-		expect(close).toBeDisabled();
+		// aria-disabled, not natively disabled: the dialog keeps something focusable while the fields are off
+		expect(close).not.toBeDisabled();
 		expect(close).toHaveAttribute('aria-disabled', 'true');
 		await user.click(close);
 		await settle();
 		expect(screen.getByRole('dialog')).toBeInTheDocument();
 
 		release();
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled());
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Close' })).not.toHaveAttribute('aria-disabled')
+		);
 		await user.click(screen.getByRole('button', { name: 'Close' }));
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
@@ -296,8 +299,8 @@ describe('nested dialogs', () => {
 		// each dialog has its own X: only the inner one is locked
 		const [outerClose] = within(outer).getAllByRole('button', { name: 'Close' });
 		const innerClose = within(inner).getByRole('button', { name: 'Close' });
-		expect(innerClose).toBeDisabled();
-		expect(outerClose).toBeEnabled();
+		expect(innerClose).toHaveAttribute('aria-disabled', 'true');
+		expect(outerClose).not.toHaveAttribute('aria-disabled');
 
 		await user.keyboard('{Escape}');
 		await settle();
