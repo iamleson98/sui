@@ -49,10 +49,15 @@
 				{#snippet child({ props })}
 					<Button
 						variant="ghost"
-						class="absolute top-4 right-4"
+						class="absolute top-4 right-4 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
 						size="icon-sm"
 						{...props}
 						aria-disabled={guard.busy || undefined}
+						onkeydown={(event: KeyboardEvent) => {
+							// bits-ui also closes on Enter and Space from its own keydown handler
+							if (guard.busy) return event.preventDefault();
+							(props.onkeydown as ((e: KeyboardEvent) => void) | undefined)?.(event);
+						}}
 						onclick={(event: MouseEvent) => {
 							// not natively disabled: a disabled control drops focus while a form saves
 							if (guard.busy) return event.preventDefault();

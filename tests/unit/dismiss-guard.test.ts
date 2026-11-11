@@ -124,6 +124,30 @@ describe.each(['dialog', 'sheet'] as const)('the X button of a %s', (kind) => {
 		await user.click(screen.getByRole('button', { name: 'Close' }));
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
+
+	it.each(['{Enter}', ' '])(
+		'does not close on the key %j while the form saves (bits-ui closes on Enter and Space)',
+		async (key) => {
+			const { form, release } = savingForm();
+			render(DialogFormHarness, { form, kind });
+			await startSaving(form);
+
+			const close = screen.getByRole('button', { name: 'Close' });
+			close.focus();
+			expect(close).toHaveFocus();
+			await user.keyboard(key);
+			await settle();
+			expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+			release();
+			await waitFor(() =>
+				expect(screen.getByRole('button', { name: 'Close' })).not.toHaveAttribute('aria-disabled')
+			);
+			screen.getByRole('button', { name: 'Close' }).focus();
+			await user.keyboard(key);
+			await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		}
+	);
 });
 
 describe('a caller-chosen dismiss behaviour', () => {
