@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z, ZodError } from 'zod';
 import { createSuiForm, SuiAsyncSchemaError, suiErrors, suiParse } from '#lib/sui/form/index.js';
 
@@ -219,12 +219,14 @@ describe('createSuiForm — submit lifecycle', () => {
 });
 
 describe('createSuiForm — reset while a submit is running', () => {
+	afterEach(() => vi.restoreAllMocks());
+
 	/** A form whose `onsubmit` waits for the test; `fail` rejects it, `release` resolves it. */
 	function pendingSubmit() {
 		let release!: () => void;
 		let fail!: (error: unknown) => void;
 		const onsubmit = vi.fn(
-			() =>
+			(_data: unknown) =>
 				new Promise<void>((resolve, reject) => {
 					release = resolve;
 					fail = reject;
@@ -252,6 +254,7 @@ describe('createSuiForm — reset while a submit is running', () => {
 	});
 
 	it('lets an error thrown by the stale attempt write nothing to the reset form', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const { form, fail } = pendingSubmit();
 		const attempt = form.handleSubmit();
 		form.reset();
@@ -276,18 +279,164 @@ describe('createSuiForm — reset while a submit is running', () => {
 		expect(second.form.isSubmitting).toBe(false);
 	});
 
-	it('joins the running request on a submit fired after the reset (onsubmit runs once)', async () => {
+	it('queues one fresh attempt after a reset instead of joining the stale one', async () => {
 		const { form, onsubmit, release } = pendingSubmit();
 		const first = form.handleSubmit();
 		form.reset();
 		fillAccount(form);
+		form.values.name = 'Grace';
 
 		const second = form.handleSubmit();
-		expect(second).toBe(first);
+		expect(second).not.toBe(first);
+		// further presses join the queued attempt, not the stale one
+		expect(form.handleSubmit()).toBe(second);
 		expect(onsubmit).toHaveBeenCalledTimes(1);
+		expect(form.isSubmitting).toBe(true);
+
+		release(); // the stale request settles
+		expect(await first).toBe(true);
+		// no gap in between: the fresh attempt follows without the form looking idle
+		expect(form.isSubmitting).toBe(true);
+		await vi.waitFor(() => expect(onsubmit).toHaveBeenCalledTimes(2));
+		expect(onsubmit.mock.calls[1]?.[0]).toMatchObject({ name: 'Grace' });
+		expect(form.isSubmitting).toBe(true);
+
+		release();
+		expect(await second).toBe(true);
+		expect(onsubmit).toHaveBeenCalledTimes(2);
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('resolves a submit queued after a reset with the fresh attempt result, not the stale one', async () => {
+		const first = Promise.withResolvers<void>();
+		const onsubmit = vi
+			.fn<(data: unknown) => Promise<void>>()
+			.mockImplementationOnce(() => first.promise)
+			.mockRejectedValueOnce(new Error('Network error'));
+		const form = createSuiForm(accountSchema, { onsubmit });
+		fillAccount(form);
+		const stale = form.handleSubmit();
+		form.reset();
+		fillAccount(form);
+		const fresh = form.handleSubmit();
+
+		first.resolve(); // the stale request succeeds…
+		expect(await stale).toBe(true);
+		// …but the caller of the queued submit gets the verdict on ITS values
+		expect(await fresh).toBe(false);
+		expect(form.formErrors).toEqual(['Network error']);
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('runs onsubmit with the new values for a submit after a reset during the async flush', async () => {
+		let settle!: () => void;
+		const onsubmit = vi.fn();
+		const form = createSuiForm(accountSchema, {
+			onsubmit,
+			asyncValidators: {
+				name: () =>
+					new Promise<string | undefined>((resolve) => (settle = () => resolve(undefined)))
+			}
+		});
+		fillAccount(form);
+		const first = form.handleSubmit();
+		await vi.waitFor(() => expect(settle).toBeTypeOf('function'));
+		form.reset();
+		fillAccount(form);
+		form.values.name = 'Grace';
+		const second = form.handleSubmit();
+		expect(form.isSubmitting).toBe(true);
+
+		settle(); // ends the stale flush; the fresh attempt starts its own
+		expect(await first).toBe(false);
+		expect(form.isSubmitting).toBe(true);
+		await vi.waitFor(() => expect(settle).toBeTypeOf('function'));
+		settle();
+		expect(await second).toBe(true);
+		expect(onsubmit).toHaveBeenCalledTimes(1);
+		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({ name: 'Grace' });
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('does not leave the form busy when the queued attempt fails validation', async () => {
+		const { form, release } = pendingSubmit();
+		const first = form.handleSubmit();
+		form.reset(); // empty values: the schema rejects them
+		const second = form.handleSubmit();
+		expect(form.isSubmitting).toBe(true);
 		release();
 		await first;
+		expect(await second).toBe(false);
+		expect(form.isSubmitting).toBe(false);
+		expect(form.submitCount).toBe(1);
+	});
+
+	it('queues only one attempt per generation, even when the form is reset again while queued', async () => {
+		const { form, onsubmit, release } = pendingSubmit();
+		const first = form.handleSubmit();
+		form.reset();
+		fillAccount(form);
+		const queued = form.handleSubmit();
+		form.reset(); // the queued attempt is stale before it ever started
+		fillAccount(form);
+		const newest = form.handleSubmit();
+		expect(newest).not.toBe(queued);
+
+		release();
+		await first;
+		expect(await queued).toBe(false);
+		await vi.waitFor(() => expect(onsubmit).toHaveBeenCalledTimes(2));
+		release();
+		expect(await newest).toBe(true);
+		expect(onsubmit).toHaveBeenCalledTimes(2);
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('logs, once, an error thrown after a reset inside onsubmit and keeps the form clean', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const boom = new Error('boom');
+		const form = createSuiForm(accountSchema, {
+			onsubmit: async (_data, instance) => {
+				instance.reset();
+				throw boom;
+			}
+		});
+		fillAccount(form);
+		expect(await form.handleSubmit()).toBe(false);
+		expect(logged).toHaveBeenCalledTimes(1);
+		expect(logged.mock.calls[0]).toContain(boom);
+		expect(form.formErrors).toEqual([]);
+		expect(form.external).toEqual({});
+		expect(form.submitCount).toBe(0);
+		expect(form.isSubmitting).toBe(false);
+	});
+
+	it('still runs the queued attempt when the stale one rejects, and does not stay busy', async () => {
+		let explode = true;
+		const schema = z.object({
+			name: z.string().refine(() => {
+				if (explode) throw new Error('schema blew up');
+				return true;
+			})
+		});
+		const onsubmit = vi.fn();
+		const form = createSuiForm(schema, { onsubmit });
+		form.values.name = 'Ada';
+		const stale = form.handleSubmit();
+		const staleOutcome = stale.then(
+			() => 'resolved',
+			(error: Error) => error.message
+		);
+		form.reset();
+		explode = false;
+		form.values.name = 'Grace';
+		const fresh = form.handleSubmit();
+
+		expect(await staleOutcome).toBe('schema blew up');
+		expect(await fresh).toBe(true);
 		expect(onsubmit).toHaveBeenCalledTimes(1);
+		expect(onsubmit.mock.calls[0]?.[0]).toMatchObject({ name: 'Grace' });
+		expect(form.isSubmitting).toBe(false);
 	});
 
 	it('runs onsubmit again for a submit after the stale attempt has settled', async () => {
