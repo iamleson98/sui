@@ -5,8 +5,15 @@ const KEY = Symbol('sui-dismiss-guard');
 /**
  * Lets whatever sits inside a dialog, sheet or alert dialog say "do not
  * close me yet" (a form that is saving): while any hold is active the
- * overlay refuses Escape, an outside click and its X button. Code can
- * still close it by setting its `open` state.
+ * overlay refuses Escape, an outside click and its X button, and marks its
+ * content `aria-busy`. Code can still close it by setting its `open` state.
+ *
+ * What is deliberately NOT guarded:
+ * - `DialogClose`, `SheetClose` and `AlertDialogCancel` are plain bits-ui
+ *   close triggers. They stay an escape hatch for a Cancel button outside
+ *   the form (and the caller's decision, e.g. to abort the request first).
+ * - Drawers and popovers have no guard. A SuiForm inside one holds the
+ *   guard of the nearest OUTER dialog, if there is one.
  */
 export class DismissGuard {
 	#holds = $state(0);

@@ -10,7 +10,9 @@
 		form,
 		kind = 'dialog',
 		open = $bindable(true),
-		escapeKeydownBehavior
+		escapeKeydownBehavior,
+		onEscapeKeydown,
+		onInteractOutside
 	}: {
 		form: SuiFormInstance<typeof dialogFormSchema>;
 		/** `plain` puts the form on the page, outside any overlay. */
@@ -18,26 +20,29 @@
 		open?: boolean;
 		/** A caller's own value, which must survive while nothing is saving. */
 		escapeKeydownBehavior?: 'close' | 'ignore';
+		/** A caller's own event hooks on the Content component. */
+		onEscapeKeydown?: (event: KeyboardEvent) => void;
+		onInteractOutside?: (event: Event) => void;
 	} = $props();
 </script>
 
 {#if kind === 'dialog'}
 	<Dialog.Root bind:open>
-		<Dialog.Content {escapeKeydownBehavior}>
+		<Dialog.Content {escapeKeydownBehavior} {onEscapeKeydown} {onInteractOutside}>
 			<Dialog.Title>Edit</Dialog.Title>
 			<DialogFormBody {form} />
 		</Dialog.Content>
 	</Dialog.Root>
 {:else if kind === 'sheet'}
 	<Sheet.Root bind:open>
-		<Sheet.Content {escapeKeydownBehavior}>
+		<Sheet.Content {escapeKeydownBehavior} {onEscapeKeydown} {onInteractOutside}>
 			<Sheet.Title>Edit</Sheet.Title>
 			<DialogFormBody {form} />
 		</Sheet.Content>
 	</Sheet.Root>
 {:else if kind === 'alert'}
 	<AlertDialog.Root bind:open>
-		<AlertDialog.Content {escapeKeydownBehavior}>
+		<AlertDialog.Content {escapeKeydownBehavior} {onEscapeKeydown} {onInteractOutside}>
 			<AlertDialog.Title>Edit</AlertDialog.Title>
 			<DialogFormBody {form} />
 		</AlertDialog.Content>
