@@ -7,6 +7,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
+	import { provideDismissGuard } from '#lib/hooks/dismiss-guard.svelte.js';
+	import { getSuiStrings } from '#lib/sui/strings.js';
 	import SheetOverlay from './sheet-overlay.svelte';
 	import SheetPortal from './sheet-portal.svelte';
 	import type { Snippet } from 'svelte';
@@ -19,6 +21,8 @@
 		showCloseButton = true,
 		portalProps,
 		children,
+		escapeKeydownBehavior,
+		interactOutsideBehavior,
 		...restProps
 	}: WithoutChildrenOrChild<SheetPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof SheetPortal>>;
@@ -26,6 +30,11 @@
 		showCloseButton?: boolean;
 		children: Snippet;
 	} = $props();
+
+	// a form saving inside holds the guard: no dismissing by Escape, an
+	// outside click or the X until it is done
+	const guard = provideDismissGuard();
+	const strings = getSuiStrings();
 </script>
 
 <SheetPortal {...portalProps}>
@@ -38,15 +47,34 @@
 			'fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-[side=bottom]:data-open:slide-in-from-bottom-10 data-[side=left]:data-open:slide-in-from-left-10 data-[side=right]:data-open:slide-in-from-right-10 data-[side=top]:data-open:slide-in-from-top-10 data-closed:animate-out data-closed:fade-out-0 data-[side=bottom]:data-closed:slide-out-to-bottom-10 data-[side=left]:data-closed:slide-out-to-left-10 data-[side=right]:data-closed:slide-out-to-right-10 data-[side=top]:data-closed:slide-out-to-top-10',
 			className
 		)}
+		aria-busy={guard.busy || undefined}
+		escapeKeydownBehavior={guard.busy ? 'ignore' : escapeKeydownBehavior}
+		interactOutsideBehavior={guard.busy ? 'ignore' : interactOutsideBehavior}
 		{...restProps}
 	>
 		{@render children?.()}
 		{#if showCloseButton}
 			<SheetPrimitive.Close data-slot="sheet-close">
 				{#snippet child({ props })}
-					<Button variant="ghost" class="absolute top-4 right-4" size="icon-sm" {...props}>
+					<Button
+						variant="ghost"
+						class="absolute top-4 right-4 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+						size="icon-sm"
+						{...props}
+						aria-disabled={guard.busy || undefined}
+						onkeydown={(event: KeyboardEvent) => {
+							// bits-ui also closes on Enter and Space from its own keydown handler
+							if (guard.busy) return event.preventDefault();
+							(props.onkeydown as ((e: KeyboardEvent) => void) | undefined)?.(event);
+						}}
+						onclick={(event: MouseEvent) => {
+							// not natively disabled: a disabled control drops focus while a form saves
+							if (guard.busy) return event.preventDefault();
+							(props.onclick as ((e: MouseEvent) => void) | undefined)?.(event);
+						}}
+					>
 						<XIcon />
-						<span class="sr-only">Close</span>
+						<span class="sr-only">{strings.close}</span>
 					</Button>
 				{/snippet}
 			</SheetPrimitive.Close>

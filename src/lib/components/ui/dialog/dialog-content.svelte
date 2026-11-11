@@ -3,6 +3,8 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
+	import { provideDismissGuard } from '#lib/hooks/dismiss-guard.svelte.js';
+	import { getSuiStrings } from '#lib/sui/strings.js';
 	import * as Dialog from './index.js';
 	import DialogPortal from './dialog-portal.svelte';
 	import type { Snippet } from 'svelte';
@@ -14,12 +16,19 @@
 		portalProps,
 		children,
 		showCloseButton = true,
+		escapeKeydownBehavior,
+		interactOutsideBehavior,
 		...restProps
 	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DialogPortal>>;
 		children: Snippet;
 		showCloseButton?: boolean;
 	} = $props();
+
+	// a form saving inside holds the guard: no dismissing by Escape, an
+	// outside click or the X until it is done
+	const guard = provideDismissGuard();
+	const strings = getSuiStrings();
 </script>
 
 <DialogPortal {...portalProps}>
@@ -31,15 +40,34 @@
 			'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%_-_2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
 			className
 		)}
+		aria-busy={guard.busy || undefined}
+		escapeKeydownBehavior={guard.busy ? 'ignore' : escapeKeydownBehavior}
+		interactOutsideBehavior={guard.busy ? 'ignore' : interactOutsideBehavior}
 		{...restProps}
 	>
 		{@render children?.()}
 		{#if showCloseButton}
 			<DialogPrimitive.Close data-slot="dialog-close">
 				{#snippet child({ props })}
-					<Button variant="ghost" class="absolute top-4 right-4" size="icon-sm" {...props}>
+					<Button
+						variant="ghost"
+						class="absolute top-4 right-4 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+						size="icon-sm"
+						{...props}
+						aria-disabled={guard.busy || undefined}
+						onkeydown={(event: KeyboardEvent) => {
+							// bits-ui also closes on Enter and Space from its own keydown handler
+							if (guard.busy) return event.preventDefault();
+							(props.onkeydown as ((e: KeyboardEvent) => void) | undefined)?.(event);
+						}}
+						onclick={(event: MouseEvent) => {
+							// not natively disabled: a disabled control drops focus while a form saves
+							if (guard.busy) return event.preventDefault();
+							(props.onclick as ((e: MouseEvent) => void) | undefined)?.(event);
+						}}
+					>
 						<XIcon />
-						<span class="sr-only">Close</span>
+						<span class="sr-only">{strings.close}</span>
 					</Button>
 				{/snippet}
 			</DialogPrimitive.Close>

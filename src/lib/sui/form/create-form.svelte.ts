@@ -203,6 +203,9 @@ export type SuiFormOptions<Schema extends SuiSchemaLike> = {
 	 * cleared before this runs — each server round-trip is the new verdict.
 	 * Repeated submits while it runs (double clicks, Enter mashing) join
 	 * the in-flight attempt instead of calling it again.
+	 * If the form is `reset()` while it runs, its late result is discarded:
+	 * nothing is written to the form, and an error it throws is only
+	 * logged to the console.
 	 */
 	onsubmit?: (data: SuiOut<Schema>, form: SuiFormInstance<Schema>) => void | Promise<void>;
 };
@@ -732,8 +735,20 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	#controlCount = $state(0);
 	#fieldsProxy: SuiFieldsFor<Schema> | undefined;
 	#timers = new Map<string, ReturnType<typeof setTimeout>>();
-	/** The submit attempt in progress — repeated submits join it. */
-	#inflightSubmit: Promise<boolean> | null = null;
+	/**
+	 * The newest submit attempt in progress (running or queued behind a stale
+	 * one), with the generation it belongs to — repeated submits of that
+	 * generation join it.
+	 */
+	#inflightSubmit: { promise: Promise<boolean>; generation: number } | null = null;
+	/** Fresh attempts queued behind a stale one; `isSubmitting` stays true for them. */
+	#queuedSubmits = 0;
+	/**
+	 * Bumped by every `reset()`. A submit remembers the value it started
+	 * under; when it differs after an await, the form it was submitting is
+	 * gone and the attempt must not write to the form any more.
+	 */
+	#generation = 0;
 
 	/**
 	 * Live form values — a deeply reactive proxy holding the EDIT side of
@@ -766,7 +781,13 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	dirty = $state<Record<string, boolean>>({});
 	/** Completed submit attempts (success or failure). */
 	submitCount = $state(0);
-	/** An async flush or `onsubmit` callback is currently running. */
+	/**
+	 * An async flush or `onsubmit` callback is currently running. A
+	 * `reset()` does not clear it: the request is still out, so the form
+	 * stays disabled, and a submit started after the reset waits for the
+	 * running one to settle and then runs fresh with the form's current
+	 * values (a second press during the same attempt just joins it).
+	 */
 	isSubmitting = $state(false);
 	#submittedInvalid = $state(false);
 	// blurs held while a submit button is pressed (see holdBlurs); null when
@@ -1520,6 +1541,19 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * const user = await api.getUser(id);
 	 * form.reset(user); // pristine form showing the loaded record
 	 * ```
+	 *
+	 * A submit that is still running is NOT cancelled and `isSubmitting`
+	 * stays `true` until it settles (the request is out; the form must not
+	 * look idle). That attempt is stale from now on: when it settles its
+	 * result is discarded — it writes nothing to the form (no errors, no
+	 * reveal, no counters), an error it throws is only logged to the
+	 * console, and a stale async flush does not go on to call `onsubmit`.
+	 * A `handleSubmit()` after the reset does not join the stale attempt
+	 * (its verdict is about the old values): it waits for it to settle, then
+	 * runs one fresh submit of the new values and resolves with that
+	 * attempt's result. Calling `reset()` inside `onsubmit` is fine: the
+	 * form is clean, and `isSubmitting` drops to `false` when `onsubmit`
+	 * settles.
 	 */
 	reset(values?: Partial<SuiIn<Schema>>): void {
 		if (values !== undefined) this.#defaults = this.#baseline(values);
@@ -1532,7 +1566,7 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		this.edited = {};
 		this.dirty = {};
 		this.submitCount = 0;
-		this.isSubmitting = false;
+		this.#generation += 1;
 		this.#submittedInvalid = false;
 		for (const timer of this.#timers.values()) clearTimeout(timer);
 		this.#timers.clear();
@@ -1558,16 +1592,47 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	 * maps back onto fields; other errors become form-level messages.
 	 * Returns whether the submit passed validation. A submit fired while
 	 * one is still running joins it (same promise, no second `onsubmit`).
+	 * After a `reset()` mid-request the running attempt is stale and is not
+	 * joined: one fresh attempt is queued behind it, and later presses join
+	 * that one (see {@link reset}).
 	 */
 	handleSubmit = (event?: { preventDefault(): void }): Promise<boolean> => {
 		event?.preventDefault();
-		if (this.#inflightSubmit) return this.#inflightSubmit;
-		const attempt = this.#submit().finally(() => {
-			this.#inflightSubmit = null;
-		});
-		this.#inflightSubmit = attempt;
-		return attempt;
+		const inflight = this.#inflightSubmit;
+		if (!inflight) return this.#enqueue(() => this.#submit());
+		if (inflight.generation === this.#generation) return inflight.promise;
+		const generation = this.#generation;
+		this.#queuedSubmits += 1;
+		this.isSubmitting = true;
+		return this.#enqueue(() => {
+			this.#queuedSubmits -= 1;
+			// the attempt sets it again once it does real work; a validation
+			// failure must not leave the form looking busy
+			this.isSubmitting = this.#queuedSubmits > 0;
+			// reset again before it got its turn: its values are gone, and a
+			// newer press queued its own attempt
+			if (generation !== this.#generation) return Promise.resolve(false);
+			return this.#submit();
+		}, inflight.promise);
 	};
+
+	/**
+	 * Runs `run` (right away, or once `after` has settled, whatever its
+	 * outcome), registers it as the submit in progress and clears the
+	 * registration when it settles — unless a newer attempt has taken its
+	 * place meanwhile.
+	 */
+	#enqueue(run: () => Promise<boolean>, after?: Promise<boolean>): Promise<boolean> {
+		const entry = {
+			generation: this.#generation,
+			promise: undefined as unknown as Promise<boolean>
+		};
+		entry.promise = (after ? after.then(run, run) : run()).finally(() => {
+			if (this.#inflightSubmit === entry) this.#inflightSubmit = null;
+		});
+		this.#inflightSubmit = entry;
+		return entry.promise;
+	}
 
 	/**
 	 * Everything a submit does BEFORE the server round-trip: whole-schema
@@ -1600,9 +1665,14 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 		if (!onsubmit && !hasAsync) return true;
 		// the async flush is real work (network) — the button should show it
 		this.isSubmitting = true;
+		// a reset() while we wait makes this attempt stale: the form it was
+		// submitting is gone, so nothing below may write to the new one
+		const generation = this.#generation;
+		const stale = () => generation !== this.#generation;
 		try {
 			if (hasAsync) {
 				const asyncOk = await this.#flushAsync();
+				if (stale()) return false;
 				if (!asyncOk) {
 					// async failures surface exactly like failed parses:
 					// revealed, focusable, eagerly revalidated
@@ -1620,6 +1690,12 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 			await onsubmit(result.data as SuiOut<Schema>, this);
 			return true;
 		} catch (error) {
+			if (stale()) {
+				// the form was reset while this ran: nothing may reach the new
+				// form, but a failure must not vanish without a trace
+				console.error('[sui] a submit that reset() made stale failed:', error);
+				return false;
+			}
 			// ZodError and any issue-carrying error (Standard Schema vendors)
 			// map back onto fields AS SERVER ERRORS: per-field taint-clearing
 			// (editing one field never wipes another's message) and server
@@ -1634,7 +1710,8 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 			this.#mergeExternal({ '': [message] });
 			return false;
 		} finally {
-			this.isSubmitting = false;
+			// a fresh attempt queued behind this one keeps the form busy
+			this.isSubmitting = this.#queuedSubmits > 0;
 		}
 	}
 }

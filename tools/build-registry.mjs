@@ -20,12 +20,18 @@ function walk(dir) {
 // every file of the library…
 const files = walk(join(LIB, 'sui')).sort();
 // …plus the local deviations to the vendored shadcn `command` wrappers
-// (container-scoped scrollIntoView — see the README's Selects section).
-// They install AFTER the stock `command` component so they win.
+// (container-scoped scrollIntoView — see the README's Selects section) and
+// the dismissal guard: a hook plus the dialog, sheet and alert dialog
+// contents that read it (see the README's "Forms in dialogs" section).
+// They install AFTER the stock components so they win.
 const patched = [
 	'components/ui/command/command-item.svelte',
 	'components/ui/command/command-group.svelte',
-	'components/ui/command/contained-scroll-into-view.ts'
+	'components/ui/command/contained-scroll-into-view.ts',
+	'components/ui/dialog/dialog-content.svelte',
+	'components/ui/sheet/sheet-content.svelte',
+	'components/ui/alert-dialog/alert-dialog-content.svelte',
+	'hooks/dismiss-guard.svelte.ts'
 ].map((p) => join(LIB, p));
 
 const registry = {
@@ -51,16 +57,19 @@ const registry = {
 				'cn'
 			],
 			registryDependencies: [
+				'alert-dialog',
 				'button',
 				'calendar',
 				'range-calendar',
 				'checkbox',
 				'command',
+				'dialog',
 				'drawer',
 				'dropdown-menu',
 				'popover',
 				'radio-group',
 				'select',
+				'sheet',
 				'switch'
 			],
 			files: [...files, ...patched].map((path) => ({

@@ -169,7 +169,8 @@ The timing follows the same research as the per-field mode (Baymard / react-hook
 - **The whole schema runs on every validation trigger**, not just the changed field — a `refine` can attach an error to _any_ field, so cross-field rules (password ≠ confirm) stay fresh the moment the _other_ field changes. Reveal gating keeps the noise invisible on fields the user hasn't earned errors for yet. One zod caveat to know: zod v4 skips an object's `.refine` only after _aborting_ issues (a key missing or of the wrong type); format and length failures (`z.email()`, `.min(8)`) do not abort, so the refinement still runs on values that are themselves invalid — and sui starts string fields at `''`. Guard cross-field rules on the values they compare: `.refine((d) => !d.start || !d.end || d.end > d.start, …)`.
 - **A failed submit reveals every invalid field at once** and, from then on, any edit re-validates instantly (react-hook-form `isSubmitted` semantics). `<SuiForm>` then focuses the error summary box when one is rendered (the GOV.UK pattern — screen readers announce the whole problem list at once, and its links walk users to each field), falling back to the form-error banner, then to the first invalid control on desktop (WCAG 3.3.1); on mobile it scroll-snaps instead, where focus would open the on-screen keyboard and hide the message.
 - **Server errors taint-clear, per field.** `form.setErrors({ email: 'Already registered' })` — or a `ZodError` thrown from `onsubmit` — displays immediately and survives blurring; the first edit of _that_ field hands display back to the schema (editing another field never wipes it), and the next server round-trip replaces the previous verdict, so stale messages ("Network error", "Already registered") never linger (superforms tainted-field behavior).
-- **One submit at a time.** A submit fired while `onsubmit` is still running (double click, Enter mashing) joins the in-flight attempt instead of calling `onsubmit` again; a loading `SuiButton` additionally blocks activation while keeping keyboard focus.
+- **One submit at a time.** A submit fired while `onsubmit` is still running (double click, Enter mashing) joins the in-flight attempt instead of calling `onsubmit` again; a loading `SuiButton` additionally blocks activation while keeping keyboard focus. The exception is a submit after `form.reset()`: the running attempt is stale (its verdict is about the old values), so the new one waits its turn — see the `reset()` notes below.
+- **A saving form keeps its dialog open.** While a `<SuiForm>` inside a dialog, sheet or alert dialog is submitting, the overlay cannot be dismissed by the user — see [Forms in dialogs](#forms-in-dialogs).
 - **Never a silent failure.** Form-level refines (no `path`) show in the banner once a submit reveals them — not while the user is still filling the form in. Issues on array items or nested keys display on the control bound to their parent (`tags.1` on the multi-select bound to `tags`), and errors no rendered control can show (a schema key without a field, an unmounted step) surface in `<SuiForm>`'s banner as `form.unmappedErrors`.
 - **Async validators run after the sync schema passes** — debounced (default 400ms), cancelled on new input (latest value wins, and the superseded run's `signal` — the validator's third argument — aborts its `fetch`; in-flight runs for the same value are deduped, so no duplicate network calls), memoised per value, surfaced as a `Checking…` state (`field.isValidating`) and taint-cleared exactly like server errors. A submit **flushes** any stale checks before `onsubmit` runs, so a form is never "submitted valid" while an availability check is still pending.
 - **Message overrides rescue vendor copy.** zod's "Invalid input: expected string, received undefined" is not user copy — `messages: { email: 'Enter an address like name@example.com' }` (string or resolver) fixes it centrally, i18n-ready. Server-side messages are never overridden — server copy is authoritative.
@@ -193,7 +194,7 @@ form.isSubmitting / isSubmitted / submitCount;
 form.validate(); // full validation, reveals everything
 form.setErrors({ email: ['Taken'] }); // server errors ('' or '_form' = form-level)
 form.setValues({ email: 'a@b.co' }); // silent merge
-form.reset(); // values → initial values, state forgotten
+form.reset(); // values → initial values; errors, touched and counters cleared — a running submit is NOT cancelled (see below)
 form.reset(user); // …or make a loaded record the new pristine baseline (edit forms)
 form.handleSubmit(event); // manual submit handler for plain <form> elements
 
@@ -204,6 +205,24 @@ form.setErrors(suiErrors.fromResponse(await response.json()));
 ```
 
 Nested object schemas work with dotted paths: `form.fields['address']` binds the whole sub-object, `form.field('address.city')` reaches one leaf. Sync schemas are parsed on every trigger (~1.4 µs/parse for a 9-field schema — the whole-schema-per-keystroke design is effectively free); async checks belong in `asyncValidators` (field-level, debounced, checking state) or `onsubmit` (submit-time). Non-zod schemas derive no smart defaults — pass `initialValues`.
+
+**`reset()` while a submit is running.** `reset()` clears values, errors, touched/dirty state and counters, but it cannot recall a request that is already out, so:
+
+- `isSubmitting` stays `true` until that request settles (the form must not look idle while it runs).
+- That attempt is _stale_ from then on: when it settles it writes nothing to the form — no errors, no reveal, no counters — and a stale async-validator flush does not go on to call `onsubmit`. An error it throws is only logged (`console.error`), never shown on the fresh form.
+- A `handleSubmit()` after the reset does not join the stale attempt. It waits for it, then runs one fresh submit of the new values and resolves with _that_ attempt's result; further presses join the queued attempt, and `isSubmitting` stays `true` across both. A second `reset()` while one is queued drops the queued attempt (it resolves `false`).
+- Calling `reset()` inside `onsubmit` (the usual "save, then clear") is fine: the form is clean and `isSubmitting` drops when `onsubmit` settles.
+
+### Forms in dialogs
+
+`<SuiForm>` inside a dialog, sheet or alert dialog makes that overlay refuse to be dismissed while the form saves — otherwise a closed dialog would hide the pending result and `reset()` could not cancel the request anyway.
+
+- **What is blocked:** Escape, a click or tap outside the content, and the built-in X button (`aria-disabled`, not natively disabled, so it keeps focus while the fields are off). The content is also marked `aria-busy="true"` while it lasts. A caller's own `onEscapeKeydown` / `onInteractOutside` on the Content component is not called for a blocked dismissal either (bits-ui returns before it reaches them).
+- **How it works:** `DialogContent`, `SheetContent` and `AlertDialogContent` create a `DismissGuard` and share it through context; `<SuiForm>` takes a hold while `form.isSubmitting` and releases it when the submit settles or the form unmounts. Several holds add up, so two forms in one dialog keep it busy until **both** have settled, and a form nested in an inner dialog holds only the **nearest** overlay's guard — the outer dialog stays closable.
+- **Code can still close it:** setting `open = false` after `onsubmit` resolves (or at any time) always works; the guard only stops the user's gestures.
+- **Deliberately not guarded:** `DialogClose`, `SheetClose` and `AlertDialogCancel` are plain close triggers and stay an escape hatch for a Cancel button outside the form (decide there whether to abort the request first).
+- **No guard in drawers and popovers.** A `<SuiForm>` inside one holds the guard of the nearest _outer_ dialog, if there is one, and nothing otherwise (a form on a plain page has nothing to hold).
+- A button that saves without a `<SuiForm>` needs its own check: call `useDismissGuard()` (from `#lib/hooks/dismiss-guard.svelte.js`) once while the component is created (it reads context, so it cannot run in a click handler), and call `guard?.hold()` when the work starts: it returns the release function to call when the work ends.
 
 ## Form controls
 

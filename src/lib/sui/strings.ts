@@ -98,6 +98,8 @@ export type SuiStrings = {
 	tableSelectRow: (row: number) => string;
 	/** Skeleton container live-region text. */
 	skeletonLoading: string;
+	/** Dialog / sheet: screen-reader label of the built-in close (✕) button. */
+	close: string;
 };
 
 /** The built-in (English) copy. */
@@ -145,7 +147,8 @@ export const SUI_STRINGS: Readonly<SuiStrings> = Object.freeze({
 	tableNextPage: 'Next page',
 	tableSelectAll: 'Select all rows',
 	tableSelectRow: (row) => `Select row ${row}`,
-	skeletonLoading: 'Loading'
+	skeletonLoading: 'Loading',
+	close: 'Close'
 });
 
 const KEY = Symbol('sui-strings');

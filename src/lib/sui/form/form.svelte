@@ -34,9 +34,11 @@
 </script>
 
 <script lang="ts" generics="Schema extends SuiSchemaLike">
+	import { tick } from 'svelte';
 	import { focusFailedSubmit } from './utils.js';
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '#lib/utils.js';
+	import { useDismissGuard } from '#lib/hooks/dismiss-guard.svelte.js';
 	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
 
 	let {
@@ -50,6 +52,13 @@
 	}: SuiFormProps<Schema> = $props();
 
 	const strings = getSuiStrings();
+
+	// inside a dialog, sheet or alert dialog: it cannot be dismissed while
+	// this form saves
+	const guard = useDismissGuard();
+	$effect(() => {
+		if (guard && form.isSubmitting) return guard.hold();
+	});
 
 	// form-level messages + errors no rendered control displays (a schema
 	// key without a field, an unmounted step…) — deduplicated
@@ -82,8 +91,29 @@
 		if (event.currentTarget.hasAttribute('data-sui-enhanced')) return;
 		// currentTarget is only populated during dispatch — capture before awaiting
 		const formEl = event.currentTarget;
+		// the fieldset disables while the form saves, which drops the focus to <body>: remember it
+		const focused =
+			document.activeElement instanceof HTMLElement && formEl.contains(document.activeElement)
+				? document.activeElement
+				: null;
 		const ok = await form.handleSubmit(event);
-		if (!ok) await focusFailedSubmit(formEl, form);
+		// a stale attempt (the form was reset meanwhile) also answers false but wrote nothing: submitCount is 0
+		if (!ok && form.submitCount > 0) return await focusFailedSubmit(formEl, form);
+		if (ok && focused) await restoreFocus(focused);
+	}
+
+	/**
+	 * Gives the focus back to the control the person was on once the save is
+	 * over, but only if the focus was lost to <body> meanwhile: never from
+	 * another control they moved to, and never to a control that is gone or
+	 * still disabled (the dialog closed, the form was replaced).
+	 */
+	async function restoreFocus(el: HTMLElement) {
+		await tick(); // the fieldset enables again on the next flush
+		const lost = document.activeElement === null || document.activeElement === document.body;
+		if (lost && el.isConnected && !(el as HTMLButtonElement).disabled) {
+			el.focus({ preventScroll: true });
+		}
 	}
 </script>
 

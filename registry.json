@@ -20,16 +20,19 @@
 				"cn"
 			],
 			"registryDependencies": [
+				"alert-dialog",
 				"button",
 				"calendar",
 				"range-calendar",
 				"checkbox",
 				"command",
+				"dialog",
 				"drawer",
 				"dropdown-menu",
 				"popover",
 				"radio-group",
 				"select",
+				"sheet",
 				"switch"
 			],
 			"files": [
@@ -432,6 +435,26 @@
 					"path": "src/lib/components/ui/command/contained-scroll-into-view.ts",
 					"type": "registry:lib",
 					"target": "components/ui/command/contained-scroll-into-view.ts"
+				},
+				{
+					"path": "src/lib/components/ui/dialog/dialog-content.svelte",
+					"type": "registry:lib",
+					"target": "components/ui/dialog/dialog-content.svelte"
+				},
+				{
+					"path": "src/lib/components/ui/sheet/sheet-content.svelte",
+					"type": "registry:lib",
+					"target": "components/ui/sheet/sheet-content.svelte"
+				},
+				{
+					"path": "src/lib/components/ui/alert-dialog/alert-dialog-content.svelte",
+					"type": "registry:lib",
+					"target": "components/ui/alert-dialog/alert-dialog-content.svelte"
+				},
+				{
+					"path": "src/lib/hooks/dismiss-guard.svelte.ts",
+					"type": "registry:lib",
+					"target": "hooks/dismiss-guard.svelte.ts"
 				}
 			]
 		}
