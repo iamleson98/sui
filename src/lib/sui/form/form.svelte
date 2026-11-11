@@ -37,6 +37,7 @@
 	import { focusFailedSubmit } from './utils.js';
 	import { getSuiStrings } from '../strings.js';
 	import { cn } from '#lib/utils.js';
+	import { useDismissGuard } from '#lib/hooks/dismiss-guard.svelte.js';
 	import AlertCircleIcon from '@lucide/svelte/icons/circle-alert';
 
 	let {
@@ -50,6 +51,13 @@
 	}: SuiFormProps<Schema> = $props();
 
 	const strings = getSuiStrings();
+
+	// inside a dialog, sheet or alert dialog: it cannot be dismissed while
+	// this form saves
+	const guard = useDismissGuard();
+	$effect(() => {
+		if (guard && form.isSubmitting) return guard.hold();
+	});
 
 	// form-level messages + errors no rendered control displays (a schema
 	// key without a field, an unmounted step…) — deduplicated
