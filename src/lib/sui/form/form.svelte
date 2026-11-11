@@ -91,7 +91,8 @@
 		// currentTarget is only populated during dispatch — capture before awaiting
 		const formEl = event.currentTarget;
 		const ok = await form.handleSubmit(event);
-		if (!ok) await focusFailedSubmit(formEl, form);
+		// a stale attempt (the form was reset meanwhile) also answers false but wrote nothing: submitCount is 0
+		if (!ok && form.submitCount > 0) await focusFailedSubmit(formEl, form);
 	}
 </script>
 

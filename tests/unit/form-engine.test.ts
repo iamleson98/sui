@@ -347,7 +347,9 @@ describe('createSuiForm — reset while a submit is running', () => {
 		const second = form.handleSubmit();
 		expect(form.isSubmitting).toBe(true);
 
-		settle(); // ends the stale flush; the fresh attempt starts its own
+		const settleStale = settle;
+		settle = undefined as unknown as () => void; // the wait below must see the FRESH attempt's validator
+		settleStale(); // ends the stale flush; the fresh attempt starts its own
 		expect(await first).toBe(false);
 		expect(form.isSubmitting).toBe(true);
 		await vi.waitFor(() => expect(settle).toBeTypeOf('function'));

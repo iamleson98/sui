@@ -217,12 +217,12 @@ Nested object schemas work with dotted paths: `form.fields['address']` binds the
 
 `<SuiForm>` inside a dialog, sheet or alert dialog makes that overlay refuse to be dismissed while the form saves — otherwise a closed dialog would hide the pending result and `reset()` could not cancel the request anyway.
 
-- **What is blocked:** Escape, a click or tap outside the content, and the built-in X button (disabled, `aria-disabled`). The content is also marked `aria-busy="true"` while it lasts. A caller's own `onEscapeKeydown` / `onInteractOutside` on the Content component is not called for a blocked dismissal either (bits-ui returns before it reaches them).
+- **What is blocked:** Escape, a click or tap outside the content, and the built-in X button (`aria-disabled`, not natively disabled, so it keeps focus while the fields are off). The content is also marked `aria-busy="true"` while it lasts. A caller's own `onEscapeKeydown` / `onInteractOutside` on the Content component is not called for a blocked dismissal either (bits-ui returns before it reaches them).
 - **How it works:** `DialogContent`, `SheetContent` and `AlertDialogContent` create a `DismissGuard` and share it through context; `<SuiForm>` takes a hold while `form.isSubmitting` and releases it when the submit settles or the form unmounts. Several holds add up, so two forms in one dialog keep it busy until **both** have settled, and a form nested in an inner dialog holds only the **nearest** overlay's guard — the outer dialog stays closable.
 - **Code can still close it:** setting `open = false` after `onsubmit` resolves (or at any time) always works; the guard only stops the user's gestures.
 - **Deliberately not guarded:** `DialogClose`, `SheetClose` and `AlertDialogCancel` are plain close triggers and stay an escape hatch for a Cancel button outside the form (decide there whether to abort the request first).
 - **No guard in drawers and popovers.** A `<SuiForm>` inside one holds the guard of the nearest _outer_ dialog, if there is one, and nothing otherwise (a form on a plain page has nothing to hold).
-- A button that saves without a `<SuiForm>` needs its own check: `useDismissGuard()?.hold()` (from `#lib/hooks/dismiss-guard.svelte.js`) returns the release function to call when the work ends.
+- A button that saves without a `<SuiForm>` needs its own check: call `useDismissGuard()` (from `#lib/hooks/dismiss-guard.svelte.js`) once while the component is created (it reads context, so it cannot run in a click handler), and call `guard?.hold()` when the work starts: it returns the release function to call when the work ends.
 
 ## Form controls
 

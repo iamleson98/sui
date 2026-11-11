@@ -784,8 +784,9 @@ export class SuiFormInstance<Schema extends SuiSchemaLike> {
 	/**
 	 * An async flush or `onsubmit` callback is currently running. A
 	 * `reset()` does not clear it: the request is still out, so the form
-	 * stays disabled and a further submit still joins it until the server
-	 * answers.
+	 * stays disabled, and a submit started after the reset waits for the
+	 * running one to settle and then runs fresh with the form's current
+	 * values (a second press during the same attempt just joins it).
 	 */
 	isSubmitting = $state(false);
 	#submittedInvalid = $state(false);
